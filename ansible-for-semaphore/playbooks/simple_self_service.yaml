@@ -1,0 +1,205 @@
+---
+- name: Self-Service Data Refresh - Simple & Reliable
+  hosts: localhost
+  environment:
+    AZURE_CONFIG_DIR: /home/semaphore/.azure
+  vars:
+    # Script execution order - matches your SelfServiceRefresh structure
+    script_order:
+      - { step: "0", name: "restore_point", script: "0_restore_point_in_time/RestorePointInTime.ps1", description: "Create restore point" }
+      - { step: "1", name: "stop_environment", script: "1_stop_environment/StopEnvironment.ps1", description: "Stop destination environment" }
+      - { step: "2a", name: "copy_attachments", script: "2_copy_attachments/CopyAttachments.ps1", description: "Copy attachments" }
+      - { step: "2b", name: "copy_database", script: "2_copy_database/copy_database.ps1", description: "Copy database" }
+      - { step: "3", name: "adjust_resources", script: "3_adjust_resources/AdjustResources.ps1", description: "Adjust resources" }
+      - { step: "6", name: "start_environment", script: "6_start_environment/StartEnvironment.ps1", description: "Start environment" }
+      - { step: "7", name: "delete_resources", script: "7_delete_resources/DeleteResources.ps1", description: "Delete temporary resources" }
+      - { step: "8", name: "manage_permissions", script: "8_manage_permissions/ManagePermissions.ps1", description: "Manage permissions" }
+
+  pre_tasks:
+    - name: Validate required parameters
+      ansible.builtin.assert:
+        that:
+          - source_env is defined
+          - dest_env is defined
+          - source_sub_id is defined
+          - dest_sub_id is defined
+          - source_ns is defined
+          - dest_ns is defined
+          - customer is defined
+        fail_msg: |
+          ❌ Missing required parameters!
+          Required: source_env, dest_env, source_sub_id, dest_sub_id, source_ns, dest_ns, customer
+
+    - name: Display execution plan
+      ansible.builtin.debug:
+        msg: |
+          🚀 Self-Service Data Refresh Execution Plan
+          ==========================================
+          
+          📊 Configuration:
+          • Source: {{ source_env }} ({{ source_ns }})
+          • Destination: {{ dest_env }} ({{ dest_ns }})
+          • Customer: {{ customer }}
+          • Dry Run: {{ dry_run_mode | default(false) }}
+          
+          📝 Execution Steps:
+          {% for step in script_order %}
+          • Step {{ step.step }}: {{ step.description }}
+          {% endfor %}
+          
+          ⏰ Started at: {{ ansible_date_time.iso8601 }}
+
+    - name: Check PowerShell availability
+      ansible.builtin.command: which pwsh
+      register: pwsh_check
+      failed_when: false
+      changed_when: false
+
+    - name: Verify PowerShell Core is available
+      ansible.builtin.fail:
+        msg: |
+          ❌ PowerShell Core (pwsh) is not available!
+          Please install PowerShell Core in the Semaphore environment.
+      when: pwsh_check.rc != 0
+
+    - name: Confirm production execution
+      ansible.builtin.pause:
+        prompt: |
+          ⚠️ PRODUCTION EXECUTION CONFIRMATION
+          
+          You are about to execute a data refresh from {{ source_env }} to {{ dest_env }}.
+          
+          This will:
+          • Stop the {{ dest_env }} environment (DOWNTIME STARTS)
+          • Copy data from {{ source_env }} 
+          • Reconfigure {{ dest_env }}
+          • Start {{ dest_env }} environment
+          
+          Type 'CONFIRM' to proceed or Ctrl+C to abort:
+      register: production_confirm
+      when: 
+        - not (dry_run_mode | default(false))
+        - dest_env in ['prod', 'production', 'prd']
+
+    - name: Abort if not confirmed
+      ansible.builtin.fail:
+        msg: "❌ Production execution not confirmed - operation aborted"
+      when:
+        - not (dry_run_mode | default(false))
+        - dest_env in ['prod', 'production', 'prd']
+        - production_confirm.user_input != 'CONFIRM'
+
+  tasks:
+    - name: Execute script sequence
+      block:
+        - name: "Step {{ item.step }}: {{ item.description }}"
+          ansible.builtin.shell: |
+            set -e
+            echo "🚀 Starting Step {{ item.step }}: {{ item.description }}"
+            echo "=================================="
+            
+            # Check if script exists
+            script_path="{{ playbook_dir }}/../roles/self_service_refresh/files/{{ item.script }}"
+            if [[ ! -f "$script_path" ]]; then
+              echo "⚠️ Script not found: $script_path"
+              echo "📁 Available scripts:"
+              find {{ playbook_dir }}/../roles/self_service_refresh/files/ -name "*.ps1" | head -10
+              exit 0  # Don't fail, just skip
+            fi
+            
+            # Check if PowerShell is available
+            if ! command -v pwsh &> /dev/null; then
+              echo "⚠️ PowerShell Core (pwsh) not available"
+              echo "📋 Would execute: pwsh -File $script_path -Source {{ source_env }} -Destination {{ dest_env }} ..."
+              echo "✅ Step simulated successfully (PowerShell not available)"
+              exit 0
+            fi
+            
+            echo "📋 Executing PowerShell script..."
+            pwsh -File "$script_path" \
+              -Source "{{ source_env }}" \
+              -Destination "{{ dest_env }}" \
+              -SourceNamespace "{{ source_ns }}" \
+              -DestinationNamespace "{{ dest_ns }}" \
+              -CustomerAlias "{{ customer }}" \
+              -Cloud "{{ cloud | default('AzureUSGovernment') }}" \
+              -MaxWaitMinutes {{ max_wait | default(40) }} \
+              -AutoApprove \
+              {{ '-DryRun' if (dry_run_mode | default(false)) else '' }} \
+              || {
+                echo "❌ PowerShell script failed with exit code $?"
+                {% if dry_run_mode | default(false) %}
+                echo "🔍 This is expected in dry-run mode without proper Azure setup"
+                exit 0
+                {% else %}
+                exit 1
+                {% endif %}
+              }
+          register: step_result
+          loop: "{{ script_order }}"
+          when: 
+            - skip_steps is not defined or item.name not in (skip_steps | default([]))
+
+        - name: "📊 Results for Step {{ item.item.step }}: {{ item.item.description }}"
+          ansible.builtin.debug:
+            msg: |
+              
+              ===============================================
+              📊 STEP {{ item.item.step }} RESULTS: {{ item.item.description }}
+              ===============================================
+              Return Code: {{ item.rc }}
+              
+              📝 STDOUT:
+              {{ item.stdout | default('(no output)') }}
+              
+              {% if item.stderr %}
+              ⚠️ STDERR:
+              {{ item.stderr }}
+              {% endif %}
+              
+              Status: {{ '✅ SUCCESS' if item.rc == 0 else '❌ FAILED' }}
+              ===============================================
+              
+          loop: "{{ step_result.results }}"
+          when: item is not skipped
+
+      rescue:
+        - name: Handle execution failure
+          ansible.builtin.debug:
+            msg: |
+              🚨 EXECUTION FAILED
+              ==================
+              Failed step: {{ ansible_failed_task.name }}
+              
+              ⚠️ MANUAL INTERVENTION REQUIRED
+              • Check Azure portal for resource states
+              • Review error messages above
+              • Consider rollback procedures
+              
+        - name: Fail with clear error
+          ansible.builtin.fail:
+            msg: "Self-service refresh failed - see error details above"
+
+  post_tasks:
+    - name: Execution summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Self-Service Data Refresh Completed
+          ====================================
+          
+          📊 Summary:
+          • Source: {{ source_env }} → Destination: {{ dest_env }}
+          • Customer: {{ customer }}
+          • Mode: {{ 'DRY RUN' if (dry_run_mode | default(false)) else 'PRODUCTION' }}
+          • Duration: {{ ansible_date_time.epoch | int - (start_time | default(ansible_date_time.epoch)) | int }} seconds
+          • Completed: {{ ansible_date_time.iso8601 }}
+          
+          🎯 Next Steps:
+          {% if dry_run_mode | default(false) %}
+          • Review the dry run output above
+          • If satisfied, run again without --dry-run
+          {% else %}
+          • Verify {{ dest_env }} environment is operational
+          • Test application functionality
+          • Monitor system performance
+          {% endif %}

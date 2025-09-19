@@ -1,0 +1,65 @@
+---
+- name: Delete temporary resources
+  block:
+    - name: Display resource cleanup information
+      ansible.builtin.debug:
+        msg: |
+          🗑️ Cleaning Up Resources
+          ========================
+          Environment: {{ dest_env }}
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if delete resources main script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/7_delete_resources/DeleteResources.ps1"
+      register: delete_resources_main_script
+
+    - name: Check if delete resources directory exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/7_delete_resources"
+      register: delete_resources_dir
+
+    - name: Execute delete resources script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/7_delete_resources/DeleteResources.ps1
+        -environment "{{ dest_env }}"
+        -sourceEnvironment "{{ source_env }}"
+        -namespace "{{ dest_ns }}"
+        {{ '-DryRun' if dry_run else '' }}
+      register: delete_resources_result
+      changed_when: not dry_run
+      when: delete_resources_main_script.stat.exists
+      failed_when: false
+
+    - name: Use existing database cleanup as fallback
+      block:
+        - name: Delete destination backup
+          ansible.builtin.include_role:
+            name: azure_database
+          vars:
+            db_action: "delete-destination-backup"
+            db_resource_group: "{{ dest_rg | default('rg-mnfro-intd-' + dest_env + '-weu') }}"
+            db_subscription_id: "{{ dest_subscription_id }}"
+
+        - name: Delete source restore
+          ansible.builtin.include_role:
+            name: azure_database
+          vars:
+            db_action: "delete-source-restore"
+            db_resource_group: "{{ source_rg | default('rg-mnfro-intd-' + source_env + '-weu') }}"
+            db_subscription_id: "{{ source_subscription_id }}"
+      when: not delete_resources_main_script.stat.exists and not dry_run
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ Delete Resources Main Script Not Found
+          ========================================
+          Expected: {{ role_path }}/files/7_delete_resources/DeleteResources.ps1
+          Using fallback Ansible roles instead.
+      when: not delete_resources_main_script.stat.exists
+
+    - name: Display delete resources result
+      ansible.builtin.debug:
+        var: delete_resources_result.stdout_lines
+      when: delete_resources_result.stdout_lines is defined

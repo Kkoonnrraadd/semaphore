@@ -1,0 +1,61 @@
+---
+- name: Configure users
+  block:
+    - name: Display configure users information
+      ansible.builtin.debug:
+        msg: |
+          👥 Configure Users
+          =================
+          Destination Environment: {{ dest_env }} ({{ dest_ns }})
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if SQL configure users script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1"
+      register: sql_configure_script
+
+    - name: Execute configure users script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1
+        -Environments "{{ dest_env }}"
+        -Clients "{{ dest_ns }}"
+        -AutoApprove
+        -StopOnFailure
+        {{ '-BaselinesMode Off' if not (dry_run_mode | default(false)) else '' }}
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: configure_users_result
+      changed_when: not (dry_run_mode | default(false))
+      when: sql_configure_script.stat.exists
+      failed_when: false
+
+    - name: Display configure users result
+      ansible.builtin.debug:
+        msg: |
+          ⚡ Configure Users Results:
+          Exit Code: {{ configure_users_result.rc | default('N/A') }}
+          Command: pwsh -File {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1 -Environments "{{ dest_env }}" -Clients "{{ dest_ns }}" -AutoApprove -StopOnFailure {{ '-BaselinesMode Off' if not (dry_run_mode | default(false)) else '' }} {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+          
+          📤 STDOUT:
+          {{ configure_users_result.stdout | default('(no output)') }}
+          
+          📤 STDERR:
+          {{ configure_users_result.stderr | default('(no errors)') }}
+      when: configure_users_result is defined
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ SQL Configure Users Script Not Found
+          =======================================
+          Expected: {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1
+          This step will be skipped.
+      when: not sql_configure_script.stat.exists
+
+    - name: Fail if configure users had critical error
+      ansible.builtin.fail:
+        msg: "Configure users script failed with exit code {{ configure_users_result.rc }}"
+      when: 
+        - configure_users_result is defined
+        - configure_users_result.rc is defined
+        - configure_users_result.rc != 0
+        - not (dry_run_mode | default(false))

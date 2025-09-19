@@ -1,0 +1,61 @@
+---
+- name: Delete replicas
+  block:
+    - name: Display delete replicas information
+      ansible.builtin.debug:
+        msg: |
+          🗑️ Delete Replicas
+          ==================
+          Source Environment: {{ source_env }} ({{ source_ns }})
+          Destination Environment: {{ dest_env }} ({{ dest_ns }})
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if delete replicas script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/7_delete_resources/delete_replicas.ps1"
+      register: delete_replicas_script
+
+    - name: Execute delete replicas script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/7_delete_resources/delete_replicas.ps1
+        -destination "{{ dest_env }}"
+        -source "{{ source_env }}"
+        -SourceNamespace "{{ source_ns }}"
+        -DestinationNamespace "{{ dest_ns }}"
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: delete_replicas_result
+      changed_when: not (dry_run_mode | default(false))
+      when: delete_replicas_script.stat.exists
+      failed_when: false
+
+    - name: Display delete replicas result
+      ansible.builtin.debug:
+        msg: |
+          ⚡ Delete Replicas Results:
+          Exit Code: {{ delete_replicas_result.rc | default('N/A') }}
+          Command: pwsh -File {{ role_path }}/files/7_delete_resources/delete_replicas.ps1 -destination "{{ dest_env }}" -source "{{ source_env }}" -SourceNamespace "{{ source_ns }}" -DestinationNamespace "{{ dest_ns }}" {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+          
+          📤 STDOUT:
+          {{ delete_replicas_result.stdout | default('(no output)') }}
+          
+          📤 STDERR:
+          {{ delete_replicas_result.stderr | default('(no errors)') }}
+      when: delete_replicas_result is defined
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ Delete Replicas Script Not Found
+          ===================================
+          Expected: {{ role_path }}/files/7_delete_resources/delete_replicas.ps1
+          This step will be skipped.
+      when: not delete_replicas_script.stat.exists
+
+    - name: Fail if delete replicas had critical error
+      ansible.builtin.fail:
+        msg: "Delete replicas script failed with exit code {{ delete_replicas_result.rc }}"
+      when: 
+        - delete_replicas_result is defined
+        - delete_replicas_result.rc is defined
+        - delete_replicas_result.rc != 0
+        - not (dry_run_mode | default(false))

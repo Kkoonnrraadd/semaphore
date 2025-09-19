@@ -1,0 +1,79 @@
+---
+- name: Copy attachments from source to destination
+  block:
+    - name: Display attachments copy information
+      ansible.builtin.debug:
+        msg: |
+          📎 Copying Attachments
+          =====================
+          Source: {{ source_env }} ({{ source_ns }})
+          Destination: {{ dest_env }} ({{ dest_ns }})
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if copy attachments script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/2_copy_attachments"
+      register: copy_attachments_dir
+
+    - name: Execute copy attachments script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/2_copy_attachments/CopyAttachments.ps1
+        -source "{{ source_env }}"
+        -destination "{{ dest_env }}"
+        -SourceNamespace "{{ source_ns }}"
+        -DestinationNamespace "{{ dest_ns }}"
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: copy_attachments_result
+      changed_when: not (dry_run_mode | default(false))
+      when: copy_attachments_dir.stat.exists
+      failed_when: false
+
+    - name: Display copy attachments result
+      ansible.builtin.debug:
+        msg: |
+          
+          ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+          ║                                            🔄 STEP 3: COPY ATTACHMENTS RESULTS                                     ║
+          ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+          
+          📊 EXECUTION STATUS: {{ 'SUCCESS' if (copy_attachments_result.rc | default(1)) == 0 else 'FAILED' }} (Exit Code: {{ copy_attachments_result.rc | default('N/A') }})
+          
+          ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+          │ 📤 SCRIPT OUTPUT:                                                                                                      │
+          ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+          {{ copy_attachments_result.stdout | default('(no output)') | regex_replace('^', '  ') }}
+          
+          {% if copy_attachments_result.stderr | default('') | length > 0 %}
+          ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+          │ ⚠️  WARNINGS/ERRORS:                                                                                                   │
+          ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+          {{ copy_attachments_result.stderr | regex_replace('^', '  ') }}
+          {% endif %}
+          
+          🔧 Command: pwsh -File {{ role_path }}/files/2_copy_attachments/CopyAttachments.ps1 -source "{{ source_env }}" -destination "{{ dest_env }}" -SourceNamespace "{{ source_ns }}" -DestinationNamespace "{{ dest_ns }}" {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      when: copy_attachments_result is defined
+
+    - name: Fail if copy attachments had critical error
+      ansible.builtin.fail:
+        msg: "Copy attachments script failed with exit code {{ copy_attachments_result.rc }}"
+      when: 
+        - copy_attachments_result is defined
+        - copy_attachments_result.rc is defined
+        - copy_attachments_result.rc != 0
+        - not (dry_run_mode | default(false))
+
+    - name: Use Azure Storage role as fallback
+      ansible.builtin.include_role:
+        name: azure_storage
+      vars:
+        storage_action: "copy-storage-account-contents"
+        source_storage_rg: "{{ source_rg | default('rg-mnfro-intd-' + source_env + '-weu') }}"
+        source_storage_subscription_id: "{{ source_sub_id }}"
+        dest_storage_rg: "{{ dest_rg | default('rg-mnfro-intd-' + dest_env + '-weu') }}"
+        dest_storage_subscription_id: "{{ dest_sub_id }}"
+      when: not copy_attachments_dir.stat.exists and not (dry_run_mode | default(false))
+
+    - name: Display copy attachments result
+      ansible.builtin.debug:
+        var: copy_attachments_result.stdout_lines
+      when: copy_attachments_result.stdout_lines is defined

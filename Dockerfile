@@ -53,6 +53,7 @@ RUN apt update && apt install -y \
     software-properties-common \
     git \
     jq \
+    openssh-client \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 

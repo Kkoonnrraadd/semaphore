@@ -1,0 +1,64 @@
+---
+- name: Revert SQL users
+  block:
+    - name: Display revert SQL users information
+      ansible.builtin.debug:
+        msg: |
+          🔄 Revert SQL Users
+          ==================
+          Source Environment: {{ source_env }} ({{ source_ns }})
+          Destination Environment: {{ dest_env }} ({{ dest_ns }})
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if SQL configure users script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1"
+      register: sql_configure_script
+
+    - name: Execute revert SQL users script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1
+        -Environments "{{ dest_env }}"
+        -Clients "{{ dest_ns }}"
+        -Revert
+        -EnvironmentToRevert "{{ source_env }}"
+        -MultitenantToRevert "{{ source_ns }}"
+        -AutoApprove
+        -StopOnFailure
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: revert_users_result
+      changed_when: not (dry_run_mode | default(false))
+      when: sql_configure_script.stat.exists
+      failed_when: false
+
+    - name: Display revert SQL users result
+      ansible.builtin.debug:
+        msg: |
+          ⚡ Revert SQL Users Results:
+          Exit Code: {{ revert_users_result.rc | default('N/A') }}
+          Command: pwsh -File {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1 -Environments "{{ dest_env }}" -Clients "{{ dest_ns }}" -Revert -EnvironmentToRevert "{{ source_env }}" -MultitenantToRevert "{{ source_ns }}" -AutoApprove -StopOnFailure {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+          
+          📤 STDOUT:
+          {{ revert_users_result.stdout | default('(no output)') }}
+          
+          📤 STDERR:
+          {{ revert_users_result.stderr | default('(no errors)') }}
+      when: revert_users_result is defined
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ SQL Configure Users Script Not Found
+          =======================================
+          Expected: {{ role_path }}/files/3_adjust_resources/sql_configure_users.ps1
+          This step will be skipped.
+      when: not sql_configure_script.stat.exists
+
+    - name: Fail if revert users had critical error
+      ansible.builtin.fail:
+        msg: "Revert SQL users script failed with exit code {{ revert_users_result.rc }}"
+      when: 
+        - revert_users_result is defined
+        - revert_users_result.rc is defined
+        - revert_users_result.rc != 0
+        - not (dry_run_mode | default(false))

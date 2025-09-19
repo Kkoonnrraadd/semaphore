@@ -1,0 +1,57 @@
+---
+- name: Cleanup restored databases
+  block:
+    - name: Display cleanup restored databases information
+      ansible.builtin.debug:
+        msg: |
+          🧹 Cleanup Restored Databases
+          =============================
+          Source Environment: {{ source_env }}
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if delete restored databases script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/7_delete_resources/delete_restored_db.ps1"
+      register: delete_restored_db_script
+
+    - name: Execute cleanup restored databases script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/7_delete_resources/delete_restored_db.ps1
+        -source "{{ source_env }}"
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: cleanup_restored_dbs_result
+      changed_when: not (dry_run_mode | default(false))
+      when: delete_restored_db_script.stat.exists
+      failed_when: false
+
+    - name: Display cleanup restored databases result
+      ansible.builtin.debug:
+        msg: |
+          ⚡ Cleanup Restored Databases Results:
+          Exit Code: {{ cleanup_restored_dbs_result.rc | default('N/A') }}
+          Command: pwsh -File {{ role_path }}/files/7_delete_resources/delete_restored_db.ps1 -source "{{ source_env }}" {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+          
+          📤 STDOUT:
+          {{ cleanup_restored_dbs_result.stdout | default('(no output)') }}
+          
+          📤 STDERR:
+          {{ cleanup_restored_dbs_result.stderr | default('(no errors)') }}
+      when: cleanup_restored_dbs_result is defined
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ Delete Restored Databases Script Not Found
+          =============================================
+          Expected: {{ role_path }}/files/7_delete_resources/delete_restored_db.ps1
+          This step will be skipped.
+      when: not delete_restored_db_script.stat.exists
+
+    - name: Fail if cleanup restored databases had critical error
+      ansible.builtin.fail:
+        msg: "Cleanup restored databases script failed with exit code {{ cleanup_restored_dbs_result.rc }}"
+      when: 
+        - cleanup_restored_dbs_result is defined
+        - cleanup_restored_dbs_result.rc is defined
+        - cleanup_restored_dbs_result.rc != 0
+        - not (dry_run_mode | default(false))

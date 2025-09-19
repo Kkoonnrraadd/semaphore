@@ -1,0 +1,1000 @@
+ansible-playbook [core 2.15.3]
+  config file = /home/kgluza/Manufacturo/ansible-for-semaphore/ansible.cfg
+  configured module search path = ['/home/kgluza/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible
+  ansible collection location = /home/kgluza/.ansible/collections:/usr/share/ansible/collections
+  executable location = /home/kgluza/.local/bin/ansible-playbook
+  python version = 3.10.12 (main, Jul 29 2024, 16:56:48) [GCC 11.4.0] (/home/kgluza/.local/pipx/venvs/ansible/bin/python)
+  jinja version = 3.1.2
+  libyaml = True
+Using /home/kgluza/Manufacturo/ansible-for-semaphore/ansible.cfg as config file
+host_list declined parsing /home/kgluza/Manufacturo/ansible-for-semaphore/inventory/hosts.ini as it did not pass its verify_file() method
+script declined parsing /home/kgluza/Manufacturo/ansible-for-semaphore/inventory/hosts.ini as it did not pass its verify_file() method
+auto declined parsing /home/kgluza/Manufacturo/ansible-for-semaphore/inventory/hosts.ini as it did not pass its verify_file() method
+yaml declined parsing /home/kgluza/Manufacturo/ansible-for-semaphore/inventory/hosts.ini as it did not pass its verify_file() method
+Parsed /home/kgluza/Manufacturo/ansible-for-semaphore/inventory/hosts.ini inventory source with ini plugin
+Skipping callback 'default', as we already have a stdout callback.
+Skipping callback 'minimal', as we already have a stdout callback.
+Skipping callback 'oneline', as we already have a stdout callback.
+1 plays in /home/kgluza/Manufacturo/ansible-for-semaphore/playbooks/self_service_refresh.yaml
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711 `" && echo ansible-tmp-1758203531.350944-11548-136801798408711="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/setup.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpsxcne3d_ TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711/AnsiballZ_setup.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711/AnsiballZ_setup.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711/AnsiballZ_setup.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203531.350944-11548-136801798408711/ > /dev/null 2>&1 && sleep 0'
+[1m# Gathering Facts *********************************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# Validate required parameters ********************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mAll assertions passed[0m -----------------------
+[1m# Display playbook information ********************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🚀 Self-Service Data Refresh Playbook
+    ====================================
+    
+    📊 Environment Configuration:
+    • Source: qa2 (services)
+    • Destination: dev (client1)
+    • Cloud: AzureUSGovernment
+    • Customer: qa2-services
+    
+    ⚙️ Operation Settings:
+    • Operation: full
+    • Dry Run: True
+    • Max Wait: 30 minutes
+    
+    🎯 Step Control:
+    • Skip Restore: False
+    • Skip Stop Environment: False
+    • Skip Copy Attachments: False
+    • Skip Copy Database: False
+    • Skip Adjust Resources: False
+    • Skip Start Environment: False
+    • Skip Cleanup: False
+    • Skip Permissions: False
+    [0m
+[1m# Confirm operation in production *****************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# Abort if not confirmed **************************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# Execute self-service refresh ********************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Validate required parameters *********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mAll assertions passed[0m -----------------------
+[1m# self_service_refresh : Set working variables from parameters ************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display operation summary ************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🔄 Self-Service Data Refresh Operation
+    =====================================
+    Source: qa2 (services)
+    Destination: dev (client1)
+    Customer Alias: qa2-services
+    Cloud: AzureUSGovernment
+    Dry Run: true
+    Max Wait: 30 minutes
+    [0m
+[1m# self_service_refresh : Execute specific operation ***********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Execute orchestrated PowerShell workflow *********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Execute full Ansible workflow ********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 1 - Create restore point in time ************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Set start time ***********************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Set default restore datetime and timezone ********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display restore point information ****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🕒 Creating Restore Point
+    ========================
+    Source Environment: qa2 (services)
+    Restore DateTime: 
+    Timezone: CEST
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694 `" && echo ansible-tmp-1758203535.0560477-11704-272586118157694="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpemiairp6 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.0560477-11704-272586118157694/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if PowerShell is available *****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Check if PowerShell Core is available ************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305 `" && echo ansible-tmp-1758203535.275994-11733-52075795386305="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpi6ar7pvh TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203535.275994-11733-52075795386305/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute restore point script (if PowerShell available) *******************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display PowerShell not available warning *********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display restore point result *********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 2 - Stop destination environment ************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display environment stop information *************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🛑 Stopping Environment
+    =======================
+    Environment: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391 `" && echo ansible-tmp-1758203536.787008-11790-259857259265391="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpikkmwbzk TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.787008-11790-259857259265391/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if stop environment script exists **********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633 `" && echo ansible-tmp-1758203536.9551034-11818-273489891259633="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp7dryjyey TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203536.9551034-11818-273489891259633/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if PowerShell is available *****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398 `" && echo ansible-tmp-1758203537.0797207-11845-83623682719398="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpe1q2maa8 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203537.0797207-11845-83623682719398/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute stop environment script (if PowerShell available) ****************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# Use Azure Kubernetes role as fallback ***********************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display stop environment result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 3 - Copy attachments ************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display attachments copy information *************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m📎 Copying Attachments
+    =====================
+    Source: qa2 (services)
+    Destination: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346 `" && echo ansible-tmp-1758203538.2866616-11912-41268007824346="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp91k5kdpx TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.2866616-11912-41268007824346/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if copy attachments script exists **********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338 `" && echo ansible-tmp-1758203538.4145498-11940-241110752668338="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpgsgjnj4q TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203538.4145498-11940-241110752668338/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute copy attachments script ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display copy attachments result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m
+    ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    ║                                            🔄 STEP 3: COPY ATTACHMENTS RESULTS                                     ║
+    ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+    
+    📊 EXECUTION STATUS: FAILED (Exit Code: 1)
+    
+    ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+    │ 📤 SCRIPT OUTPUT:                                                                                                      │
+    ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+      
+    🔍 DRY RUN MODE - Copy Attachments
+    ===================================
+    No actual copy operations will be performed
+    ❌ Error: No storage accounts found for source environment 'qa2' with multitenant 'services'
+    Graph query: 
+            resources
+            | where type == 'microsoft.storage/storageaccounts'
+            | where tags.Environment == 'qa2' and tags.Type == 'Primary' and name contains 'saservices'
+            | project name, resourceGroup, subscriptionId
+        
+    
+    ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+    │ ⚠️  WARNINGS/ERRORS:                                                                                                   │
+    ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+      Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    
+    🔧 Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/2_copy_attachments/CopyAttachments.ps1 -source "qa2" -destination "dev" -SourceNamespace "services" -DestinationNamespace "client1" -DryRun
+    [0m
+[1m# self_service_refresh : Fail if copy attachments had critical error ******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# Use Azure Storage role as fallback **************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display copy attachments result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 4 - Copy database ***************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display database copy information ****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m📋 Copying Database
+    ==================
+    Source: qa2 (services)
+    Destination: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626 `" && echo ansible-tmp-1758203539.3884711-12006-275072915982626="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp1y7qeplc TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.3884711-12006-275072915982626/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if PowerShell is available *****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562 `" && echo ansible-tmp-1758203539.5277-12033-16641529141562="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpcx3mcmap TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203539.5277-12033-16641529141562/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute database copy script (if PowerShell available) *******************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display PowerShell not available warning *********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display database copy result *********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 5 - Cleanup environment configuration *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display cleanup environment configuration information ********************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🧹 Cleanup Environment Configuration
+    ===================================
+    Source Environment: qa2 (services)
+    Destination Environment: dev (client1)
+    Customer Alias to Remove: N/A
+    Domain: dev.azure
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720 `" && echo ansible-tmp-1758203540.3813863-12092-41502721533720="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp8vt0xc5o TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.3813863-12092-41502721533720/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if cleanup environment config script exists ************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230 `" && echo ansible-tmp-1758203540.5171037-12120-151796144353230="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpd6n0zk0x TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203540.5171037-12120-151796144353230/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute cleanup environment configuration script *************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display cleanup configuration result *************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Cleanup Environment Configuration Results:
+    Exit Code: 1
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/cleanup_environment_config.ps1 -destination "dev" -EnvironmentToClean "qa2" -MultitenantToRemove "services" -CustomerAliasToRemove "" -domain "dev.azure" -DestinationNamespace "client1" -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN MODE - Cleanup Environment Configuration
+    ===============================================
+    No actual cleanup will be performed
+    Destination: , , , 
+    Cleaning up configuration for environment: qa2-services
+    
+    Retrieving databases from: 
+    No databases found on server ''
+    
+    📤 STDERR:
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/cleanup_environment_config.ps1:32[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  32 | [0m [36;1m$dest_subscription = $server[0].subscriptionId[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/cleanup_environment_config.ps1:33[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  33 | [0m [36;1m$dest_server = $server[0].name[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/cleanup_environment_config.ps1:34[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  34 | [0m [36;1m$dest_rg = $server[0].resourceGroup[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/cleanup_environment_config.ps1:35[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  35 | [0m [36;1m$dest_fqdn = $server[0].fqdn[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [0m
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Fail if cleanup configuration had critical error *************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Step 6 - Revert SQL users ************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display revert SQL users information *************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🔄 Revert SQL Users
+    ==================
+    Source Environment: qa2 (services)
+    Destination Environment: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312 `" && echo ansible-tmp-1758203541.6364164-12195-50543682932312="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpcgu1g00s TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.6364164-12195-50543682932312/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if SQL configure users script exists *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842 `" && echo ansible-tmp-1758203541.7755206-12223-26346054127842="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp3f5my8d4 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203541.7755206-12223-26346054127842/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute revert SQL users script ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display revert SQL users result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Revert SQL Users Results:
+    Exit Code: 0
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/sql_configure_users.ps1 -Environments "dev" -Clients "client1" -Revert -EnvironmentToRevert "qa2" -MultitenantToRevert "services" -AutoApprove -StopOnFailure -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN - REVERT MODE - SQL Configure Users
+    ===============================================
+    Would remove SQL user configurations for environment: qa2
+    Multitenant: services
+    No actual SQL user removal will be performed
+    No databases found
+    
+    📤 STDERR:
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [0m
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Fail if revert users had critical error **********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Step 7 - Adjust resources ************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display resource adjustment information **********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚙️ Adjusting Resources
+    =====================
+    Environment: dev
+    Customer Alias: qa2-services
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419 `" && echo ansible-tmp-1758203542.668624-12288-92858845876419="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp3aob91eu TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.668624-12288-92858845876419/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if adjust resources script exists (adjust_db.ps1) ******************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689 `" && echo ansible-tmp-1758203542.7819088-12316-2587494440689="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpjg72obq7 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.7819088-12316-2587494440689/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if adjust resources directory exists *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925 `" && echo ansible-tmp-1758203542.903913-12344-183857883043925="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpzz5z2mdq TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203542.903913-12344-183857883043925/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute adjust resources script (adjust_db.ps1) **************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display adjust resources result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Adjust Resources Script Results:
+    Exit Code: 1
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/AdjustResources.ps1 -environment "dev" -namespace "client1" -customerAlias "qa2-services" -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN MODE - Adjust Database
+    =================================
+    No actual database adjustments will be performed
+    Destination: , , , 
+    
+    Retrieving databases from: 
+    No databases found on server ''
+    
+    📤 STDERR:
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/adjust_db.ps1:29[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  29 | [0m [36;1m$dest_subscription = $server[0].subscriptionId[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/adjust_db.ps1:30[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  30 | [0m [36;1m$dest_server = $server[0].name[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/adjust_db.ps1:31[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  31 | [0m [36;1m$dest_rg = $server[0].resourceGroup[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/adjust_db.ps1:32[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  32 | [0m [36;1m$dest_fqdn = $server[0].fqdn[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [0m
+[1m# self_service_refresh : Fail if adjust resources had critical error ******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# Adjust terraform configuration ******************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# Adjust runtime configuration ********************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display adjust resources result ******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 8 - Delete replicas *************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display delete replicas information **************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🗑️ Delete Replicas
+    ==================
+    Source Environment: qa2 (services)
+    Destination Environment: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949 `" && echo ansible-tmp-1758203544.0843637-12418-130653309098949="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpyhmls_zd TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.0843637-12418-130653309098949/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if delete replicas script exists ***********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639 `" && echo ansible-tmp-1758203544.214402-12446-141594874022639="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpdswnrs35 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203544.214402-12446-141594874022639/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute delete replicas script *******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32mnon-zero return code[0m ------------------------
+[1m# self_service_refresh : Display delete replicas result *******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Delete Replicas Results:
+    Exit Code: 1
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/7_delete_resources/delete_replicas.ps1 -destination "dev" -source "qa2" -SourceNamespace "services" -DestinationNamespace "client1" -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN MODE - Enhanced Replica Management Script
+    ===================================================
+    No actual replica operations will be performed
+    
+    📋 Checking Azure CLI...
+      ❌ Azure CLI not found. Please install it first.
+    
+    📤 STDERR:
+    [0m
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Fail if delete replicas had critical error *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Step 9 - Configure users *************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display configure users information **************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m👥 Configure Users
+    =================
+    Destination Environment: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741 `" && echo ansible-tmp-1758203545.1063287-12511-169582772087741="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmptijkegfh TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.1063287-12511-169582772087741/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if SQL configure users script exists *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120 `" && echo ansible-tmp-1758203545.2399278-12539-161408593745120="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpyvk_v3g4 TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203545.2399278-12539-161408593745120/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute configure users script *******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display configure users result *******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Configure Users Results:
+    Exit Code: 0
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/3_adjust_resources/sql_configure_users.ps1 -Environments "dev" -Clients "client1" -AutoApprove -StopOnFailure  -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN MODE - SQL Configure Users
+    =====================================
+    No actual SQL user configuration will be performed
+    No databases found
+    
+    📤 STDERR:
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [0m
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Fail if configure users had critical error *******************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Step 10 - Start environment **********************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display environment start information ************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🚀 Starting Environment
+    =======================
+    Environment: dev (client1)
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987 `" && echo ansible-tmp-1758203546.152694-12603-129627112575987="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpnmdqajpu TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.152694-12603-129627112575987/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if start environment script exists *********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612 `" && echo ansible-tmp-1758203546.275182-12631-203381572101612="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmp9394kmih TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203546.275182-12631-203381572101612/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute start environment script *****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# Use Azure Kubernetes role as fallback ***********************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Display start environment result *****************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Step 11 - Cleanup restored databases *************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display cleanup restored databases information ***************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m🧹 Cleanup Restored Databases
+    =============================
+    Source Environment: qa2
+    Dry Run: true
+    [0m
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290 `" && echo ansible-tmp-1758203547.5557775-12728-72939223362290="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/stat.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmppbc350_l TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290/AnsiballZ_stat.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290/AnsiballZ_stat.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.5557775-12728-72939223362290/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Check if delete restored databases script exists *************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+<localhost> ESTABLISH LOCAL CONNECTION FOR USER: kgluza
+<localhost> EXEC /bin/sh -c 'echo ~kgluza && sleep 0'
+<localhost> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /home/kgluza/.ansible/tmp `"&& mkdir "` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288 `" && echo ansible-tmp-1758203547.7327962-12757-273555355737288="` echo /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288 `" ) && sleep 0'
+Using module file /home/kgluza/.local/pipx/venvs/ansible/lib/python3.10/site-packages/ansible/modules/command.py
+<localhost> PUT /home/kgluza/.ansible/tmp/ansible-local-11543ihtg5q0r/tmpz__8iaog TO /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288/AnsiballZ_command.py
+<localhost> EXEC /bin/sh -c 'chmod u+x /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288/ /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'AZURE_CONFIG_DIR=/home/semaphore/.azure python3 /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288/AnsiballZ_command.py && sleep 0'
+<localhost> EXEC /bin/sh -c 'rm -f -r /home/kgluza/.ansible/tmp/ansible-tmp-1758203547.7327962-12757-273555355737288/ > /dev/null 2>&1 && sleep 0'
+[1m# self_service_refresh : Execute cleanup restored databases script ********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m -- [0;32m[0m --------------------------------------------
+[1m# self_service_refresh : Display cleanup restored databases result ********************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m⚡ Cleanup Restored Databases Results:
+    Exit Code: 0
+    Command: pwsh -File /home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/7_delete_resources/delete_restored_db.ps1 -source "qa2" -DryRun
+    
+    📤 STDOUT:
+    
+    🔍 DRY RUN MODE - Delete Restored Databases Script
+    =================================================
+    No actual database deletion will be performed
+    Waiting for any pending restores to complete...
+    🔍 DRY RUN: No restored databases found to delete.
+    
+    ====================================
+     Cleanup Completed
+    ====================================
+    
+    ✅ All restored databases have been cleaned up
+    
+    📤 STDERR:
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/7_delete_resources/delete_restored_db.ps1:27[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  27 | [0m [36;1m$source_subscription = $recources[0].subscriptionId[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/7_delete_resources/delete_restored_db.ps1:28[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  28 | [0m [36;1m$source_server = $recources[0].name[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    [31;1mInvalidOperation: [0m/home/kgluza/Manufacturo/ansible-for-semaphore/roles/self_service_refresh/files/7_delete_resources/delete_restored_db.ps1:29[0m
+    [31;1m[0m[36;1mLine |[0m
+    [31;1m[0m[36;1m[36;1m  29 | [0m [36;1m$source_rg = $recources[0].resourceGroup[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCannot index into a null array.[0m
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    Traceback (most recent call last):
+      File "<frozen runpy>", line 198, in _run_module_as_main
+      File "<frozen runpy>", line 88, in _run_code
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/__main__.py", line 30, in <module>
+        az_cli = get_default_cli()
+                 ^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/__init__.py", line 948, in get_default_cli
+        from azure.cli.core.azlogging import AzCliLogging
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/azlogging.py", line 30, in <module>
+        from azure.cli.core.commands.events import EVENT_INVOKER_PRE_CMD_TBL_TRUNCATE
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/commands/__init__.py", line 27, in <module>
+        from azure.cli.core.extension import get_extension
+      File "/opt/az/lib/python3.12/site-packages/azure/cli/core/extension/__init__.py", line 18, in <module>
+        az_config = CLIConfig(config_dir=GLOBAL_CONFIG_DIR, config_env_var_prefix=ENV_VAR_PREFIX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/opt/az/lib/python3.12/site-packages/knack/config.py", line 40, in __init__
+        ensure_dir(config_dir)
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 114, in ensure_dir
+        raise e
+      File "/opt/az/lib/python3.12/site-packages/knack/util.py", line 111, in ensure_dir
+        os.makedirs(d)
+      File "<frozen os>", line 215, in makedirs
+      File "<frozen os>", line 225, in makedirs
+    PermissionError: [Errno 13] Permission denied: '/home/semaphore'
+    [0m
+[1m# self_service_refresh : Display missing script information ***************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Fail if cleanup restored databases had critical error ********************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;36mskipped[0m -- Conditional result was False ---------------------------------
+[1m# self_service_refresh : Refresh completed successfully *******************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m✅ Self-Service Data Refresh Completed Successfully (11 Steps)
+    =============================================================
+    Source: qa2 → Destination: dev
+    Duration: 0 seconds
+    [0m
+[1m# Final status report *****************************************************************************************************[0m
+  * [1m[34mlocalhost[0m                  - [0;32mchanged=False[0m --------------------------------------------------
+    [0;32m✅ Self-Service Data Refresh Completed
+    ====================================
+    
+    📊 Summary:
+    • Source: qa2 → Destination: dev
+    • Customer: qa2-services
+    • Operation: full
+    • Dry Run: True
+    • Duration: 0 seconds
+    
+    🎯 Next Steps:
+    • Verify application functionality
+    • Check data integrity
+    • Monitor system performance
+    • Update documentation if needed
+    [0m
+
+[1m# STATS *******************************************************************************************************************[0m
+[0;32mlocalhost    : ok=70	changed=0	failed=0	unreachable=0	rescued=0	ignored=0[0m

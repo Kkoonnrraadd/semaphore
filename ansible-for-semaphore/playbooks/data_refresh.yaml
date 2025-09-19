@@ -1,5 +1,9 @@
 ---
-- name: data refresh
+# DEPRECATED: This playbook is being replaced by self_service_refresh.yaml
+# Use the new self_service_refresh.yaml playbook for enhanced functionality
+# and integration with the SelfServiceRefresh PowerShell scripts
+
+- name: data refresh (deprecated)
   hosts: localhost
   environment:
     AZURE_CONFIG_DIR: /home/semaphore/.azure

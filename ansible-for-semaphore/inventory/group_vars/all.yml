@@ -1,0 +1,62 @@
+---
+# Global variables for all hosts
+
+# Azure Configuration
+azure_config_dir: /home/semaphore/.azure
+cloud_environment: AzureUSGovernment
+
+# Default Namespaces (matching PowerShell script defaults)
+default_source_namespace: manufacturo
+default_dest_namespace: test
+
+# Default Terraform Configuration
+default_terraform_env_path: public
+
+# Default Operation Settings (matching PowerShell script defaults)
+default_max_wait_minutes: 40
+default_dry_run: false
+
+# Common Resource Group Patterns
+resource_group_pattern: "rg-mnfro-intd-{environment}-weu"
+cluster_name_pattern: "aks-mnfro-intd-{environment}-weu"
+
+# Hub Configuration (for monitoring)
+hub_resource_group: rg-mnfro-hub-weu
+hub_subscription_id: a9261cc1-d170-491d-b8fa-23ef0ad88ba3
+
+# Known Subscription IDs
+subscriptions:
+  qa2: e02ef4b1-a554-4934-89ef-3db39ce3f374
+  dev: d602ec0b-96e4-44d2-8fb9-b79684a9489f
+  hub: a9261cc1-d170-491d-b8fa-23ef0ad88ba3
+
+# Environment-specific defaults (matching PowerShell script)
+environments:
+  gov002:
+    subscription_id: e02ef4b1-a554-4934-89ef-3db39ce3f374
+    resource_group: rg-mnfro-intd-gov002-weu
+    cluster_name: aks-mnfro-intd-gov002-weu
+    region: westeurope
+    namespace: manufacturo
+    
+  gov001:
+    subscription_id: d602ec0b-96e4-44d2-8fb9-b79684a9489f
+    resource_group: rg-mnfro-intd-gov001-weu
+    cluster_name: aks-mnfro-intd-gov001-weu
+    region: westeurope
+    namespace: test
+    
+  # Legacy environments for backward compatibility
+  qa2:
+    subscription_id: e02ef4b1-a554-4934-89ef-3db39ce3f374
+    resource_group: rg-mnfro-intd-qa2-weu
+    cluster_name: aks-mnfro-intd-qa2-weu
+    region: westeurope
+    namespace: manufacturo
+    
+  dev:
+    subscription_id: d602ec0b-96e4-44d2-8fb9-b79684a9489f
+    resource_group: rg-mnfro-intd-dev-weu
+    cluster_name: aks-mnfro-intd-dev-weu
+    region: westeurope
+    namespace: manufacturo

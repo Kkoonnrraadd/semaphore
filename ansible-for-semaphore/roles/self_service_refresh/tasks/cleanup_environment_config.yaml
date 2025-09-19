@@ -1,0 +1,65 @@
+---
+- name: Cleanup environment configuration
+  block:
+    - name: Display cleanup environment configuration information
+      ansible.builtin.debug:
+        msg: |
+          🧹 Cleanup Environment Configuration
+          ===================================
+          Source Environment: {{ source_env }} ({{ source_ns }})
+          Destination Environment: {{ dest_env }} ({{ dest_ns }})
+          Customer Alias to Remove: {{ customer_alias_to_remove | default('N/A') }}
+          Domain: {{ domain | default('dev.azure') }}
+          Dry Run: {{ dry_run_mode | default(false) }}
+
+    - name: Check if cleanup environment config script exists
+      ansible.builtin.stat:
+        path: "{{ role_path }}/files/3_adjust_resources/cleanup_environment_config.ps1"
+      register: cleanup_config_script
+
+    - name: Execute cleanup environment configuration script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/3_adjust_resources/cleanup_environment_config.ps1
+        -destination "{{ dest_env }}"
+        -EnvironmentToClean "{{ source_env }}"
+        -MultitenantToRemove "{{ source_ns }}"
+        -CustomerAliasToRemove "{{ customer_alias_to_remove | default('') }}"
+        -domain "{{ domain | default('dev.azure') }}"
+        -DestinationNamespace "{{ dest_ns }}"
+        {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+      register: cleanup_config_result
+      changed_when: not (dry_run_mode | default(false))
+      when: cleanup_config_script.stat.exists
+      failed_when: false
+
+    - name: Display cleanup configuration result
+      ansible.builtin.debug:
+        msg: |
+          ⚡ Cleanup Environment Configuration Results:
+          Exit Code: {{ cleanup_config_result.rc | default('N/A') }}
+          Command: pwsh -File {{ role_path }}/files/3_adjust_resources/cleanup_environment_config.ps1 -destination "{{ dest_env }}" -EnvironmentToClean "{{ source_env }}" -MultitenantToRemove "{{ source_ns }}" -CustomerAliasToRemove "{{ customer_alias_to_remove | default('') }}" -domain "{{ domain | default('dev.azure') }}" -DestinationNamespace "{{ dest_ns }}" {{ '-DryRun' if (dry_run_mode | default(false)) else '' }}
+          
+          📤 STDOUT:
+          {{ cleanup_config_result.stdout | default('(no output)') }}
+          
+          📤 STDERR:
+          {{ cleanup_config_result.stderr | default('(no errors)') }}
+      when: cleanup_config_result is defined
+
+    - name: Display missing script information
+      ansible.builtin.debug:
+        msg: |
+          ℹ️ Cleanup Environment Configuration Script Not Found
+          ====================================================
+          Expected: {{ role_path }}/files/3_adjust_resources/cleanup_environment_config.ps1
+          This step will be skipped.
+      when: not cleanup_config_script.stat.exists
+
+    - name: Fail if cleanup configuration had critical error
+      ansible.builtin.fail:
+        msg: "Cleanup environment configuration script failed with exit code {{ cleanup_config_result.rc }}"
+      when: 
+        - cleanup_config_result is defined
+        - cleanup_config_result.rc is defined
+        - cleanup_config_result.rc != 0
+        - not (dry_run_mode | default(false))

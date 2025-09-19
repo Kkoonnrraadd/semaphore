@@ -1,0 +1,75 @@
+---
+# Orchestrated workflow that mimics the original self_service.ps1 script
+# This task file provides a direct equivalent to the PowerShell orchestration
+
+- name: Orchestrated Self-Service Workflow (PowerShell style)
+  block:
+    - name: Set workflow start time
+      ansible.builtin.set_fact:
+        workflow_start_time: "{{ ansible_date_time.epoch }}"
+
+    - name: Display orchestration banner
+      ansible.builtin.debug:
+        msg: |
+          🔄 Self-Service Orchestrated Workflow
+          ===================================
+          Equivalent to: self_service.ps1 -Source {{ source_env }} -Destination {{ dest_env }}
+          
+          This workflow will execute the same steps as the original PowerShell script
+          but with enhanced error handling and Ansible integration.
+
+    - name: Execute main PowerShell orchestration script
+      ansible.builtin.command: >
+        pwsh -File {{ role_path }}/files/self_service.ps1
+        -Source "{{ source_env }}"
+        -Destination "{{ dest_env }}"
+        -SourceNamespace "{{ source_namespace }}"
+        -DestinationNamespace "{{ dest_namespace }}"
+        -CustomerAlias "{{ customer }}"
+        -Cloud "{{ cloud_environment }}"
+        -MaxWaitMinutes {{ max_wait_minutes }}
+        -AutoApprove
+        {{ '-DryRun' if dry_run else '' }}
+      register: orchestration_result
+      changed_when: not dry_run
+      failed_when: orchestration_result.rc != 0
+
+    - name: Display orchestration output
+      ansible.builtin.debug:
+        var: orchestration_result.stdout_lines
+      when: orchestration_result.stdout_lines is defined
+
+    - name: Display orchestration errors
+      ansible.builtin.debug:
+        var: orchestration_result.stderr_lines
+      when: 
+        - orchestration_result.stderr_lines is defined
+        - orchestration_result.stderr_lines | length > 0
+
+    - name: Calculate workflow duration
+      ansible.builtin.set_fact:
+        workflow_duration: "{{ ansible_date_time.epoch | int - workflow_start_time | int }}"
+
+    - name: Display workflow completion
+      ansible.builtin.debug:
+        msg: |
+          ✅ Orchestrated Workflow Completed
+          ================================
+          Duration: {{ workflow_duration }} seconds
+          Exit Code: {{ orchestration_result.rc }}
+          
+  rescue:
+    - name: Handle orchestration failure
+      ansible.builtin.debug:
+        msg: |
+          🚨 Orchestrated Workflow Failed
+          ==============================
+          The PowerShell orchestration script encountered an error.
+          Check the script output above for details.
+          
+          You can also run individual workflow steps using:
+          ansible-playbook playbooks/self_service_refresh.yaml --extra-vars "operation=full"
+
+    - name: Fail with orchestration error
+      ansible.builtin.fail:
+        msg: "PowerShell orchestration workflow failed with exit code {{ orchestration_result.rc | default('unknown') }}"

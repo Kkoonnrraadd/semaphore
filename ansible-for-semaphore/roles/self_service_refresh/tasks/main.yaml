@@ -1,0 +1,75 @@
+---
+- name: Self-Service Data Refresh
+  block:
+    - name: Validate required parameters
+      ansible.builtin.assert:
+        that:
+          - source_env is defined
+          - dest_env is defined
+          - source_sub_id is defined
+          - dest_sub_id is defined
+          - source_ns is defined
+          - dest_ns is defined
+          - customer is defined
+        fail_msg: |
+          Required parameters missing. Please define:
+          - source_env (source environment)
+          - dest_env (destination environment)  
+          - source_sub_id (source subscription ID)
+          - dest_sub_id (destination subscription ID)
+          - source_ns (source namespace)
+          - dest_ns (destination namespace)
+          - customer (customer alias)
+
+    - name: Set working variables from parameters
+      ansible.builtin.set_fact:
+        source_environment: "{{ source_env }}"
+        dest_environment: "{{ dest_env }}"
+        source_subscription_id: "{{ source_sub_id }}"
+        dest_subscription_id: "{{ dest_sub_id }}"
+        source_namespace: "{{ source_ns }}"
+        dest_namespace: "{{ dest_ns }}"
+        customer_alias: "{{ customer }}"
+        cloud_environment: "{{ cloud | default('AzureUSGovernment') }}"
+        dry_run: "{{ dry_run_mode | default(false) }}"
+        max_wait_minutes: "{{ max_wait | default(30) }}"
+
+    - name: Display operation summary
+      ansible.builtin.debug:
+        msg: |
+          🔄 Self-Service Data Refresh Operation
+          =====================================
+          Source: {{ source_env }} ({{ source_ns }})
+          Destination: {{ dest_env }} ({{ dest_ns }})
+          Customer Alias: {{ customer }}
+          Cloud: {{ cloud | default('AzureUSGovernment') }}
+          Dry Run: {{ dry_run_mode | default(false) }}
+          Max Wait: {{ max_wait | default(30) }} minutes
+
+    - name: Execute specific operation
+      ansible.builtin.include_tasks: "{{ op | default('full') }}.yaml"
+      when: 
+        - op is defined
+        - op != "full"
+        - op != "orchestrated"
+
+    - name: Execute orchestrated PowerShell workflow
+      ansible.builtin.include_tasks: orchestrated_workflow.yaml
+      when: op is defined and op == "orchestrated"
+
+    - name: Execute full Ansible workflow
+      ansible.builtin.include_tasks: full_workflow.yaml
+      when: op is not defined or op == "full"
+
+  rescue:
+    - name: Handle failure
+      ansible.builtin.debug:
+        msg: |
+          🚨 Self-Service Refresh Failed
+          =============================
+          Error occurred during: {{ ansible_failed_task.name | default('Unknown task') }}
+          Please check the logs for details.
+
+    - name: Fail the playbook
+      ansible.builtin.fail:
+        msg: "Self-service refresh operation failed"

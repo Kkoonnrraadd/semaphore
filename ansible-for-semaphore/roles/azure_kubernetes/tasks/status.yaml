@@ -1,0 +1,30 @@
+---
+# tasks/status.yaml
+- name: Check azure.azcollection version
+  debug:
+    msg: "{{ lookup('ansible.builtin.pipe', 'ansible-galaxy collection list | grep azure.azcollection') }}"
+  when: ansible_verbosity >= 2 # Run when -vv or higher is used
+
+- name: Get AKS cluster details
+  azure_rm_resource_info:
+    resource_name: "{{ aks_cluster_name }}"
+    provider: ContainerService
+    resource_type: managedClusters
+    resource_group: "{{ aks_resource_group }}"
+    cloud_environment: "{{ cloud_environment }}"
+    api_version: "2023-07-01"
+  register: aks_info
+
+- name: Debug raw aks_info result
+  debug:
+    var: aks_info
+  when: ansible_verbosity >= 2 # Run when -vv or higher is used
+
+- name: Show AKS cluster summary
+  debug:
+    msg: |
+      AKS Cluster Info:
+        Name: {{ aks_info.response[0].name }}
+        Provisioning State: {{ aks_info.response[0].properties.provisioningState }}
+        FQDN: {{ aks_info.response[0].properties.fqdn | default("N/A") }}
+  when: aks_info.response is defined and aks_info.response | length > 0

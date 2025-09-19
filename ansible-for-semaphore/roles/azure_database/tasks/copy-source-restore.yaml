@@ -1,0 +1,124 @@
+---
+# tasks/copy-source-restore.yaml
+- name: Copy copy_database.ps1 script to a temporary location
+  ansible.builtin.copy:
+    src: copy_database.ps1
+    dest: "/tmp/copy_database.ps1"
+    mode: '0755' # Make it executable
+  delegate_to: localhost
+
+- name: Ensure log and PID files exist and are writable
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: touch
+    mode: '0666' # Ensure r/w for owner, group, others
+    owner: "semaphore" # Or the user that pwsh script runs as
+    group: "semaphore"
+  loop:
+    - "{{ log_file_path }}"
+    - "{{ pid_file_path }}"
+  delegate_to: localhost # If these files are on the controller
+  tags:
+    - print_action
+
+# TODO: this needs to ensure there is enough space in the destination storage to have two databases around
+# - name: (Copy Source Restore) Execute copy_database.ps1 script
+#   ansible.builtin.shell:
+#     cmd: "nohup pwsh /tmp/copy_database.ps1 -Cloud {{ cloud_environment | quote }} -SourceResourceGroup {{ source_db_resource_group | quote }} -SourceSubscriptionId {{ source_db_subscription_id | quote }} -DestinationResourceGroup {{ dest_db_resource_group | quote }} -DestinationSubscriptionId {{ dest_db_subscription_id | quote }} {% if ansible_check_mode %}-DryRun{% endif %} &"
+#     chdir: /tmp
+#     executable: /bin/bash
+#   delegate_to: localhost
+#   async: "{{ max_script_runtime }}"
+#   poll: 0
+#   register: long_script_async_result
+#   tags: ['print_action'] # Add tag here
+
+# - name: Monitor log file for progress and completion signal (with periodic output)
+#   ansible.builtin.shell: "tail -n 200 {{ log_file_path }}"
+#   register: log_content_for_display
+#   delegate_to: localhost
+#   changed_when: false
+#   failed_when: false
+#   ignore_errors: true
+#   until: "'SCRIPT_COMPLETED_SUCCESSFULLY' in log_content_for_display.stdout or 'SCRIPT_FAILED_WITH_ERROR' in log_content_for_display.stdout"
+#   retries: "{{ (max_script_runtime / status_check_interval) | int + 5 }}"
+#   delay: "{{ status_check_interval }}"
+#   tags: ['print_action'] # Add tag here - this should give you the streaming!
+
+# - name: Debug final log content after successful monitoring
+#   ansible.builtin.debug:
+#     msg: "Final monitored log content (when condition met):\n{{ log_content_for_display.stdout }}"
+#   delegate_to: localhost
+#   when: log_content_for_display is defined and log_content_for_display.stdout is defined
+#   tags: ['print_action'] # Add tag here
+
+# - name: (Copy Source Restore) Execute copy_database.ps1 script (no async job tracking)
+#   ansible.builtin.shell:
+#     cmd: "nohup pwsh /tmp/copy_database.ps1 -Cloud {{ cloud_environment | quote }} -SourceResourceGroup {{ source_db_resource_group | quote }} -SourceSubscriptionId {{ source_db_subscription_id | quote }} -DestinationResourceGroup {{ dest_db_resource_group | quote }} -DestinationSubscriptionId {{ dest_db_subscription_id | quote }} {% if ansible_check_mode %}-DryRun{% endif %} > {{ log_file_path }} 2>&1 & echo $! > {{ pid_file_path }}"
+#     chdir: /tmp
+#     executable: /bin/bash
+#   delegate_to: localhost
+#   async: "{{ max_script_runtime }}"
+#   poll: 0
+#   register: script_launch_result # Still register for stdout/stderr of the shell command itself
+#   # No 'async_job_id' will be created here
+#   tags:
+#     - print_action
+
+# - name: Monitor log file for progress and completion signal (with periodic output)
+#   ansible.builtin.shell: "tail -n 200 {{ log_file_path }}"
+#   register: log_content_for_display
+#   delegate_to: localhost
+#   changed_when: false
+#   failed_when: false
+#   ignore_errors: true
+#   until: "'SCRIPT_COMPLETED_SUCCESSFULLY' in log_content_for_display.stdout or 'SCRIPT_FAILED_WITH_ERROR' in log_content_for_display.stdout"
+#   retries: "{{ (max_script_runtime / status_check_interval) | int + 5 }}"
+#   delay: "{{ status_check_interval }}"
+#   tags:
+#     - print_action
+
+# - name: Debug final log content after successful monitoring
+#   ansible.builtin.debug:
+#     msg: "Final monitored log content (when condition met):\n{{ log_content_for_display.stdout }}"
+#   delegate_to: localhost
+#   when: log_content_for_display is defined and log_content_for_display.stdout is defined
+#   tags:
+#     - print_action
+# --- REMOVED: Poll for the final completion status of the background script (async_status) ---
+# This task is no longer needed because we're relying on the log file.
+
+- name: Get final script exit status (from log file or PID)
+  block:
+    # Option A: Parse log file for success/failure string (Recommended if reliable)
+    - name: Check log for final success/failure indicator
+      ansible.builtin.shell: "grep -E 'SCRIPT_COMPLETED_SUCCESSFULLY|SCRIPT_FAILED_WITH_ERROR' {{ log_file_path }} || true"
+      register: final_log_status
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Set script_rc based on log status
+      ansible.builtin.set_fact:
+        script_rc: "{{ '0' if 'SCRIPT_COMPLETED_SUCCESSFULLY' in final_log_status.stdout else '1' }}"
+      when: final_log_status.stdout is defined and final_log_status.stdout | length > 0
+      delegate_to: localhost
+
+    - name: Fallback script_rc to 1 if no clear status in log (e.g., timed out)
+      ansible.builtin.set_fact:
+        script_rc: '1'
+      when: final_log_status.stdout is not defined or final_log_status.stdout | length == 0
+      delegate_to: localhost
+
+
+    # Option B: Check process exit code (more complex, requires process management)
+    # Not recommended unless Option A isn't feasible.
+
+    - name: Display final return code
+      ansible.builtin.debug:
+        msg: "Script finished with return code: {{ script_rc }}"
+
+    - name: Fail the playbook if the script failed
+      ansible.builtin.fail:
+        msg: "The long-running script failed!"
+      when: script_rc != '0' # Check against the string '0'
+  # Remove 'when: async_status_result.finished' as async_status is removed

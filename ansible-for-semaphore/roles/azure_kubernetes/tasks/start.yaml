@@ -1,0 +1,29 @@
+---
+# tasks/start.yaml
+- name: Copy manage_aks.sh script to a temporary location
+  ansible.builtin.copy:
+    src: manage_aks.sh
+    dest: "/tmp/manage_aks.sh"
+    mode: '0755' # Make it executable
+  delegate_to: localhost
+
+- name: (Start) Execute manage_aks.sh script
+  ansible.builtin.command: >
+    /tmp/manage_aks.sh
+    --action="{{ aks_action }}"
+    --resource-group="{{ aks_resource_group }}"
+    --cluster-name="{{ aks_cluster_name }}"
+    --cloud="{{ cloud_environment }}"
+    --subscription-id="{{ aks_subscription_id }}"
+    {% if ansible_check_mode %}--dry-run{% endif %}
+  args:
+    chdir: /tmp # Run from /tmp
+  delegate_to: localhost
+  register: start_aks_result
+  failed_when: start_aks_result.rc != 0 and "No action taken" not in start_aks_result.stdout
+  changed_when: ("AKS cluster is already running. No action taken." not in start_aks_result.stdout)
+
+- name: Display start AKS result
+  ansible.builtin.debug:
+    var: start_aks_result.stdout_lines
+  when: ansible_verbosity >= 2 # Run when -vv or higher is used

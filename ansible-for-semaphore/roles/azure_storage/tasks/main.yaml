@@ -1,0 +1,4 @@
+---
+# tasks/main.yml
+- name: Include operation-specific tasks
+  include_tasks: "{{ storage_action }}.yaml"

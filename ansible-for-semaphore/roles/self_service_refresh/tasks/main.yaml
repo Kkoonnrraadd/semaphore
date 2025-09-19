@@ -2,17 +2,24 @@
 - name: Self-Service Data Refresh
   block:
 
+    - name: "🔍 DEBUG: Show variables before set_fact"
+      ansible.builtin.debug:
+        msg: |
+          Before set_fact:
+          - source_env: {{ source_env | default('NOT_DEFINED') }}
+          - dest_env: {{ dest_env | default('NOT_DEFINED') }}
+
     - name: Set working variables from parameters
       ansible.builtin.set_fact:
-        source_env: "{{ source_env }}"
-        dest_environment: "{{ dest_env }}"
-        source_subscription_id: "{{ source_sub_id }}"
-        dest_subscription_id: "{{ dest_sub_id }}"
-        source_namespace: "{{ source_ns }}"
-        dest_namespace: "{{ dest_ns }}"
-        customer_alias: "{{ customer }}"
+        source_environment: "{{ source_env | default('qa2') }}"
+        dest_environment: "{{ dest_env | default('dev') }}"
+        source_subscription_id: "{{ source_sub_id | default('e02ef4b1-a554-4934-89ef-3db39ce3f374') }}"
+        dest_subscription_id: "{{ dest_sub_id | default('d602ec0b-96e4-44d2-8fb9-b79684a9489f') }}"
+        source_namespace: "{{ source_ns | default('manufacturo') }}"
+        dest_namespace: "{{ dest_ns | default('test') }}"
+        customer_alias: "{{ customer | default('qa2-services') }}"
         cloud_environment: "{{ cloud | default('AzureUSGovernment') }}"
-        dry_run: "{{ dry_run_mode | default(false) }}"
+        dry_run: "{{ dry_run_mode | default(true) }}"
         max_wait_minutes: "{{ max_wait | default(30) }}"
 
     - name: Validate required parameters

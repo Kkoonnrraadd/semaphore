@@ -128,12 +128,7 @@
               {{ '-DryRun' if (dry_run_mode | default(false)) else '' }} \
               || {
                 echo "❌ PowerShell script failed with exit code $?"
-                {% if dry_run_mode | default(false) %}
-                echo "🔍 This is expected in dry-run mode without proper Azure setup"
-                exit 0
-                {% else %}
-                exit 1
-                {% endif %}
+                {% if dry_run_mode | default(false) %}echo "🔍 This is expected in dry-run mode without proper Azure setup" && exit 0{% else %}exit 1{% endif %}
               }
           register: step_result
           loop: "{{ script_order }}"

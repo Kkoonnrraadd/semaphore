@@ -1,6 +1,20 @@
 ---
 - name: Self-Service Data Refresh
   block:
+
+    - name: Set working variables from parameters
+      ansible.builtin.set_fact:
+        source_environment: "{{ source_env }}"
+        dest_environment: "{{ dest_env }}"
+        source_subscription_id: "{{ source_sub_id }}"
+        dest_subscription_id: "{{ dest_sub_id }}"
+        source_namespace: "{{ source_ns }}"
+        dest_namespace: "{{ dest_ns }}"
+        customer_alias: "{{ customer }}"
+        cloud_environment: "{{ cloud | default('AzureUSGovernment') }}"
+        dry_run: "{{ dry_run_mode | default(false) }}"
+        max_wait_minutes: "{{ max_wait | default(30) }}"
+        
     - name: Validate required parameters
       ansible.builtin.assert:
         that:
@@ -20,19 +34,6 @@
           - source_ns (source namespace)
           - dest_ns (destination namespace)
           - customer (customer alias)
-
-    - name: Set working variables from parameters
-      ansible.builtin.set_fact:
-        source_environment: "{{ source_env }}"
-        dest_environment: "{{ dest_env }}"
-        source_subscription_id: "{{ source_sub_id }}"
-        dest_subscription_id: "{{ dest_sub_id }}"
-        source_namespace: "{{ source_ns }}"
-        dest_namespace: "{{ dest_ns }}"
-        customer_alias: "{{ customer }}"
-        cloud_environment: "{{ cloud | default('AzureUSGovernment') }}"
-        dry_run: "{{ dry_run_mode | default(false) }}"
-        max_wait_minutes: "{{ max_wait | default(30) }}"
 
     - name: Display operation summary
       ansible.builtin.debug:

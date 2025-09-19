@@ -25,6 +25,8 @@ cluster_name_pattern: "aks-mnfro-intd-{environment}-weu"
 # Hub Configuration (for monitoring)
 hub_resource_group: rg-mnfro-hub-weu
 hub_subscription_id: a9261cc1-d170-491d-b8fa-23ef0ad88ba3
+hub_rg: rg-mnfro-hub-weu
+hub_sub_id: a9261cc1-d170-491d-b8fa-23ef0ad88ba3
 
 # Known Subscription IDs
 subscriptions:
@@ -67,10 +69,11 @@ terraform_path: public
 max_wait: 30
 source_env: qa2 
 dest_env: dev 
-source_sub_id: test-123 
-dest_sub_id: test-456
+source_sub_id: e02ef4b1-a554-4934-89ef-3db39ce3f374
+dest_sub_id: d602ec0b-96e4-44d2-8fb9-b79684a9489f
 source_ns: manufacturo 
 dest_ns: test 
 customer: qa2-services
+cloud: AzureUSGovernment
 op: full
 dry_run_mode: true 

@@ -125,25 +125,25 @@
     #     - confirm_operation.user_input | lower != 'yes'
 
   tasks:
-    - name: "🔍 DEBUG: Show all available variables"
-      ansible.builtin.debug:
-        msg: |
-          Available variables:
-          - source_env: {{ source_env | default('UNDEFINED') }}
-          - dest_env: {{ dest_env | default('UNDEFINED') }}
-          - source_sub_id: {{ source_sub_id | default('UNDEFINED') }}
-          - dest_sub_id: {{ dest_sub_id | default('UNDEFINED') }}
-          - source_ns: {{ source_ns | default('UNDEFINED') }}
-          - dest_ns: {{ dest_ns | default('UNDEFINED') }}
-          - customer: {{ customer | default('UNDEFINED') }}
-          - dry_run_mode: {{ dry_run_mode | default('UNDEFINED') }}
-          - max_wait: {{ max_wait | default('UNDEFINED') }}
-          - cloud: {{ cloud | default('UNDEFINED') }}
+    # - name: "🔍 DEBUG: Show all available variables"
+    #   ansible.builtin.debug:
+    #     msg: |
+    #       Available variables:
+    #       - source_env: {{ source_env | default('UNDEFINED') }}
+    #       - dest_env: {{ dest_env | default('UNDEFINED') }}
+    #       - source_sub_id: {{ source_sub_id | default('UNDEFINED') }}
+    #       - dest_sub_id: {{ dest_sub_id | default('UNDEFINED') }}
+    #       - source_ns: {{ source_ns | default('UNDEFINED') }}
+    #       - dest_ns: {{ dest_ns | default('UNDEFINED') }}
+    #       - customer: {{ customer | default('UNDEFINED') }}
+    #       - dry_run_mode: {{ dry_run_mode | default('UNDEFINED') }}
+    #       - max_wait: {{ max_wait | default('UNDEFINED') }}
+    #       - cloud: {{ cloud | default('UNDEFINED') }}
           
-    - name: "🔍 DEBUG: Show hostvars and group_vars"
-      ansible.builtin.debug:
-        msg: |
-          Hostvars: {{ hostvars[inventory_hostname] | to_nice_json }}
+    # - name: "🔍 DEBUG: Show hostvars and group_vars"
+    #   ansible.builtin.debug:
+    #     msg: |
+    #       Hostvars: {{ hostvars[inventory_hostname] | to_nice_json }}
 
     - name: Execute self-service refresh
       ansible.builtin.include_role:

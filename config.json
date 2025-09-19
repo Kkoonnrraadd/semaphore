@@ -1,0 +1,4 @@
+{
+  "dialect": "postgres",
+  "tmp_path": "/tmp/semaphore"
+}

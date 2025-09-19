@@ -1,0 +1,56 @@
+services:
+  semaphore:
+    build: .
+    container_name: semaphore
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      - ./ansible-for-semaphore:/ansible:ro
+      - ~/ws/terraform-infrastructure:/terraform
+      # Mount a volume for persistent storage of repositories, logs, etc.
+      - semaphore_data:/etc/semaphore
+      # Mount the minimal config file
+      - ./config.json:/etc/semaphore/config.json
+      - ~/.azure-semaphore:/home/semaphore/.azure
+    environment:
+      AZURE_CONFIG_DIR: /home/semaphore/.azure
+      # Database configuration using environment variables
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: db
+      SEMAPHORE_DB_PORT: 5432
+      SEMAPHORE_DB_USER: semaphoreuser
+      SEMAPHORE_DB_PASS: supersecretpassword
+      SEMAPHORE_DB_NAME: semaphore
+      # Ensure access key encryption is set
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: AlqpOKl4f7TDTM3IKB690N1CdeeczWYbQ64YuQ1g2Hw= # <--- ADD THIS LINE: openssl rand 32 | base64
+      # Disable SSL for the PostgreSQL connection
+      SEMAPHORE_DB_OPTIONS: '{"sslmode": "disable"}'
+      # Set a strong, unique hash key for secure cookies
+      SEMAPHORE_COOKIE_HASH: JEHwcfbBrxlBWMm9lxJavoo3wpAJqa0YgsBxYzZ5t8c= # <--- ADD THIS LINE: openssl rand 32 | base64
+      SEMAPHORE_COOKIE_ENCRYPTION: MLLgZzsam4xgQGe7GePJTU1oP3YGi0vW+RszWw88ym8= # <--- ADD THIS LINE: openssl rand 32 | base64
+    depends_on:
+      - db
+    networks:
+      - semaphore_network
+
+  db:
+    image: postgres:13-alpine
+    container_name: semaphore_db
+    environment:
+      POSTGRES_USER: semaphoreuser
+      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_DB: semaphore
+    volumes:
+      # Mount a volume for persistent database storage
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - semaphore_network
+
+volumes:
+  semaphore_data:
+  postgres_data:
+
+networks:
+  semaphore_network:
+    driver: bridge

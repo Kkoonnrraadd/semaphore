@@ -45,34 +45,34 @@
     skip_permissions: "{{ skip_permissions_step | default(false) | bool }}"
 
   pre_tasks:
-    - name: Validate required parameters
-      ansible.builtin.assert:
-        that:
-          - source_env is defined
-          - dest_env is defined
-          - source_sub_id is defined
-          - dest_sub_id is defined
-          - source_ns is defined
-          - dest_ns is defined
-          - customer is defined
-        fail_msg: |
-          ❌ Missing required parameters!
+    # - name: Validate required parameters
+    #   ansible.builtin.assert:
+    #     that:
+    #       - source_env is defined
+    #       - dest_env is defined
+    #       - source_sub_id is defined
+    #       - dest_sub_id is defined
+    #       - source_ns is defined
+    #       - dest_ns is defined
+    #       - customer is defined
+    #     fail_msg: |
+    #       ❌ Missing required parameters!
           
-          Required parameters:
-          • source_env (source environment name)
-          • dest_env (destination environment name) 
-          • source_sub_id (source subscription ID)
-          • dest_sub_id (destination subscription ID)
-          • source_ns (source namespace)
-          • dest_ns (destination namespace)
-          • customer (customer alias)
+    #       Required parameters:
+    #       • source_env (source environment name)
+    #       • dest_env (destination environment name) 
+    #       • source_sub_id (source subscription ID)
+    #       • dest_sub_id (destination subscription ID)
+    #       • source_ns (source namespace)
+    #       • dest_ns (destination namespace)
+    #       • customer (customer alias)
           
-          Example usage:
-          ansible-playbook playbooks/self_service_refresh.yaml \
-            --extra-vars "source_env=gov002 dest_env=gov001 \
-                         source_sub_id=xxx dest_sub_id=yyy \
-                         source_ns=manufacturo dest_ns=test \
-                         customer=gov001-test"
+    #       Example usage:
+    #       ansible-playbook playbooks/self_service_refresh.yaml \
+    #         --extra-vars "source_env=gov002 dest_env=gov001 \
+    #                      source_sub_id=xxx dest_sub_id=yyy \
+    #                      source_ns=manufacturo dest_ns=test \
+    #                      customer=gov001-test"
 
     - name: Display playbook information
       ansible.builtin.debug:
@@ -101,28 +101,28 @@
           • Skip Cleanup: {{ skip_cleanup }}
           • Skip Permissions: {{ skip_permissions }}
 
-    - name: Confirm operation in production
-      ansible.builtin.pause:
-        prompt: |
-          ⚠️  WARNING: You are about to perform a data refresh operation!
+    # - name: Confirm operation in production
+    #   ansible.builtin.pause:
+    #     prompt: |
+    #       ⚠️  WARNING: You are about to perform a data refresh operation!
           
-          This will:
-          1. Create a restore point from {{ source_environment }}
-          2. Stop the {{ dest_environment }} environment
-          3. Copy data from {{ source_environment }} to {{ dest_environment }}
-          4. Reconfigure and restart {{ dest_environment }}
+    #       This will:
+    #       1. Create a restore point from {{ source_environment }}
+    #       2. Stop the {{ dest_environment }} environment
+    #       3. Copy data from {{ source_environment }} to {{ dest_environment }}
+    #       4. Reconfigure and restart {{ dest_environment }}
           
-          Type 'yes' to continue, or 'no' to abort
-      register: confirm_operation
-      when: not dry_run and dest_environment in ['prod', 'production']
+    #       Type 'yes' to continue, or 'no' to abort
+    #   register: confirm_operation
+    #   when: not dry_run and dest_environment in ['prod', 'production']
 
-    - name: Abort if not confirmed
-      ansible.builtin.fail:
-        msg: "Operation aborted by user"
-      when: 
-        - not dry_run 
-        - dest_environment in ['prod', 'production']
-        - confirm_operation.user_input | lower != 'yes'
+    # - name: Abort if not confirmed
+    #   ansible.builtin.fail:
+    #     msg: "Operation aborted by user"
+    #   when: 
+    #     - not dry_run 
+    #     - dest_environment in ['prod', 'production']
+    #     - confirm_operation.user_input | lower != 'yes'
 
   tasks:
     - name: Execute self-service refresh

@@ -1,0 +1,5 @@
+Using /home/kgluza/Manufacturo/semaphore/ansible-for-semaphore/ansible.cfg as config file
+.......................................................................
+
+[1m# STATS *******************************************************************************************************************[0m
+[0;32mlocalhost    : ok=70	changed=0	failed=0	unreachable=0	rescued=0	ignored=0[0m

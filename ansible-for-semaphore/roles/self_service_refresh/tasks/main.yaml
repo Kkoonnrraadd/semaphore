@@ -2,12 +2,28 @@
 - name: Self-Service Data Refresh
   block:
 
-    - name: "🔍 DEBUG: Show variables before set_fact"
+    - name: "🔍 DEBUG: Show all available variables"
+      ansible.builtin.debug:
+        var: vars
+        
+    - name: "🔍 DEBUG: Show hostvars"
+      ansible.builtin.debug:
+        var: hostvars[inventory_hostname]
+        
+    - name: "🔍 DEBUG: Test specific variables safely"
       ansible.builtin.debug:
         msg: |
-          Before set_fact:
-          - source_env: {{ source_env | default('NOT_DEFINED') }}
-          - dest_env: {{ dest_env | default('NOT_DEFINED') }}
+          Testing variable existence:
+          {% if 'source_env' in vars %}
+          - source_env EXISTS: {{ source_env }}
+          {% else %}
+          - source_env: NOT_FOUND_IN_VARS
+          {% endif %}
+          {% if 'dest_env' in vars %}
+          - dest_env EXISTS: {{ dest_env }}
+          {% else %}
+          - dest_env: NOT_FOUND_IN_VARS
+          {% endif %}
 
     - name: Set working variables from parameters
       ansible.builtin.set_fact:

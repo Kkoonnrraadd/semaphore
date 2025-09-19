@@ -3,48 +3,48 @@
   hosts: localhost
   environment:
     AZURE_CONFIG_DIR: /home/semaphore/.azure
-  vars:
+  # vars:
     # === Required Variables ===
     # These must be defined when running the playbook
     
-    # === REQUIRED PARAMETERS - No defaults, must be provided ===
-    source_environment: "{{ source_env }}"
-    source_subscription_id: "{{ source_sub_id }}"
-    source_resource_group: "{{ source_rg | default('rg-mnfro-intd-' + source_env + '-weu') }}"
+    # # === REQUIRED PARAMETERS - No defaults, must be provided ===
+    # source_environment: "{{ source_env }}"
+    # source_subscription_id: "{{ source_sub_id }}"
+    # source_resource_group: "{{ source_rg | default('rg-mnfro-intd-' + source_env + '-weu') }}"
     
-    dest_environment: "{{ dest_env }}"
-    dest_subscription_id: "{{ dest_sub_id }}"
-    dest_resource_group: "{{ dest_rg | default('rg-mnfro-intd-' + dest_env + '-weu') }}"
-    dest_cluster_name: "{{ dest_cluster | default('aks-mnfro-intd-' + dest_env + '-weu') }}"
+    # dest_environment: "{{ dest_env }}"
+    # dest_subscription_id: "{{ dest_sub_id }}"
+    # dest_resource_group: "{{ dest_rg | default('rg-mnfro-intd-' + dest_env + '-weu') }}"
+    # dest_cluster_name: "{{ dest_cluster | default('aks-mnfro-intd-' + dest_env + '-weu') }}"
     
     # === REQUIRED NAMESPACE PARAMETERS ===
     # These are set in the role's set_fact task to avoid circular references
     
     # === OPTIONAL PARAMETERS WITH DEFAULTS ===
     # These are now set in the role to avoid circular references
-    terraform_env_path: "{{ terraform_path | default('public') }}"
+    # terraform_env_path: "{{ terraform_path | default('public') }}"
     
-    # Hub configuration for monitoring
-    hub_resource_group: "{{ hub_rg | default('rg-mnfro-hub-weu') }}"
-    hub_subscription_id: "{{ hub_sub_id | default('a9261cc1-d170-491d-b8fa-23ef0ad88ba3') }}"
+    # # Hub configuration for monitoring
+    # hub_resource_group: "{{ hub_rg | default('rg-mnfro-hub-weu') }}"
+    # hub_subscription_id: "{{ hub_sub_id | default('a9261cc1-d170-491d-b8fa-23ef0ad88ba3') }}"
     
-    # === OPERATION CONFIGURATION ===
-    dry_run: "{{ dry_run_mode | default(false) | bool }}"
-    max_wait_minutes: "{{ max_wait | default(30) | int }}"
-    operation: "{{ op | default('full') }}"
+    # # === OPERATION CONFIGURATION ===
+    # dry_run: "{{ dry_run_mode | default(false) | bool }}"
+    # max_wait_minutes: "{{ max_wait | default(30) | int }}"
+    # operation: "{{ op | default('full') }}"
     
     # === Step Control Variables ===
-    # Set to true to skip specific steps
-    skip_restore: "{{ skip_restore_step | default(false) | bool }}"
-    skip_stop: "{{ skip_stop_step | default(false) | bool }}"
-    skip_copy_attachments: "{{ skip_copy_attachments_step | default(false) | bool }}"
-    skip_copy_database: "{{ skip_copy_database_step | default(false) | bool }}"
-    skip_adjust_resources: "{{ skip_adjust_resources_step | default(false) | bool }}"
-    skip_start: "{{ skip_start_step | default(false) | bool }}"
-    skip_cleanup: "{{ skip_cleanup_step | default(false) | bool }}"
-    skip_permissions: "{{ skip_permissions_step | default(false) | bool }}"
+    # # Set to true to skip specific steps
+    # skip_restore: "{{ skip_restore_step | default(false) | bool }}"
+    # skip_stop: "{{ skip_stop_step | default(false) | bool }}"
+    # skip_copy_attachments: "{{ skip_copy_attachments_step | default(false) | bool }}"
+    # skip_copy_database: "{{ skip_copy_database_step | default(false) | bool }}"
+    # skip_adjust_resources: "{{ skip_adjust_resources_step | default(false) | bool }}"
+    # skip_start: "{{ skip_start_step | default(false) | bool }}"
+    # skip_cleanup: "{{ skip_cleanup_step | default(false) | bool }}"
+    # skip_permissions: "{{ skip_permissions_step | default(false) | bool }}"
 
-  pre_tasks:
+  # pre_tasks:
     # - name: Validate required parameters
     #   ansible.builtin.assert:
     #     that:
@@ -74,32 +74,32 @@
     #                      source_ns=manufacturo dest_ns=test \
     #                      customer=gov001-test"
 
-    - name: Display playbook information
-      ansible.builtin.debug:
-        msg: |
-          🚀 Self-Service Data Refresh Playbook
-          ====================================
+    # - name: Display playbook information
+    #   ansible.builtin.debug:
+    #     msg: |
+    #       🚀 Self-Service Data Refresh Playbook
+    #       ====================================
           
-          📊 Environment Configuration:
-          • Source: {{ source_environment }} ({{ source_ns }})
-          • Destination: {{ dest_environment }} ({{ dest_ns }})
-          • Cloud: {{ cloud | default('AzureUSGovernment') }}
-          • Customer: {{ customer }}
+    #       📊 Environment Configuration:
+    #       • Source: {{ source_environment }} ({{ source_ns }})
+    #       • Destination: {{ dest_environment }} ({{ dest_ns }})
+    #       • Cloud: {{ cloud | default('AzureUSGovernment') }}
+    #       • Customer: {{ customer }}
           
-          ⚙️ Operation Settings:
-          • Operation: {{ operation }}
-          • Dry Run: {{ dry_run }}
-          • Max Wait: {{ max_wait_minutes }} minutes
+    #       ⚙️ Operation Settings:
+    #       • Operation: {{ operation }}
+    #       • Dry Run: {{ dry_run }}
+    #       • Max Wait: {{ max_wait_minutes }} minutes
           
-          🎯 Step Control:
-          • Skip Restore: {{ skip_restore }}
-          • Skip Stop Environment: {{ skip_stop }}
-          • Skip Copy Attachments: {{ skip_copy_attachments }}
-          • Skip Copy Database: {{ skip_copy_database }}
-          • Skip Adjust Resources: {{ skip_adjust_resources }}
-          • Skip Start Environment: {{ skip_start }}
-          • Skip Cleanup: {{ skip_cleanup }}
-          • Skip Permissions: {{ skip_permissions }}
+    #       🎯 Step Control:
+    #       • Skip Restore: {{ skip_restore }}
+    #       • Skip Stop Environment: {{ skip_stop }}
+    #       • Skip Copy Attachments: {{ skip_copy_attachments }}
+    #       • Skip Copy Database: {{ skip_copy_database }}
+    #       • Skip Adjust Resources: {{ skip_adjust_resources }}
+    #       • Skip Start Environment: {{ skip_start }}
+    #       • Skip Cleanup: {{ skip_cleanup }}
+    #       • Skip Permissions: {{ skip_permissions }}
 
     # - name: Confirm operation in production
     #   ansible.builtin.pause:

@@ -9,6 +9,8 @@ cloud_environment: AzureUSGovernment
 default_source_namespace: manufacturo
 default_dest_namespace: test
 
+default_source_env: qa2 
+
 # Default Terraform Configuration
 default_terraform_env_path: public
 
@@ -60,3 +62,15 @@ environments:
     cluster_name: aks-mnfro-intd-dev-weu
     region: westeurope
     namespace: manufacturo
+
+terraform_path: public
+max_wait: 30
+source_env: qa2 
+dest_env: dev 
+source_sub_id: test-123 
+dest_sub_id: test-456
+source_ns: manufacturo 
+dest_ns: test 
+customer: qa2-services
+op: full
+dry_run_mode: true 

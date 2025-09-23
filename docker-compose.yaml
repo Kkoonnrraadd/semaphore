@@ -6,7 +6,12 @@ services:
       - "3000:3000"
     restart: unless-stopped
     volumes:
+      # Legacy Ansible (keep for backward compatibility during migration)
       - ./ansible-for-semaphore:/ansible:ro
+      # New PowerShell-only structure
+      - ./scripts:/scripts:ro
+      - ./config:/config:ro
+      - ./.semaphore:/semaphore:ro
       - ~/ws/terraform-infrastructure:/terraform
       # Mount a volume for persistent storage of repositories, logs, etc.
       - semaphore_data:/etc/semaphore

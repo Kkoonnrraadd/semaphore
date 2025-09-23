@@ -1,0 +1,166 @@
+{
+  "self_service_defaults": {
+    "source_namespace": "manufacturo",
+    "source": "gov001",
+    "destination_namespace": "test", 
+    "destination": "gov001",
+    "customer_alias": "gov001-test",
+    "customer_alias_to_remove": "gov001",
+    "cloud": "AzureUSGovernment",
+    "dry_run": false,
+    "max_wait_minutes": 40,
+    "restore_date_time": "2025-09-23 08:54:01",
+    "timezone": "UTC",
+    "auto_approve": false,
+    "log_file": "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+  },
+  "azure_config": {
+    "cloud_options": [
+      "AzureCloud",
+      "AzureUSGovernment"
+    ],
+    "default_cloud": "AzureUSGovernment",
+    "domain_mapping": {
+      "AzureCloud": "cloud",
+      "AzureUSGovernment": "us"
+    }
+  },
+  "timezone_options": [
+    "UTC",
+    "Europe/Warsaw", 
+    "America/New_York",
+    "America/Los_Angeles",
+    "Asia/Tokyo"
+  ],
+  "script_paths": {
+    "base_dir": "/scripts",
+    "common_dir": "/scripts/common",
+    "restore_script": "/scripts/restore/RestorePointInTime.ps1",
+    "stop_env_script": "/scripts/environment/StopEnvironment.ps1",
+    "copy_attachments_script": "/scripts/storage/CopyAttachments.ps1",
+    "copy_database_script": "/scripts/database/copy_database.ps1",
+    "cleanup_config_script": "/scripts/configuration/cleanup_environment_config.ps1",
+    "sql_configure_users_script": "/scripts/configuration/sql_configure_users.ps1",
+    "adjust_db_script": "/scripts/configuration/adjust_db.ps1",
+    "delete_replicas_script": "/scripts/replicas/delete_replicas.ps1",
+    "start_env_script": "/scripts/environment/StartEnvironment.ps1",
+    "delete_restored_db_script": "/scripts/database/delete_restored_db.ps1",
+    "connect_azure_script": "/scripts/common/Connect-Azure.ps1"
+  },
+  "validation_rules": {
+    "required_parameters": [
+      "source",
+      "destination"
+    ],
+    "parameter_validation": {
+      "source_destination_different": true,
+      "max_wait_minutes_range": {
+        "min": 1,
+        "max": 120,
+        "default": 40
+      }
+    }
+  },
+  "automation_settings": {
+    "log_levels": [
+      "INFO",
+      "WARN", 
+      "ERROR",
+      "SUCCESS"
+    ],
+    "exit_codes": {
+      "success": 0,
+      "general_error": 1,
+      "prerequisites_error": 2,
+      "authentication_error": 3,
+      "timeout_error": 4
+    },
+    "prerequisites_check": {
+      "azure_cli_required": true,
+      "kubectl_required": true,
+      "powershell_modules": [
+        "Az.Accounts",
+        "Az.Resources"
+      ]
+    }
+  },
+  "environment_variables": {
+    "azure_config_dir": "/home/semaphore/.azure",
+    "forwarded_env_vars": [
+      "AZURE_CLIENT_ID",
+      "AZURE_CLIENT_SECRET",
+      "AZURE_TENANT_ID", 
+      "AZURE_SUBSCRIPTION_ID",
+      "AZURE_USERNAME",
+      "AZURE_PASSWORD"
+    ]
+  },
+  "migration_steps": [
+    {
+      "step": 1,
+      "name": "Restore Point in Time",
+      "script": "restore/RestorePointInTime.ps1",
+      "description": "Restore databases to specified point in time"
+    },
+    {
+      "step": 2, 
+      "name": "Stop Environment",
+      "script": "environment/StopEnvironment.ps1",
+      "description": "Stop the destination environment"
+    },
+    {
+      "step": 3,
+      "name": "Copy Attachments", 
+      "script": "storage/CopyAttachments.ps1",
+      "description": "Copy file attachments between environments"
+    },
+    {
+      "step": 4,
+      "name": "Copy Database",
+      "script": "database/copy_database.ps1", 
+      "description": "Copy database from source to destination"
+    },
+    {
+      "step": 5,
+      "name": "Cleanup Environment Configuration",
+      "script": "configuration/cleanup_environment_config.ps1",
+      "description": "Clean up source environment configurations"
+    },
+    {
+      "step": 6,
+      "name": "Revert SQL Users",
+      "script": "configuration/sql_configure_users.ps1",
+      "description": "Revert source environment SQL users"
+    },
+    {
+      "step": 7,
+      "name": "Adjust Resources", 
+      "script": "configuration/adjust_db.ps1",
+      "description": "Adjust database resources and configurations"
+    },
+    {
+      "step": 8,
+      "name": "Delete Replicas",
+      "script": "replicas/delete_replicas.ps1",
+      "description": "Delete and recreate replica databases"
+    },
+    {
+      "step": 9,
+      "name": "Configure Users",
+      "script": "configuration/sql_configure_users.ps1",
+      "description": "Configure SQL users and permissions"
+    },
+    {
+      "step": 10,
+      "name": "Start Environment",
+      "script": "environment/StartEnvironment.ps1", 
+      "description": "Start the destination environment"
+    },
+    {
+      "step": 11,
+      "name": "Cleanup",
+      "script": "database/delete_restored_db.ps1",
+      "description": "Delete temporary restored databases"
+    }
+  ]
+}

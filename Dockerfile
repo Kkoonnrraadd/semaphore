@@ -98,6 +98,13 @@ RUN curl -sL -o packages-microsoft-prod.deb https://packages.microsoft.com/confi
     rm packages-microsoft-prod.deb && \
     ln -sf /usr/bin/pwsh /usr/bin/powershell
 
+# Install kubectl
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list && \
+    apt-get update && \
+    apt-get install -y kubectl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Install sqlcmd
 RUN curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
     apt-get update && \
@@ -149,6 +156,7 @@ ENV ANSIBLE_COLLECTIONS_PATHS=/usr/share/ansible/collections
 RUN az version
 RUN azcopy --version
 RUN terraform --version && terragrunt --version
+RUN kubectl version --client
 # RUN sqlcmd -?  # ?? This doesn't work but is visible in container...
 
 EXPOSE 3000

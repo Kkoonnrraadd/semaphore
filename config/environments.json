@@ -1,0 +1,29 @@
+{
+  "environments": {
+    "gov001": {
+      "subscription_id": "7f5007f9-c0fc-438d-a15f-71701b1990f7",
+      "resource_group": "rg-mnfrotest-prod-gov001-virg",
+      "server": "srv-mnfrotest-prod-gov001-virg",
+      "cluster": "aks-mnfrotest-prod-gov001-virg",
+      "location": "usgovvirginia",
+      "cloud": "AzureUSGovernment"
+    },
+    "gov002": {
+      "subscription_id": "e02ef4b1-a554-4934-89ef-3db39ce3f374",
+      "resource_group": "rg-mnfrotest-prod-gov002-virg", 
+      "server": "srv-mnfrotest-prod-gov002-virg",
+      "cluster": "aks-mnfrotest-prod-gov002-virg",
+      "location": "usgovvirginia",
+      "cloud": "AzureUSGovernment"
+    }
+  },
+  "namespaces": {
+    "manufacturo": {
+      "description": "Main manufacturing namespace",
+      "default": true
+    },
+    "test": {
+      "description": "Test environment namespace"
+    }
+  }
+}

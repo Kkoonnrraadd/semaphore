@@ -1,0 +1,10 @@
+{
+  "semaphore_url": "http://localhost:3000",
+  "project_id": "1",
+  "template_directory": ".semaphore/templates",
+  "repository_settings": {
+    "repository_id": 1,
+    "inventory_id": 1,
+    "environment_id": 4
+  }
+}

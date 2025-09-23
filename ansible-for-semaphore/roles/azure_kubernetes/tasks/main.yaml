@@ -1,4 +1,0 @@
----
-# tasks/main.yml
-- name: Include operation-specific tasks
-  include_tasks: "{{ aks_action }}.yaml"

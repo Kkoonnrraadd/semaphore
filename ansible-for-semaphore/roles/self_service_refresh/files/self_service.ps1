@@ -51,7 +51,7 @@
 
 param (
     [string]$SourceNamespace="manufacturo",
-    [string]$Source="gov002",
+    [string]$Source="gov001",
     [string]$DestinationNamespace="test",
     [string]$Destination="gov001",
     [AllowEmptyString()][string]$CustomerAlias="gov001-test",
@@ -61,12 +61,22 @@ param (
     [switch]$DryRun,
     [int]$MaxWaitMinutes = 40,
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
-    [string]$RestoreDateTime = "",  # Format: "yyyy-MM-dd HH:mm:ss" - empty uses 15 min ago
+    [string]$RestoreDateTime = "2025-09-23 08:54:01",  # Format: "yyyy-MM-dd HH:mm:ss" - empty uses 15 min ago
     [ValidateSet("UTC", "Europe/Warsaw", "America/New_York", "America/Los_Angeles", "Asia/Tokyo", "")]
-    [string]$Timezone = "",         # Empty uses system timezone
+    [string]$Timezone = "UTC",         # Empty uses system timezone
     [switch]$AutoApprove = $false,  # Skip ALL user confirmations for automation
-    [string]$LogFile = ""           # Custom log file path for automation
+    [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
+
+# 📁 HELPER FUNCTION: Get absolute script path
+function Get-ScriptPath {
+    param([string]$RelativePath)
+    if ($global:ScriptBaseDir) {
+        return Join-Path $global:ScriptBaseDir $RelativePath
+    } else {
+        return Join-Path "/ansible/roles/self_service_refresh/files" $RelativePath
+    }
+}
 
 # 🛡️ AUTOMATION-READY FUNCTIONS
 function Write-AutomationLog {
@@ -89,7 +99,17 @@ function Write-AutomationLog {
     
     # Write to log file if specified
     if (-not [string]::IsNullOrEmpty($LogFile)) {
-        Add-Content -Path $LogFile -Value $logMessage -Force
+        try {
+            # Ensure the directory exists
+            $logDir = Split-Path -Parent $LogFile
+            if (-not (Test-Path $logDir)) {
+                New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+            }
+            Add-Content -Path $LogFile -Value $logMessage -Force
+        } catch {
+            # If logging fails, just continue - don't break the script
+            Write-Host "Warning: Could not write to log file: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
 }
 
@@ -108,25 +128,30 @@ function Test-Prerequisites {
         $errors += "❌ Azure CLI not installed or not in PATH"
     }
     
-    # Check Azure CLI authentication
+    # Check Azure CLI authentication (informational - will be handled in main flow)
     try {
         $account = az account show 2>$null | ConvertFrom-Json
-        if (-not $account) { throw "Not authenticated" }
-        Write-AutomationLog "✅ Azure CLI authenticated as: $($account.user.name)" "SUCCESS"
+        if (-not $account) { 
+            Write-AutomationLog "ℹ️ Azure CLI not currently authenticated - will authenticate during execution" "INFO"
+        } else {
+            Write-AutomationLog "✅ Azure CLI pre-authenticated as: $($account.user.name)" "SUCCESS"
+        }
     } catch {
-        $errors += "❌ Azure CLI not authenticated. Run 'az login' first"
+        Write-AutomationLog "ℹ️ Azure CLI authentication will be handled during script execution" "INFO"
     }
     
-    # Check PowerShell modules (only if not dry run)
+    # Check PowerShell modules (informational - using Azure CLI instead)
     if (-not $DryRun) {
         $requiredModules = @("Az.Accounts", "Az.Resources")
         foreach ($module in $requiredModules) {
             if (-not (Get-Module -ListAvailable -Name $module)) {
-                $errors += "❌ PowerShell module '$module' not installed"
+                Write-AutomationLog "ℹ️ PowerShell module '$module' not installed - using Azure CLI instead" "INFO"
             } else {
                 Write-AutomationLog "✅ PowerShell module '$module' available" "SUCCESS"
             }
         }
+    } else {
+        Write-AutomationLog "ℹ️ PowerShell module check skipped in dry-run mode - using Azure CLI" "INFO"
     }
     
     # Check kubectl (for environment management)
@@ -188,19 +213,58 @@ function Perform-Migration {
         Write-AutomationLog "🔍 Skipping prerequisites check in dry-run mode" "INFO"
     }
 
-    Write-Host "Setting Azure CLI to use cloud: $Cloud" -ForegroundColor Cyan
-    az cloud set --name $Cloud
-    # Set domain based on cloud environment
+    # 🔐 Azure Authentication using Connect-Azure script
+    Write-Host "🔐 Authenticating to Azure..." -ForegroundColor Cyan
+    
+    # Get the current script's directory for all script paths
+    $currentScript = $MyInvocation.MyCommand.Path
+    if ($currentScript) {
+        $global:ScriptBaseDir = Split-Path -Parent $currentScript
+        Write-Host "🔍 Script base directory: $global:ScriptBaseDir" -ForegroundColor Gray
+        $commonDir = Join-Path $global:ScriptBaseDir "common"
+        $authScript = Join-Path $commonDir "Connect-Azure.ps1"
+        Write-Host "🔍 Looking for auth script at: $authScript" -ForegroundColor Gray
+    } else {
+        # Fallback: try relative to current location
+        $global:ScriptBaseDir = "/ansible/roles/self_service_refresh/files"
+        $authScript = "/ansible/roles/self_service_refresh/files/common/Connect-Azure.ps1"
+        Write-Host "🔍 Using fallback paths - Base: $global:ScriptBaseDir, Auth: $authScript" -ForegroundColor Gray
+    }
+    
+    if (Test-Path $authScript) {
+        Write-Host "📝 Using authentication script: $authScript" -ForegroundColor Gray
+        $authResult = & $authScript -Cloud $Cloud
+        if (-not $authResult) {
+            Write-AutomationLog "❌ FATAL ERROR: Failed to authenticate to Azure" "ERROR"
+            Write-Host "❌ Azure authentication failed. Cannot proceed." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "✅ Azure authentication successful" -ForegroundColor Green
+    } else {
+        Write-AutomationLog "⚠️ Authentication script not found at $authScript, attempting manual Azure CLI setup" "WARN"
+        Write-Host "Setting Azure CLI to use cloud: $Cloud" -ForegroundColor Cyan
+        az cloud set --name $Cloud
+        
+        # Check if already authenticated
+        $accountCheck = az account show 2>$null
+        if (-not $accountCheck) {
+            Write-AutomationLog "❌ FATAL ERROR: Not authenticated to Azure and no authentication script found" "ERROR"
+            Write-Host "❌ Please run 'az login' or ensure Connect-Azure.ps1 is available" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "✅ Using existing Azure CLI authentication" -ForegroundColor Green
+    }
+    
+    # Set domain based on cloud environment for downstream scripts
     switch ($Cloud) {
         'AzureCloud' {
-            $accessToken = az account get-access-token --query accessToken -o tsv
             $Domain = 'cloud'
-            Connect-AzAccount -Environment AzureCloud -AccessToken $accessToken -AccountId (az account show --query user.name -o tsv)
         }
         'AzureUSGovernment' {
-            $accessToken = az account get-access-token --query accessToken -o tsv
             $Domain = 'us'
-            Connect-AzAccount -Environment AzureUSGovernment -AccessToken $accessToken -AccountId (az account show --query user.name -o tsv)
+        }
+        default {
+            $Domain = 'cloud'
         }
     }
 
@@ -331,36 +395,44 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Source: $Source $SourceNamespace" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
-        & "./0_restore_point_in_time/RestorePointInTime.ps1" -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $timezone -DryRun:$DryRun  -MaxWaitMinutes $MaxWaitMinutes
+        $scriptPath = Get-ScriptPath "0_restore_point_in_time/RestorePointInTime.ps1"
+        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $timezone -DryRun:$DryRun  -MaxWaitMinutes $MaxWaitMinutes
     } else {
-        & "./0_restore_point_in_time/RestorePointInTime.ps1" -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $timezone -DryRun:$DryRun  -MaxWaitMinutes $MaxWaitMinutes
+        $scriptPath = Get-ScriptPath "0_restore_point_in_time/RestorePointInTime.ps1"
+        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $timezone -DryRun:$DryRun  -MaxWaitMinutes $MaxWaitMinutes
     }
     
     # Step 2: Stop Environment
     Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
-        & "./1_stop_environment/StopEnvironment.ps1" -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "1_stop_environment/StopEnvironment.ps1"
+        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
     } else {
-        & "./1_stop_environment/StopEnvironment.ps1" -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
+        $scriptPath = Get-ScriptPath "1_stop_environment/StopEnvironment.ps1"
+        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
     }
     
     # Step 3: Copy Attachments
     Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
-        & "./2_copy_attachments/CopyAttachments.ps1" -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "2_copy_attachments/CopyAttachments.ps1"
+        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./2_copy_attachments/CopyAttachments.ps1" -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        $scriptPath = Get-ScriptPath "2_copy_attachments/CopyAttachments.ps1"
+        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 4: Copy Database
     Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy database" -ForegroundColor Yellow
-        & "./2_copy_database/copy_database.ps1" -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "2_copy_database/copy_database.ps1"
+        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./2_copy_database/copy_database.ps1" -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        $scriptPath = Get-ScriptPath "2_copy_database/copy_database.ps1"
+        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 5: Cleanup Environment Configuration
@@ -376,9 +448,11 @@ function Invoke-Migration {
         } else {
             Write-Host "🔍 DRY RUN: No customer alias specified for removal" -ForegroundColor Gray
         }
-        & "./3_adjust_resources/cleanup_environment_config.ps1" -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "3_adjust_resources/cleanup_environment_config.ps1"
+        & $scriptPath -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./3_adjust_resources/cleanup_environment_config.ps1" -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
+        $scriptPath = Get-ScriptPath "3_adjust_resources/cleanup_environment_config.ps1"
+        & $scriptPath -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
     }
     
     # Step 6: Revert SQL Users
@@ -387,27 +461,33 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would revert source environment SQL users" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
-        & "./3_adjust_resources/sql_configure_users.ps1" -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "3_adjust_resources/sql_configure_users.ps1"
+        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
     } else {
-        & "./3_adjust_resources/sql_configure_users.ps1" -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure
+        $scriptPath = Get-ScriptPath "3_adjust_resources/sql_configure_users.ps1"
+        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure
     }
     
     # Step 7: Adjust Resources
     Write-Host "`n🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
-        & "./3_adjust_resources/adjust_db.ps1" -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "3_adjust_resources/adjust_db.ps1"
+        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./3_adjust_resources/adjust_db.ps1" -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace 
+        $scriptPath = Get-ScriptPath "3_adjust_resources/adjust_db.ps1"
+        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 8: Delete Replicas
     Write-Host "`n🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would delete and recreate replicas" -ForegroundColor Yellow
-        & "./7_delete_resources/delete_replicas.ps1" -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "7_delete_resources/delete_replicas.ps1"
+        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./7_delete_resources/delete_replicas.ps1" -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        $scriptPath = Get-ScriptPath "7_delete_resources/delete_replicas.ps1"
+        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 9: Configure Users
@@ -419,9 +499,11 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would configure user permissions and roles" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray
-        & "./3_adjust_resources/sql_configure_users.ps1" -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
+        $scriptPath = Get-ScriptPath "3_adjust_resources/sql_configure_users.ps1"
+        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
     } else {
-        & "./3_adjust_resources/sql_configure_users.ps1" -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
+        $scriptPath = Get-ScriptPath "3_adjust_resources/sql_configure_users.ps1"
+        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
     }
     
     # Step 10: Start Environment
@@ -434,9 +516,11 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would enable Application Insights web tests" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would enable backend health alerts" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would restore monitoring and alerting" -ForegroundColor Gray
-        & "./6_start_environment/StartEnvironment.ps1" -destination $Destination -destinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "6_start_environment/StartEnvironment.ps1"
+        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
-        & "./6_start_environment/StartEnvironment.ps1" -destination $Destination -destinationNamespace $DestinationNamespace
+        $scriptPath = Get-ScriptPath "6_start_environment/StartEnvironment.ps1"
+        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace
     }
     
     # Step 11: Cleanup
@@ -447,9 +531,11 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would delete databases with '-restored' suffix" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would clean up temporary restored databases" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would free up storage space" -ForegroundColor Gray
-        & "./7_delete_resources/delete_restored_db.ps1" -source $Source -DryRun:($DryRun -eq $true)
+        $scriptPath = Get-ScriptPath "7_delete_resources/delete_restored_db.ps1"
+        & $scriptPath -source $Source -DryRun:($DryRun -eq $true)
     } else {
-        & "./7_delete_resources/delete_restored_db.ps1" -source $Source 
+        $scriptPath = Get-ScriptPath "7_delete_resources/delete_restored_db.ps1"
+        & $scriptPath -source $Source 
     }
     
     # Final summary for dry run mode
@@ -483,7 +569,6 @@ function Invoke-Migration {
 Write-AutomationLog "🚀 Starting Self-Service Data Refresh" "INFO"
 Write-AutomationLog "📋 Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
 Write-AutomationLog "☁️  Cloud: $Cloud | AutoApprove: $AutoApprove | DryRun: $DryRun" "INFO"
-
 if (-not [string]::IsNullOrEmpty($LogFile)) {
     Write-AutomationLog "📝 Logging to file: $LogFile" "INFO"
 }

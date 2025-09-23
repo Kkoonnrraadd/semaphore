@@ -95,7 +95,8 @@ RUN curl -sL -o packages-microsoft-prod.deb https://packages.microsoft.com/confi
     dpkg -i packages-microsoft-prod.deb && \
     apt-get update && \
     apt-get install -y powershell && \
-    rm packages-microsoft-prod.deb
+    rm packages-microsoft-prod.deb && \
+    ln -sf /usr/bin/pwsh /usr/bin/powershell
 
 # Install sqlcmd
 RUN curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
@@ -128,6 +129,12 @@ RUN rm -rf /root/.ansible \
 
 ENV PATH="/opt/ansible_venv/bin:/opt/mssql-tools18/bin:$PATH"
 
+# Install PowerShell modules as root before switching to semaphore user
+RUN pwsh -Command "Install-Module -Name SqlServer -Scope AllUsers -Force -AllowClobber"
+RUN pwsh -Command "Install-Module -Name Az.Account -Scope AllUsers -Force -AllowClobber"
+RUN pwsh -Command "Install-Module -Name Az.Resources -Scope AllUsers -Force -AllowClobber"
+RUN pwsh -Command "Install-Module -Name Az.Sql -Scope AllUsers -Force -AllowClobber"
+
 USER semaphore
 RUN rm -rf ~/.ansible
 
@@ -148,10 +155,6 @@ EXPOSE 3000
 
 CMD ["semaphore", "server", "--config", "/etc/semaphore/config.json"]
 
-# TODO: install these powershell deps
-# Install-Module -Name SqlServer -Scope AllUsers -Force
-# Install-Module -Name Az.Account -Scope AllUsers -Force
-
-# One time setup
-# Connect-AzAccount -Environment AzureCloud (AzureGov, etc)
+# Note: Azure authentication setup will be done at runtime:
+# Connect-AzAccount -Environment AzureUSGovernment
 # Enable-AzContextAutoSave -Scope CurrentUser

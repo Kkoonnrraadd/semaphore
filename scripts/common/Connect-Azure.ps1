@@ -28,27 +28,27 @@ try {
 if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID) {
     Write-Host "🔑 Using Service Principal authentication..." -ForegroundColor Yellow
     
-
-}
-
-try {
-    $result = az login --service-principal --username "be10b3cb-f927-4c6d-a064-5712db6d55be" --password ".fdv.N1.B6NnyT4cCYi1AHE1aP538-.-Bg" --tenant "59f17e70-6a6e-4eb9-8a3a-3d89ee41d0b4" --output json 2>&1
-        
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-        
-        # Set default subscription if provided
-        if ($env:AZURE_SUBSCRIPTION_ID) {
-            az account set --subscription $env:AZURE_SUBSCRIPTION_ID
-            Write-Host "📋 Set default subscription: $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Green
+    try {
+        $result = az login --service-principal --username $env:AZURE_CLIENT_ID --password $env:AZURE_CLIENT_SECRET --tenant $env:AZURE_TENANT_ID --output json 2>&1
+            
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
+            
+            # Set default subscription if provided
+            if ($env:AZURE_SUBSCRIPTION_ID) {
+                az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+                Write-Host "📋 Set default subscription: $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Green
+            }
+            
+            return $true
+        } else {
+            Write-Host "❌ Service Principal authentication failed: $result" -ForegroundColor Red
         }
-        
-        return $true
-    } else {
-        Write-Host "❌ Service Principal authentication failed: $result" -ForegroundColor Red
+    } catch {
+        Write-Host "❌ Service Principal authentication error: $($_.Exception.Message)" -ForegroundColor Red
     }
-} catch {
-    Write-Host "❌ Service Principal authentication error: $($_.Exception.Message)" -ForegroundColor Red
+} else {
+    Write-Host "⚠️ Service Principal credentials not found in environment variables" -ForegroundColor Yellow
 }
 
 # No authentication method available

@@ -126,8 +126,10 @@ RUN chown -R semaphore:semaphore /var/lib/semaphore /etc/semaphore /opt/semaphor
 
 RUN mkdir -p /ansible && chown -R semaphore:semaphore /ansible
 RUN mkdir -p /home/semaphore/.azure && chown -R semaphore:semaphore /home/semaphore/.azure
+RUN mkdir -p /scripts && chown -R semaphore:semaphore /scripts
 
 COPY config.json /etc/semaphore/config.json
+COPY gov001_config_defaults.json /scripts/gov001_config_defaults.json
 
 RUN rm -rf /root/.ansible \
     /home/semaphore/.ansible \

@@ -11,8 +11,9 @@ Write-Host "`n=========================" -ForegroundColor Cyan
 Write-Host " Restore Point In Time" -ForegroundColor Cyan
 Write-Host "===========================`n" -ForegroundColor Cyan
 
-$source = $source.ToLower()
-$SourceNamespace = $SourceNamespace.ToLower()
+# Note: This script receives clean parameters from self_service.ps1
+# All configuration loading and parameter sanitization is handled by the caller
+Write-Host "📋 Received parameters from self_service.ps1" -ForegroundColor Green
 
 $graph_query = "
   resources
@@ -159,6 +160,7 @@ $restored_dbs = $databases_to_restore | ForEach-Object -ThrottleLimit 10 -Parall
 
   Write-Host "`n⏳ Waiting for databases to restore..." -ForegroundColor Cyan
   Write-Host "This may take several minutes. Progress will be shown below:" -ForegroundColor Gray
+  Write-Host "Max wait time: $MaxWaitMinutes minutes per database" -ForegroundColor Gray
   Write-Host ""
 
 $results = $restored_dbs | ForEach-Object -ThrottleLimit 10 -Parallel {
@@ -183,25 +185,49 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit 10 -Parallel {
       return @{ db = $db_name; status = "failed"; elapsed = $max_wait_minutes }
     }
     
+    # Quick Azure CLI check first (faster than SQL)
     try {
-      $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$source_fqdn" -Query "SELECT state_desc FROM sys.databases WHERE name = '$db_name'" -ConnectionTimeout 15 -QueryTimeout 30 -ErrorAction SilentlyContinue
-      if ($result.state_desc -eq "ONLINE") {
-          Write-Host "✅ $db_name restored successfully (${elapsed_minutes}min)" -ForegroundColor Green
+      $az_result = az sql db show --name $db_name --resource-group $source_rg --server $source_server --subscription $source_subscription --query "status" --output tsv 2>$null
+      if ($az_result -eq "Online") {
+        Write-Host "✅ $db_name restored successfully (${elapsed_minutes}min) - detected via Azure CLI" -ForegroundColor Green
         return @{ db = $db_name; status = "restored"; elapsed = $elapsed_minutes }
-      } else {
-        # Show progress every 2 minutes
-        if ($i % 4 -eq 0) {
-          Write-Host "⏳ $db_name still restoring... (${elapsed_minutes}min elapsed)" -ForegroundColor Yellow
-        }
-        Start-Sleep -Seconds 30
       }
     } catch {
-      # Show progress every 2 minutes even if query fails
-      if ($i % 4 -eq 0) {
-        Write-Host "⏳ $db_name still restoring... (${elapsed_minutes}min elapsed)" -ForegroundColor Yellow
-      }
-      Start-Sleep -Seconds 30
+      # Azure CLI check failed, continue with SQL check
     }
+    
+    # Try SQL query first
+    $sql_success = $false
+    try {
+      $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$source_fqdn" -Query "SELECT state_desc FROM sys.databases WHERE name = '$db_name'" -ConnectionTimeout 30 -QueryTimeout 60 -ErrorAction SilentlyContinue
+      if ($result -and $result.state_desc -eq "ONLINE") {
+          Write-Host "✅ $db_name restored successfully (${elapsed_minutes}min)" -ForegroundColor Green
+        return @{ db = $db_name; status = "restored"; elapsed = $elapsed_minutes }
+      }
+      $sql_success = $true
+    } catch {
+      # SQL connection failed, try Azure CLI as fallback
+    }
+    
+    # Fallback: Use Azure CLI to check database status
+    if (-not $sql_success) {
+      try {
+        $az_result = az sql db show --name $db_name --resource-group $source_rg --server $source_server --subscription $source_subscription --query "status" --output tsv 2>$null
+        if ($az_result -eq "Online") {
+          Write-Host "✅ $db_name restored successfully (${elapsed_minutes}min) - detected via Azure CLI" -ForegroundColor Green
+          return @{ db = $db_name; status = "restored"; elapsed = $elapsed_minutes }
+        }
+      } catch {
+        # Azure CLI also failed
+      }
+    }
+    
+    # Show progress every 2 minutes
+    if ($i % 4 -eq 0) {
+      $state_info = if ($sql_success -and $result) { "state: $($result.state_desc)" } else { "using Azure CLI fallback" }
+      Write-Host "⏳ $db_name still restoring... (${elapsed_minutes}min elapsed, $state_info)" -ForegroundColor Yellow
+    }
+    Start-Sleep -Seconds 30
   }
   
   # If we reach here, we've exhausted all iterations without success

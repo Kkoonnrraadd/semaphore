@@ -129,7 +129,7 @@ RUN mkdir -p /home/semaphore/.azure && chown -R semaphore:semaphore /home/semaph
 RUN mkdir -p /scripts && chown -R semaphore:semaphore /scripts
 
 COPY config.json /etc/semaphore/config.json
-COPY gov001_config_defaults.json /scripts/gov001_config_defaults.json
+COPY self_service_defaults.json /scripts/self_service_defaults.json
 
 RUN rm -rf /root/.ansible \
     /home/semaphore/.ansible \

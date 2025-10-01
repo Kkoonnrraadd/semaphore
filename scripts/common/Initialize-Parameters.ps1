@@ -66,8 +66,7 @@ function Initialize-Parameters {
         "Timezone",
         "Cloud",
         "MaxWaitMinutes",
-        "DryRun",
-        "AutoApprove"
+        "DryRun"
     )
     
     # Process each parameter

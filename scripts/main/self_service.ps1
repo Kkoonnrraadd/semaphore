@@ -72,10 +72,10 @@ Write-Host "🔧 Loading configuration and sanitizing parameters..." -Foreground
 # Handle both local and containerized environments
 if ($PSScriptRoot -like "/scripts/*") {
     # Running in container - use absolute path
-    $configPath = "/scripts/gov001_config_defaults.json"
+    $configPath = "/scripts/self_service_defaults.json"
 } else {
     # Running locally - use relative path
-    $configPath = Join-Path $PSScriptRoot "../../gov001_config_defaults.json"
+    $configPath = Join-Path $PSScriptRoot "../../self_service_defaults.json"
 }
 if (Test-Path $configPath) {
     try {

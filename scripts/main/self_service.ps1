@@ -221,8 +221,8 @@ function Test-Prerequisites {
     
     if ($errors.Count -gt 0) {
         Write-AutomationLog "❌ Prerequisites validation failed:" "ERROR"
-        foreach ($error in $errors) {
-            Write-AutomationLog $error "ERROR"
+        foreach ($err in $errors) {
+            Write-AutomationLog $err "ERROR"
         }
         throw "Prerequisites not met. Please fix the above issues before running."
     }

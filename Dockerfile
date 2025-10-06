@@ -5,6 +5,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 USER root
 
+# Install the ca-certificate package
+RUN apt-get update && apt-get install -y ca-certificates
+# Copy the CA certificate from the build context to the container
+COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
+# Update the CA certificates in the container
+RUN update-ca-certificates
+
 RUN apt update && apt install -y \
     python3 \
     python3-pip \
@@ -56,6 +63,10 @@ RUN apt update && apt install -y \
     openssh-client \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
+
+# Copy and install the CA certificate in the final stage
+# COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
+# RUN update-ca-certificates
 
 ARG SEMAPHORE_VERSION=2.14.10
 RUN curl -L https://github.com/ansible-semaphore/semaphore/releases/download/v${SEMAPHORE_VERSION}/semaphore_${SEMAPHORE_VERSION}_linux_amd64.deb -o /tmp/semaphore.deb && \

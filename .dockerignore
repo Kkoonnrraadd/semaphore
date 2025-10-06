@@ -1,0 +1,23 @@
+# Git files
+.git
+.gitignore
+
+# Docker files
+docker-compose.yaml
+Dockerfile
+
+# Documentation
+docs/
+README.md
+
+# IDE
+.vscode/
+
+# Test files
+test-token.sh
+
+# Local development files
+.semaphore/
+
+# Any local Azure credentials (if accidentally placed here)
+.azure/

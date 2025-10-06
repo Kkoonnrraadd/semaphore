@@ -2,7 +2,7 @@
 # Test Semaphore API with your token
 
 SEMAPHORE_URL="http://localhost:3000"
-API_TOKEN="pwdjkq1cz3yea0apfjv-_nh-pdluwydeqdmmsxr1oxw="
+API_TOKEN="="
 
 echo "🚀 Testing Semaphore API with your token"
 echo "========================================"

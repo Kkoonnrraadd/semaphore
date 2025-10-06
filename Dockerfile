@@ -78,17 +78,17 @@ RUN cp /tmp/azcopy_linux_amd64_*/azcopy /usr/local/bin/ && \
     chmod +x /usr/local/bin/azcopy && \
     rm -rf /tmp/azcopy_linux_amd64_*
 
-# Install Terraform
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
-    | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
-    > /etc/apt/sources.list.d/hashicorp.list
-RUN apt-get update && apt-get install -y terraform
+# # Install Terraform
+# RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
+#     | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+#     echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+#     > /etc/apt/sources.list.d/hashicorp.list
+# RUN apt-get update && apt-get install -y terraform
 
-# Install Terragrunt
-ARG TERRAGRUNT_VERSION=0.79.0
-RUN curl -L -o /usr/local/bin/terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64 && \
-    chmod +x /usr/local/bin/terragrunt
+# # Install Terragrunt
+# ARG TERRAGRUNT_VERSION=0.79.0
+# RUN curl -L -o /usr/local/bin/terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64 && \
+#     chmod +x /usr/local/bin/terragrunt
 
 # Install Powershell
 RUN curl -sL -o packages-microsoft-prod.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb && \
@@ -127,9 +127,13 @@ RUN chown -R semaphore:semaphore /var/lib/semaphore /etc/semaphore /opt/semaphor
 RUN mkdir -p /ansible && chown -R semaphore:semaphore /ansible
 RUN mkdir -p /home/semaphore/.azure && chown -R semaphore:semaphore /home/semaphore/.azure
 RUN mkdir -p /scripts && chown -R semaphore:semaphore /scripts
+RUN mkdir -p /config && chown -R semaphore:semaphore /config
 
+# Copy scripts and configuration files into the image
+COPY --chown=semaphore:semaphore ./scripts /scripts
+COPY --chown=semaphore:semaphore ./config /config
+COPY --chown=semaphore:semaphore ./ansible-for-semaphore /ansible
 COPY config.json /etc/semaphore/config.json
-COPY self_service_defaults.json /scripts/self_service_defaults.json
 
 RUN rm -rf /root/.ansible \
     /home/semaphore/.ansible \

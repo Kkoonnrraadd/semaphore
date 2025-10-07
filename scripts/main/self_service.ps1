@@ -69,15 +69,23 @@ param (
 Write-Host "🔧 Loading configuration and sanitizing parameters..." -ForegroundColor Yellow
 
 # Load configuration from JSON file
-# Handle both local and containerized environments
-if ($PSScriptRoot -like "/scripts/*") {
-    # Running in container - use absolute path
-    $configPath = "/scripts/self_service_defaults.json"
-} else {
-    # Running locally - use relative path
-    $configPath = Join-Path $PSScriptRoot "../../self_service_defaults.json"
+# Resolve relative to the scripts directory (parent of 'main') with sensible fallbacks
+$configPathCandidates = @()
+if ($PSScriptRoot) {
+    $scriptsDir = Split-Path $PSScriptRoot -Parent            # .../scripts
+    $configPathCandidates += (Join-Path $scriptsDir "self_service_defaults.json")
+    $repoRoot = Split-Path $scriptsDir -Parent                # repo root (fallback)
+    $configPathCandidates += (Join-Path $repoRoot "self_service_defaults.json")
 }
-if (Test-Path $configPath) {
+# Container-style absolute fallback
+$configPathCandidates += "/scripts/self_service_defaults.json"
+
+$configPath = $null
+foreach ($candidate in $configPathCandidates) {
+    if ($candidate -and (Test-Path $candidate)) { $configPath = $candidate; break }
+}
+
+if ($configPath) {
     try {
         $config = Get-Content $configPath -Raw | ConvertFrom-Json
         Write-Host "✅ Configuration loaded from: $configPath" -ForegroundColor Green
@@ -86,7 +94,8 @@ if (Test-Path $configPath) {
         $config = @{ self_service_defaults = @{} }
     }
 } else {
-    Write-Host "⚠️ Configuration file not found: $configPath" -ForegroundColor Yellow
+    Write-Host "⚠️ Configuration file not found in any of these locations:" -ForegroundColor Yellow
+    foreach ($p in $configPathCandidates) { Write-Host " - $p" -ForegroundColor Yellow }
     $config = @{ self_service_defaults = @{} }
 }
 

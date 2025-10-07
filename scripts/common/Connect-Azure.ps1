@@ -53,7 +53,6 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
 
 # No authentication method available
 Write-Host "❌ No Azure credentials found in environment variables" -ForegroundColor Red
-Write-Host "   Please set up Azure credentials in Semaphore Key Store:" -ForegroundColor Yellow
 Write-Host "   - Service Principal: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID" -ForegroundColor Yellow
 Write-Host "   - Optional: AZURE_SUBSCRIPTION_ID for default subscription" -ForegroundColor Yellow
 

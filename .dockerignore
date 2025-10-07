@@ -21,3 +21,4 @@ test-token.sh
 
 # Any local Azure credentials (if accidentally placed here)
 .azure/
+

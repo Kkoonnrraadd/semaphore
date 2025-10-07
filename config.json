@@ -2,14 +2,7 @@
   "dialect": "postgres",
   "tmp_path": "/tmp/semaphore",
   "env_vars": {
-    "AZURE_CONFIG_DIR": "/home/semaphore/.azure"
-  },
-  "forwarded_env_vars": [
-    "AZURE_CLIENT_ID",
-    "AZURE_CLIENT_SECRET", 
-    "AZURE_TENANT_ID",
-    "AZURE_SUBSCRIPTION_ID",
-    "AZURE_USERNAME",
-    "AZURE_PASSWORD"
-  ]
+    "AZURE_CONFIG_DIR": "/home/semaphore/.azure",
+    "PATH": "/opt/mssql-tools18/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  }
 }

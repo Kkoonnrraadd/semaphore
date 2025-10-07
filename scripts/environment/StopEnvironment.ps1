@@ -5,6 +5,44 @@
     [switch]$DryRun
 )
 
+# Setup Azure AKS credentials using discovered cluster information
+$source_lower = (Get-Culture).TextInfo.ToLower($source)
+
+$graph_query = "
+  resources
+  | where type =~ 'microsoft.containerservice/managedclusters'
+  | where tags.Environment == '$source_lower' and tags.Type == 'Primary'
+  | project name, resourceGroup, subscriptionId
+"
+$recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+$source_subscription = $recources[0].subscriptionId
+$source_aks = $recources[0].name
+$source_rg = $recources[0].resourceGroup
+
+Write-Host "🔧 Setting up Azure AKS credentials..." -ForegroundColor Cyan
+Write-Host "   Cluster: $source_aks" -ForegroundColor Gray
+Write-Host "   Resource Group: $source_rg" -ForegroundColor Gray
+Write-Host "   Subscription: $source_subscription" -ForegroundColor Gray
+
+try {
+    # Build az aks get-credentials command with discovered parameters
+    $aks_cmd = "az aks get-credentials --resource-group $source_rg --name $source_aks --subscription $source_subscription --overwrite-existing"
+    
+    Write-Host "   Executing: $aks_cmd" -ForegroundColor Gray
+    Invoke-Expression $aks_cmd
+    
+    # Verify the context was set successfully
+    $current_context = kubectl config current-context 2>$null
+    if ($current_context -eq $source_aks) {
+        Write-Host "✅ Kubernetes context set to: $current_context" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Warning: Kubernetes context may not be set correctly. Current context: $current_context" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "❌ Error setting up AKS credentials: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "   Continuing with environment shutdown operations..." -ForegroundColor Yellow
+}
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Azure Environment Shutdown" -ForegroundColor Yellow
     Write-Host "=============================================" -ForegroundColor Yellow
@@ -80,19 +118,6 @@ function Set-ClusterContext {
     kubectl config use-context $ClusterContext | Out-Null
     Write-Host "Cluster context set to $ClusterContext"
 }
-
-$source_lower = (Get-Culture).TextInfo.ToLower($source)
-
-$graph_query = "
-  resources
-  | where type =~ 'microsoft.containerservice/managedclusters'
-  | where tags.Environment == '$source_lower' and tags.Type == 'Primary'
-  | project name, resourceGroup, subscriptionId
-"
-$recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
-$source_subscription = $recources[0].subscriptionId
-$source_aks = $recources[0].name
-$source_rg = $recources[0].resourceGroup
 
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would disable Application Insights web tests..." -ForegroundColor Yellow

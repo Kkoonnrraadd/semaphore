@@ -206,18 +206,19 @@ function Test-Prerequisites {
         Write-AutomationLog "ℹ️ Azure CLI authentication will be handled during script execution" "INFO"
     }
     
-    # Check PowerShell modules (informational - using Azure CLI instead)
+    # Check PowerShell modules (SqlServer required for Invoke-SqlCmd)
     if (-not $DryRun) {
-        $requiredModules = @("Az.Accounts", "Az.Resources")
+        $requiredModules = @("SqlServer")
         foreach ($module in $requiredModules) {
             if (-not (Get-Module -ListAvailable -Name $module)) {
-                Write-AutomationLog "ℹ️ PowerShell module '$module' not installed - using Azure CLI instead" "INFO"
+                Write-AutomationLog "❌ PowerShell module '$module' not installed - required for SQL operations" "ERROR"
+                $errors += "Missing required PowerShell module: $module"
             } else {
                 Write-AutomationLog "✅ PowerShell module '$module' available" "SUCCESS"
             }
         }
     } else {
-        Write-AutomationLog "ℹ️ PowerShell module check skipped in dry-run mode - using Azure CLI" "INFO"
+        Write-AutomationLog "ℹ️ PowerShell module check skipped in dry-run mode" "INFO"
     }
     
     # Check kubectl (for environment management)

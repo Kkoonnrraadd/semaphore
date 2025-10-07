@@ -1,8 +1,0 @@
-# Minimal Azure Python SDK packages for PowerShell/Azure CLI integration
-# Only basic packages needed for Azure CLI Python backend
-azure-mgmt-core>=1.3.0
-azure-identity>=1.12.0
-msrest>=0.7.1
-requests>=2.25.1
-urllib3>=1.26.0
-cryptography>=3.4.8

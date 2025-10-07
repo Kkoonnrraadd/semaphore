@@ -79,8 +79,7 @@
       "azure_cli_required": true,
       "kubectl_required": true,
       "powershell_modules": [
-        "Az.Accounts",
-        "Az.Resources"
+        "SqlServer"
       ]
     }
   },

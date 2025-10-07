@@ -4,7 +4,10 @@
   [Parameter(Mandatory)][string]$RestoreDateTime,
   [Parameter(Mandatory)][string]$Timezone,
   [switch]$DryRun,
-  [int]$MaxWaitMinutes
+  [int]$MaxWaitMinutes,
+  [string]$AksResourceGroup,
+  [string]$AksClusterName,
+  [string]$AksSubscription
 )
 
 Write-Host "`n=========================" -ForegroundColor Cyan
@@ -14,6 +17,38 @@ Write-Host "===========================`n" -ForegroundColor Cyan
 # Note: This script receives clean parameters from self_service.ps1
 # All configuration loading and parameter sanitization is handled by the caller
 Write-Host "📋 Received parameters from self_service.ps1" -ForegroundColor Green
+
+# Setup Azure AKS credentials if parameters are provided
+if ($AksClusterName -and $AksResourceGroup) {
+    Write-Host "🔧 Setting up Azure AKS credentials..." -ForegroundColor Cyan
+    Write-Host "   Cluster: $AksClusterName" -ForegroundColor Gray
+    Write-Host "   Resource Group: $AksResourceGroup" -ForegroundColor Gray
+    
+    try {
+        # Build az aks get-credentials command with parameters
+        $aks_cmd = "az aks get-credentials --resource-group $AksResourceGroup --name $AksClusterName --overwrite-existing"
+        if ($AksSubscription) {
+            $aks_cmd += " --subscription $AksSubscription"
+            Write-Host "   Subscription: $AksSubscription" -ForegroundColor Gray
+        }
+        
+        Write-Host "   Executing: $aks_cmd" -ForegroundColor Gray
+        Invoke-Expression $aks_cmd
+        
+        # Verify the context was set successfully
+        $current_context = kubectl config current-context 2>$null
+        if ($current_context -eq $AksClusterName) {
+            Write-Host "✅ Kubernetes context set to: $current_context" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️  Warning: Kubernetes context may not be set correctly. Current context: $current_context" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "❌ Error setting up AKS credentials: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   Continuing with database restore operations..." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "ℹ️  No AKS cluster parameters provided, skipping Kubernetes context setup" -ForegroundColor Gray
+}
 
 $graph_query = "
   resources

@@ -74,13 +74,10 @@ if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
     $CustomerAlias = $destinationAlias
     Write-Host "⚠️  CustomerAlias was empty, using destination '$CustomerAlias' as default" -ForegroundColor Yellow
 }
-
-$int_expectedName = if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
-    # Special handling for "manufacturo" - it doesn't include multitenant in the database name
-    "integratorplus-$dest_environment-$dest_location"
+if ($DestinationNamespace -eq "manufacturo") {
+    $int_expectedName = "integratorplus-$dest_environment-$dest_location"
 } else {
-    "ignoreformultitenant"
-    # continue
+    $int_expectedName = "ignoreformultitenant"
 }
     
 if ($DryRun) {

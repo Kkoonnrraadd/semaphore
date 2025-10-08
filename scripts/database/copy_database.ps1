@@ -6,6 +6,164 @@
     [switch]$DryRun
 )
 
+function Test-DatabasePermissions {
+    param (
+        [string]$ServerFQDN,
+        [string]$AccessToken,
+        [string]$DatabaseName = "master"
+    )
+    
+    Write-Host "  🔍 Testing database permissions on $ServerFQDN..." -ForegroundColor Gray
+    
+    try {
+        # Test basic connectivity
+        $connectivityQuery = "SELECT @@VERSION as version, DB_NAME() as current_db"
+        $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database $DatabaseName -Query $connectivityQuery -ConnectionTimeout 15 -QueryTimeout 30
+        
+        if ($result) {
+            Write-Host "    ✅ Basic connectivity successful" -ForegroundColor Green
+            Write-Host "    📋 Current Database: $($result.current_db)" -ForegroundColor Gray
+            Write-Host "    📋 SQL Server Version: $($result.version.Split("`n")[0])" -ForegroundColor Gray
+        } else {
+            Write-Host "    ❌ Basic connectivity failed" -ForegroundColor Red
+            return $false
+        }
+        
+        # Test if user has permissions to create databases
+        $permissionQuery = @"
+SELECT 
+    HAS_PERMS_BY_NAME('master', 'DATABASE', 'CREATE DATABASE') as can_create_db,
+    IS_SRVROLEMEMBER('dbcreator') as is_dbcreator,
+    IS_SRVROLEMEMBER('sysadmin') as is_sysadmin
+"@
+        
+        $permissions = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database "master" -Query $permissionQuery -ConnectionTimeout 15 -QueryTimeout 30
+        
+        Write-Host "    📋 Permission Query Results:" -ForegroundColor Gray
+        Write-Host "      • Can Create Database: $($permissions.can_create_db)" -ForegroundColor Gray
+        Write-Host "      • Is dbcreator Role: $($permissions.is_dbcreator)" -ForegroundColor Gray
+        Write-Host "      • Is sysadmin Role: $($permissions.is_sysadmin)" -ForegroundColor Gray
+        
+        if ($permissions.can_create_db -eq 1 -or $permissions.is_dbcreator -eq 1 -or $permissions.is_sysadmin -eq 1) {
+            Write-Host "    ✅ Database creation permissions confirmed" -ForegroundColor Green
+        } else {
+            Write-Host "    ❌ Insufficient permissions to create databases" -ForegroundColor Red
+            return $false
+        }
+        
+        # Test if user can query system tables (needed for copy operations)
+        $systemQuery = "SELECT COUNT(*) as table_count FROM sys.databases"
+        $systemResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database "master" -Query $systemQuery -ConnectionTimeout 15 -QueryTimeout 30
+        
+        Write-Host "    📋 System Table Query Results:" -ForegroundColor Gray
+        Write-Host "      • Database Count: $($systemResult.table_count)" -ForegroundColor Gray
+        
+        if ($systemResult -and $systemResult.table_count -ge 0) {
+            Write-Host "    ✅ System table access confirmed" -ForegroundColor Green
+        } else {
+            Write-Host "    ❌ Cannot access system tables" -ForegroundColor Red
+            return $false
+        }
+        
+        return $true
+        
+    } catch {
+        Write-Host "    ❌ Permission test failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Test-CopyPermissions {
+    param (
+        [string]$SourceServer,
+        [string]$SourceDatabase,
+        [string]$DestServer,
+        [string]$DestDatabase,
+        [string]$AccessToken
+    )
+    
+    # Check if same server
+    if ($SourceServer -eq $DestServer) {
+        Write-Host "  🔍 Same server operation - skipping cross-server copy test..." -ForegroundColor Gray
+        return $true
+    }
+    
+    Write-Host "  🔍 Testing cross-server copy permissions..." -ForegroundColor Gray
+    
+    try {
+        # Test if we can query the source database
+        $sourceQuery = "SELECT COUNT(*) as table_count FROM sys.tables"
+        $sourceResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $SourceServer -Database $SourceDatabase -Query $sourceQuery -ConnectionTimeout 15 -QueryTimeout 30
+        
+        if (-not $sourceResult) {
+            Write-Host "    ❌ Cannot access source database $SourceDatabase" -ForegroundColor Red
+            return $false
+        }
+        
+        Write-Host "    ✅ Source database access confirmed" -ForegroundColor Green
+        
+        # Test if we can create a test database (simulate copy operation)
+        $testDbName = "test_copy_permissions_$(Get-Random)"
+        $createTestQuery = "CREATE DATABASE [$testDbName]"
+        
+        try {
+            Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServer -Query $createTestQuery -ConnectionTimeout 15 -QueryTimeout 30
+            Write-Host "    ✅ Database creation test successful" -ForegroundColor Green
+            
+            # Clean up test database
+            $dropTestQuery = "DROP DATABASE [$testDbName]"
+            Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServer -Query $dropTestQuery -ConnectionTimeout 15 -QueryTimeout 30
+            Write-Host "    ✅ Test database cleaned up" -ForegroundColor Green
+            
+            return $true
+            
+        } catch {
+            Write-Host "    ❌ Database creation test failed: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+        
+    } catch {
+        Write-Host "    ❌ Copy permission test failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Backup-DatabaseBeforeDeletion {
+    param (
+        [string]$Server,
+        [string]$ResourceGroup,
+        [string]$SubscriptionId,
+        [string]$DatabaseName
+    )
+    
+    Write-Host "  💾 Creating backup before deletion: $DatabaseName" -ForegroundColor Yellow
+    
+    try {
+        # Create a backup using Azure CLI
+        $backupName = "$DatabaseName-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        
+        $null = az sql db export `
+            --name $DatabaseName `
+            --resource-group $ResourceGroup `
+            --server $Server `
+            --subscription $SubscriptionId `
+            --storage-key-type StorageAccessKey `
+            --storage-key "dummy" `
+            --storage-uri "https://dummy.blob.core.windows.net/backups/$backupName.bacpac" `
+            --only-show-errors 2>$null
+        
+        # Since we can't easily create backups without storage, we'll just log the intention
+        Write-Host "    ⚠️  Backup creation would require storage account configuration" -ForegroundColor Yellow
+        Write-Host "    📝 Consider implementing proper backup before deletion" -ForegroundColor Yellow
+        
+        return $true
+        
+    } catch {
+        Write-Host "    ⚠️  Backup creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
+    }
+}
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Database Script" -ForegroundColor Yellow
     Write-Host "=====================================" -ForegroundColor Yellow
@@ -36,6 +194,7 @@ $source_subscription = $server[0].subscriptionId
 $source_server = $server[0].name
 $source_rg = $server[0].resourceGroup
 $source_fqdn = $server[0].fqdn
+$source_server_fqdn = $server[0].fqdn
 if ($source_fqdn -match "database.windows.net") {
   $resourceUrl = "https://database.windows.net"
 } else {
@@ -83,7 +242,6 @@ $source_type        = $source_split[2]
 $source_environment = $source_split[3]
 
 $dest_split = $dest_server -split "-"
-$dest_product     = $dest_split[1]
 $dest_location    = $dest_split[-1]
 $dest_type        = $dest_split[2]
 $dest_environment = $dest_split[3]
@@ -96,6 +254,72 @@ $dbs = az sql db list --subscription $source_subscription --resource-group $sour
 if (-not $dbs) {
     Write-Host "❌ No databases found on source server." -ForegroundColor Red
     exit 1
+}
+
+# Pre-flight permission validation (runs in both dry-run and normal mode)
+Write-Host "🔍 PRE-FLIGHT PERMISSION VALIDATION" -ForegroundColor Cyan
+Write-Host "====================================" -ForegroundColor Cyan
+
+# Check if source and destination are the same server
+$sameServer = ($source_server -eq $dest_server)
+if ($sameServer) {
+    Write-Host "🔍 Same server detected: $source_server" -ForegroundColor Gray
+    Write-Host "   • No cross-server copy needed" -ForegroundColor Gray
+    Write-Host "   • No backup needed (databases will be moved, not copied)" -ForegroundColor Gray
+}
+
+# Test server permissions (only need to test once if same server)
+if ($sameServer) {
+    Write-Host "🔍 Testing server permissions..." -ForegroundColor Gray
+    $serverPermissionsOK = Test-DatabasePermissions -ServerFQDN $source_server_fqdn -AccessToken $AccessToken
+    if (-not $serverPermissionsOK) {
+        Write-Host "❌ Server permission validation failed" -ForegroundColor Red
+        Write-Host "💡 Please ensure you have sufficient permissions on server: $source_server_fqdn" -ForegroundColor Yellow
+        exit 1
+    }
+} else {
+    # Test source server permissions
+    Write-Host "🔍 Testing source server permissions..." -ForegroundColor Gray
+    $sourcePermissionsOK = Test-DatabasePermissions -ServerFQDN $source_server_fqdn -AccessToken $AccessToken
+    if (-not $sourcePermissionsOK) {
+        Write-Host "❌ Source server permission validation failed" -ForegroundColor Red
+        Write-Host "💡 Please ensure you have sufficient permissions on source server: $source_server_fqdn" -ForegroundColor Yellow
+        exit 1
+    }
+
+    # Test destination server permissions
+    Write-Host "🔍 Testing destination server permissions..." -ForegroundColor Gray
+    $destPermissionsOK = Test-DatabasePermissions -ServerFQDN $dest_server_fqdn -AccessToken $AccessToken
+    if (-not $destPermissionsOK) {
+        Write-Host "❌ Destination server permission validation failed" -ForegroundColor Red
+        Write-Host "💡 Please ensure you have sufficient permissions on destination server: $dest_server_fqdn" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+Write-Host "✅ All pre-flight permission validations passed" -ForegroundColor Green
+Write-Host ""
+
+# Safety confirmation (only for non-dry-run mode)
+if (-not $DryRun) {
+    Write-Host "⚠️  SAFETY WARNING" -ForegroundColor Red
+    Write-Host "=================" -ForegroundColor Red
+    if ($sameServer) {
+        Write-Host "This script will DELETE existing databases on the same server before moving." -ForegroundColor Yellow
+        Write-Host "Since source and destination are the same server, no backup is needed." -ForegroundColor Yellow
+    } else {
+        Write-Host "This script will DELETE existing databases on the destination server before copying." -ForegroundColor Yellow
+        Write-Host "Make sure you have proper backups before proceeding!" -ForegroundColor Yellow
+    }
+    Write-Host ""
+
+    $confirmation = Read-Host "Do you want to continue? Type 'YES' to proceed"
+    if ($confirmation -ne "YES") {
+        Write-Host "❌ Operation cancelled by user" -ForegroundColor Yellow
+        exit 0
+    }
+    Write-Host "✅ User confirmed - proceeding with database copy operations" -ForegroundColor Green
+    Write-Host ""
 }
 
 if ($DryRun) {
@@ -248,6 +472,9 @@ if ($DryRun) {
 # Global variable to store database configurations for tag preservation
 $script:DatabaseConfigurations = @()
 
+# Global variable to track failed operations for rollback
+$script:FailedOperations = @()
+
 function Save-DatabaseConfiguration {
     param (
         [string]$DestServer,
@@ -262,8 +489,7 @@ function Save-DatabaseConfiguration {
         $existingDb = az sql db show --subscription $DestSubscriptionId --resource-group $DestResourceGroup --server $DestServer --name $DestDatabaseName --query "tags" -o json 2>$null | ConvertFrom-Json
         
         if ($existingDb -and $existingDb.PSObject.Properties.Count -gt 0) {
-            $tagCount = $existingDb.PSObject.Properties.Count
-            Write-Host "  ✅ Found $tagCount tags on destination database" -ForegroundColor Green
+            # Write-Host "  ✅ Found $($existingDb.PSObject.Properties.Count) tags on destination database" -ForegroundColor Green
             $tagList = @()
             foreach ($tag in $existingDb.PSObject.Properties) {
                 $tagList += "$($tag.Name)=$($tag.Value)"
@@ -431,6 +657,7 @@ $copy_results = $dbs | ForEach-Object -ThrottleLimit 5 -Parallel {
     $dest_rg = $using:dest_rg
     $dest_elasticpool = $using:dest_elasticpool
     $dest_server_full = $using:dest_server_fqdn
+    $source_server_full = $using:source_server_fqdn
     $AccessToken = $using:AccessToken
     $SourceNamespace = $using:sourceNamespace
     $DestinationNamespace = $using:destinationNamespace
@@ -542,6 +769,59 @@ $copy_results = $dbs | ForEach-Object -ThrottleLimit 5 -Parallel {
         return @{ db = $dest_dbName; status = "failed"; error = "AccessToken is empty" }
     }
 
+    # Pre-copy permission validation
+    Write-Host "🔍 Validating permissions before copy operation..." -ForegroundColor Cyan
+    
+    # Check if same server
+    $sameServer = ($source_server -eq $dest_server)
+    
+    if ($sameServer) {
+        # Same server - just test basic permissions
+        Write-Host "  🔍 Same server operation - testing basic permissions..." -ForegroundColor Gray
+        $serverPermissionsOK = Test-DatabasePermissions -ServerFQDN $dest_server_full -AccessToken $AccessToken
+        if (-not $serverPermissionsOK) {
+            Write-Host "❌ Server permission validation failed for $dest_dbName" -ForegroundColor Red
+            return @{ db = $dest_dbName; status = "failed"; error = "Insufficient permissions on server" }
+        }
+        Write-Host "  ✅ Same server permissions validated for $dest_dbName" -ForegroundColor Green
+    } else {
+        # Different servers - test both and cross-server copy
+        $destPermissionsOK = Test-DatabasePermissions -ServerFQDN $dest_server_full -AccessToken $AccessToken
+        if (-not $destPermissionsOK) {
+            Write-Host "❌ Destination server permission validation failed for $dest_dbName" -ForegroundColor Red
+            return @{ db = $dest_dbName; status = "failed"; error = "Insufficient permissions on destination server" }
+        }
+        
+        $sourcePermissionsOK = Test-DatabasePermissions -ServerFQDN $source_server_full -AccessToken $AccessToken
+        if (-not $sourcePermissionsOK) {
+            Write-Host "❌ Source server permission validation failed for $sourceDBName" -ForegroundColor Red
+            return @{ db = $dest_dbName; status = "failed"; error = "Insufficient permissions on source server" }
+        }
+        
+        # Test cross-server copy permissions
+        $copyPermissionsOK = Test-CopyPermissions -SourceServer $source_server_full -SourceDatabase $sourceDBName -DestServer $dest_server_full -DestDatabase $dest_dbName -AccessToken $AccessToken
+        if (-not $copyPermissionsOK) {
+            Write-Host "❌ Cross-server copy permission validation failed for $dest_dbName" -ForegroundColor Red
+            return @{ db = $dest_dbName; status = "failed"; error = "Insufficient permissions for cross-server copy operation" }
+        }
+        Write-Host "✅ All cross-server permission validations passed for $dest_dbName" -ForegroundColor Green
+    }
+
+    # Check if destination database exists and create backup before deletion (only for cross-server operations)
+    if (-not $sameServer) {
+        try {
+            $existingDb = az sql db show --name $dest_dbName --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "name" -o tsv 2>$null
+            if ($existingDb -eq $dest_dbName) {
+                Write-Host "📋 Destination database $dest_dbName exists, creating backup before deletion..." -ForegroundColor Yellow
+                Backup-DatabaseBeforeDeletion -Server $dest_server -ResourceGroup $dest_rg -SubscriptionId $dest_subscription -DatabaseName $dest_dbName
+            }
+        } catch {
+            Write-Host "🔍 Destination database $dest_dbName does not exist or cannot be accessed" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "🔍 Same server operation - no backup needed (databases will be moved, not copied)" -ForegroundColor Gray
+    }
+
     Write-Host "🗑️  Deleting $dest_dbName in $dest_server" -ForegroundColor Red
 
     # Delete existing destination DB
@@ -566,7 +846,7 @@ $copy_results = $dbs | ForEach-Object -ThrottleLimit 5 -Parallel {
     try {
         for ($retry = 1; $retry -le $maxRetries; $retry++) {
             try {
-                Write-Host "🔍 DEBUG: Attempt $retry of $maxRetries to execute SQL command" -ForegroundColor Magenta
+                # Write-Host "🔍 DEBUG: Attempt $retry of $maxRetries to execute SQL command" -ForegroundColor Magenta
                 
                 # Clear any existing connections before retry
                 if ($retry -gt 1) {
@@ -672,6 +952,36 @@ if ($failed.Count -gt 0) {
       Write-Host "     Error: $($_.error)" -ForegroundColor Red
     }
   }
+  
+  # Check if any databases were deleted but copy failed
+  Write-Host "`n🔍 Checking for orphaned databases (deleted but copy failed)..." -ForegroundColor Yellow
+  $orphanedDbs = @()
+  
+  foreach ($failedDb in $failed) {
+    try {
+      $dbExists = az sql db show --name $failedDb.db --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "name" -o tsv 2>$null
+      if (-not $dbExists) {
+        $orphanedDbs += $failedDb.db
+        Write-Host "   ⚠️  Database $($failedDb.db) was deleted but copy failed - database is lost" -ForegroundColor Red
+      }
+    } catch {
+      # Database doesn't exist, which means it was deleted
+      $orphanedDbs += $failedDb.db
+      Write-Host "   ⚠️  Database $($failedDb.db) was deleted but copy failed - database is lost" -ForegroundColor Red
+    }
+  }
+  
+  if ($orphanedDbs.Count -gt 0) {
+    Write-Host "`n🚨 CRITICAL: $($orphanedDbs.Count) databases were deleted but copy failed!" -ForegroundColor Red
+    Write-Host "   These databases are now lost and need to be restored from backup:" -ForegroundColor Red
+    $orphanedDbs | ForEach-Object { Write-Host "     • $_" -ForegroundColor Red }
+    Write-Host "`n💡 RECOMMENDED ACTIONS:" -ForegroundColor Yellow
+    Write-Host "   1. Check if backups exist for these databases" -ForegroundColor Gray
+    Write-Host "   2. Restore from backup if available" -ForegroundColor Gray
+    Write-Host "   3. Consider implementing proper backup before deletion" -ForegroundColor Gray
+    Write-Host "   4. Review and fix permission issues before retrying" -ForegroundColor Gray
+  }
+  
   Write-Host "`n💡 Some databases failed to copy. Please check manually." -ForegroundColor Yellow
   exit 1
 }

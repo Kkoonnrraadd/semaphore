@@ -51,9 +51,37 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
     Write-Host "⚠️ Service Principal credentials not found in environment variables" -ForegroundColor Yellow
 }
 
+# Try Username/Password authentication
+# if ($env:AZURE_USERNAME -and $env:AZURE_PASSWORD) {
+#     Write-Host "🔑 Using Username/Password authentication..." -ForegroundColor Yellow
+    
+#     try {
+#         $result = az login --username $env:AZURE_USERNAME --password $env:AZURE_PASSWORD --output json 2>&1
+            
+#         if ($LASTEXITCODE -eq 0) {
+#             Write-Host "✅ Username/Password authentication successful" -ForegroundColor Green
+            
+#             # Set default subscription if provided
+#             if ($env:AZURE_SUBSCRIPTION_ID) {
+#                 az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+#                 Write-Host "📋 Set default subscription: $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Green
+#             }
+            
+#             return $true
+#         } else {
+#             Write-Host "❌ Username/Password authentication failed: $result" -ForegroundColor Red
+#         }
+#     } catch {
+#         Write-Host "❌ Username/Password authentication error: $($_.Exception.Message)" -ForegroundColor Red
+#     }
+# } else {
+#     Write-Host "⚠️ Username/Password credentials not found in environment variables" -ForegroundColor Yellow
+# }
+
 # No authentication method available
 Write-Host "❌ No Azure credentials found in environment variables" -ForegroundColor Red
 Write-Host "   - Service Principal: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID" -ForegroundColor Yellow
+Write-Host "   - Username/Password: AZURE_USERNAME, AZURE_PASSWORD" -ForegroundColor Yellow
 Write-Host "   - Optional: AZURE_SUBSCRIPTION_ID for default subscription" -ForegroundColor Yellow
 
 return $false

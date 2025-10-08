@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 USER root
 
 # Copy and install CA certificate BEFORE any network operations
-COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
+# COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
 RUN apt-get update && apt-get install -y ca-certificates && \
     update-ca-certificates
 
@@ -67,6 +67,14 @@ RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --d
     apt-get install -y kubectl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Install kubelogin for Azure AD authentication
+RUN curl -fsSL https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip -o /tmp/kubelogin.zip && \
+    apt-get update && apt-get install -y unzip && \
+    unzip /tmp/kubelogin.zip -d /tmp && \
+    mv /tmp/bin/linux_amd64/kubelogin /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kubelogin && \
+    rm -rf /tmp/kubelogin.zip /tmp/bin
+
 # Install sqlcmd
 RUN curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
     apt-get update && \
@@ -112,6 +120,7 @@ RUN az extension list
 RUN az graph query -q "Resources | limit 1" --output none || echo "Graph extension working but no Azure context"
 RUN azcopy --version
 RUN kubectl version --client
+RUN kubelogin --version
 
 EXPOSE 3000
 

@@ -65,71 +65,56 @@ param (
     [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
 
-# CENTRAL CONFIGURATION LOADER - Loads defaults from JSON and sanitizes all parameters
-Write-Host "🔧 Loading configuration and sanitizing parameters..." -ForegroundColor Yellow
+# AUTOMATIC PARAMETER DETECTION - Replaces JSON configuration with Azure environment detection
+Write-Host "🔧 Auto-detecting parameters from Azure environment..." -ForegroundColor Yellow
 
-# Load configuration from JSON file
-# Resolve relative to the scripts directory (parent of 'main') with sensible fallbacks
-$configPathCandidates = @()
-if ($PSScriptRoot) {
-    $scriptsDir = Split-Path $PSScriptRoot -Parent            # .../scripts
-    $configPathCandidates += (Join-Path $scriptsDir "self_service_defaults.json")
-    $repoRoot = Split-Path $scriptsDir -Parent                # repo root (fallback)
-    $configPathCandidates += (Join-Path $repoRoot "self_service_defaults.json")
-}
-# Container-style absolute fallback
-$configPathCandidates += "/scripts/self_service_defaults.json"
-
-$configPath = $null
-foreach ($candidate in $configPathCandidates) {
-    if ($candidate -and (Test-Path $candidate)) { $configPath = $candidate; break }
+# Load the Azure parameter detection function
+$azureParamsScript = Join-Path $PSScriptRoot "../common/Get-AzureParameters.ps1"
+if (-not (Test-Path $azureParamsScript)) {
+    Write-Host "❌ FATAL ERROR: Azure parameter detection script not found at: $azureParamsScript" -ForegroundColor Red
+    exit 1
 }
 
-if ($configPath) {
-    try {
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-        Write-Host "✅ Configuration loaded from: $configPath" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ Failed to load configuration: $($_.Exception.Message)" -ForegroundColor Yellow
-        $config = @{ self_service_defaults = @{} }
+# Auto-detect parameters from Azure environment
+$detectedParams = & $azureParamsScript -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
+
+# Apply detected values, but allow user-provided values to override
+$SourceNamespace = if ([string]::IsNullOrWhiteSpace($SourceNamespace)) { $detectedParams.SourceNamespace } else { $SourceNamespace }
+$Source = if ([string]::IsNullOrWhiteSpace($Source)) { $detectedParams.Source } else { $Source }
+$DestinationNamespace = if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) { $detectedParams.DestinationNamespace } else { $DestinationNamespace }
+$Destination = if ([string]::IsNullOrWhiteSpace($Destination)) { $detectedParams.Destination } else { $Destination }
+$Cloud = if ([string]::IsNullOrWhiteSpace($Cloud)) { $detectedParams.Cloud } else { $Cloud }
+
+# Apply default values for time-sensitive parameters if not provided by user
+$RestoreDateTime = if ([string]::IsNullOrWhiteSpace($RestoreDateTime)) { $detectedParams.DefaultRestoreDateTime } else { $RestoreDateTime }
+$Timezone = if ([string]::IsNullOrWhiteSpace($Timezone)) { $detectedParams.DefaultTimezone } else { $Timezone }
+
+# CustomerAlias must be provided by user - no auto-detection
+if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
+    Write-Host "❌ FATAL ERROR: CustomerAlias is required and must be provided by the user" -ForegroundColor Red
+    Write-Host "   Please provide CustomerAlias parameter when calling the script" -ForegroundColor Yellow
+    exit 1
+}
+
+# Calculate CustomerAliasToRemove based on CustomerAlias pattern
+if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
+    # Pattern: mil-space-test -> mil-space, mil-space-dev -> mil-space
+    if ($CustomerAlias -match "^(.+)-(test|dev)$") {
+        $CustomerAliasToRemove = $matches[1]
+        Write-Host "✅ Extracted customer alias to remove: $CustomerAliasToRemove (from $CustomerAlias)" -ForegroundColor Green
+    } else {
+        # Fallback: Customer alias to remove is same as source
+        $CustomerAliasToRemove = $Source
+        Write-Host "✅ Using source as customer alias to remove: $CustomerAliasToRemove" -ForegroundColor Green
     }
-} else {
-    Write-Host "⚠️ Configuration file not found in any of these locations:" -ForegroundColor Yellow
-    foreach ($p in $configPathCandidates) { Write-Host " - $p" -ForegroundColor Yellow }
-    $config = @{ self_service_defaults = @{} }
 }
 
-# Create parameter hashtable for sanitization with defaults from config
-# Note: RestoreDateTime and Timezone will be handled by Get-AutomationDateTime function
-$paramHash = @{
-    RestoreDateTime = $RestoreDateTime  # Keep original value, will be processed by Get-AutomationDateTime
-    SourceNamespace = if ([string]::IsNullOrWhiteSpace($SourceNamespace)) { $config.self_service_defaults.source_namespace } else { $SourceNamespace }
-    Source = if ([string]::IsNullOrWhiteSpace($Source)) { $config.self_service_defaults.source } else { $Source }
-    DestinationNamespace = if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) { $config.self_service_defaults.destination_namespace } else { $DestinationNamespace }
-    Destination = if ([string]::IsNullOrWhiteSpace($Destination)) { $config.self_service_defaults.destination } else { $Destination }
-    CustomerAlias = if ([string]::IsNullOrWhiteSpace($CustomerAlias)) { $config.self_service_defaults.customer_alias } else { $CustomerAlias }
-    CustomerAliasToRemove = if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { $config.self_service_defaults.customer_alias_to_remove } else { $CustomerAliasToRemove }
-    Cloud = if ([string]::IsNullOrWhiteSpace($Cloud)) { $config.self_service_defaults.cloud } else { $Cloud }
-    MaxWaitMinutes = if ($MaxWaitMinutes -eq 0) { $config.self_service_defaults.max_wait_minutes } else { $MaxWaitMinutes }
-    Timezone = $Timezone  # Keep original value, will be processed by Get-AutomationDateTime
+# Set default MaxWaitMinutes if not provided
+if ($MaxWaitMinutes -eq 0) {
+    $MaxWaitMinutes = 40
 }
 
-# Load and use the parameter sanitization function
-$sanitizedParams = & "$PSScriptRoot/../common/Initialize-Parameters.ps1" -Parameters $paramHash
-
-# Apply sanitized values
-$RestoreDateTime = $sanitizedParams.RestoreDateTime
-$SourceNamespace = $sanitizedParams.SourceNamespace
-$Source = $sanitizedParams.Source
-$DestinationNamespace = $sanitizedParams.DestinationNamespace
-$Destination = $sanitizedParams.Destination
-$CustomerAlias = $sanitizedParams.CustomerAlias
-$CustomerAliasToRemove = $sanitizedParams.CustomerAliasToRemove
-$Cloud = $sanitizedParams.Cloud
-$MaxWaitMinutes = $sanitizedParams.MaxWaitMinutes
-$Timezone = $sanitizedParams.Timezone
-
-Write-Host "✅ Configuration loaded and parameters sanitized" -ForegroundColor Green
+Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
 
 # 📁 HELPER FUNCTION: Get absolute script path
 function Get-ScriptPath {

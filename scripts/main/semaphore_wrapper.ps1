@@ -100,7 +100,7 @@ Write-Host "📋 Raw arguments: $($args -join ' ')" -ForegroundColor Gray
 
 $parsedParams = Parse-Arguments -Arguments $args
 
-# Extract parameters with defaults
+# Extract parameters - no defaults needed as self_service.ps1 will auto-detect them
 $RestoreDateTime = if ($parsedParams.ContainsKey("RestoreDateTime")) { $parsedParams["RestoreDateTime"] } else { "" }
 $Timezone = if ($parsedParams.ContainsKey("Timezone")) { $parsedParams["Timezone"] } else { "" }
 $SourceNamespace = if ($parsedParams.ContainsKey("SourceNamespace")) { $parsedParams["SourceNamespace"] } else { "" }

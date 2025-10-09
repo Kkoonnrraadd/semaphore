@@ -85,6 +85,31 @@ param(
   [AllowEmptyString()][string] $MultitenantToRevert = ""
 )
 
+# Helper function for quiet logging (only shows important messages in production)
+function Write-ScriptLog {
+    param(
+        [string]$Message,
+        [ValidateSet("Info", "Success", "Warning", "Error", "Progress")]
+        [string]$Level = "Info",
+        [switch]$Force  # Always show, even in quiet mode
+    )
+    
+    # In production mode (not DryRun), only show Progress, Success, Warning, Error, or Force messages
+    if (-not $DryRun -and -not $Force -and $Level -eq "Info") {
+        return
+    }
+    
+    $color = switch ($Level) {
+        "Info" { "Cyan" }
+        "Success" { "Green" }
+        "Warning" { "Yellow" }
+        "Error" { "Red" }
+        "Progress" { "Gray" }
+    }
+    
+    Write-Host $Message -ForegroundColor $color
+}
+
 if ($Clients -eq "manufacturo") {
     $Clients = ""
 }
@@ -99,21 +124,16 @@ if ($Revert) {
         }
         Write-Host "No actual SQL user removal will be performed" -ForegroundColor Yellow
     } else {
-        Write-Host "`n🔄 REVERT MODE - SQL Configure Users" -ForegroundColor Yellow
-        Write-Host "=====================================" -ForegroundColor Yellow
-        Write-Host "Removing SQL user configurations for environment: $EnvironmentToRevert" -ForegroundColor Yellow
-        if (-not [string]::IsNullOrWhiteSpace($MultitenantToRevert)) {
-            Write-Host "Multitenant: $MultitenantToRevert" -ForegroundColor Yellow
-        }
+        Write-Host "`n🔄 REVERT MODE - SQL Configure Users" -ForegroundColor Cyan
+        Write-Host "Environment: $EnvironmentToRevert$(if ($MultitenantToRevert) {" | Multitenant: $MultitenantToRevert"})" -ForegroundColor Cyan
     }
 } elseif ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - SQL Configure Users" -ForegroundColor Yellow
     Write-Host "=====================================" -ForegroundColor Yellow
     Write-Host "No actual SQL user configuration will be performed" -ForegroundColor Yellow
 } else {
-    Write-Host "`n====================================" -ForegroundColor Cyan
-    Write-Host " SQL confiure users" -ForegroundColor Cyan
-    Write-Host "====================================`n" -ForegroundColor Cyan
+    Write-Host "`n🔧 SQL Configure Users" -ForegroundColor Cyan
+    Write-Host "Environment: $Environments | Client: $Clients" -ForegroundColor Cyan
 }
 
 if ($Help) {
@@ -387,9 +407,9 @@ if ($DryRun -and $Revert) {
     $staticReplicaUserName = "${client_name}-${staticReplicaUserName}"
   }
 
+  # Only show progress indicator for production runs (not every detail)
   if (-not $DryRun) {
-    Write-Host -ForegroundColor Green "========================================================"
-    Write-Host -ForegroundColor Green "Databases: $name - Mode: $Type ($($_+1)/$count)`n"
+    Write-Host "[$($_+1)/$count] $name" -ForegroundColor Gray
   }
 
   # REVERT MODE: Remove SQL user configurations
@@ -407,10 +427,6 @@ if ($DryRun -and $Revert) {
     $revertStaticReplicaUserName = "${baseUserName}-replica"
     if ($MultitenantToRevert -ne "manufacturo") {
         $revertStaticReplicaUserName = "${MultitenantToRevert}-${revertStaticReplicaUserName}"
-    }
-
-    if (-not $DryRun) {
-      Write-Host "🔄 REVERTING SQL user configurations for: $FullEnvironmentToRevert" -ForegroundColor Yellow
     }
 
     if ($DryRun) {
@@ -448,7 +464,7 @@ if ($DryRun -and $Revert) {
           DROP USER [replicaReader];
         END
       "
-      Write-Host "Removing AAD group users: $FullEnvironmentToRevert-DBContributors, $FullEnvironmentToRevert-DBReaders"
+      # Quiet mode: no verbose output
       run_sql_query -Server $main_server -Query $query -Database $name -Token $token
       
       # Remove static replica users if they exist
@@ -467,7 +483,6 @@ if ($DryRun -and $Revert) {
             DROP LOGIN [$revertStaticReplicaUserName];
           END
         "
-        Write-Host "Removing static replica user: $revertStaticReplicaUserName"
         run_sql_query -Server $main_server -Query $replicaUserQuery -Database $name -Token $token
         
         # Also remove from replica server if it exists
@@ -479,7 +494,6 @@ if ($DryRun -and $Revert) {
               DROP LOGIN [$revertStaticReplicaUserName];
             END
           "
-          Write-Host "Removing static replica user login from replica server: $replica_server"
           run_sql_query -Server $replica_server -Query $replicaServerQuery -Database "master" -Token $token
         }
       }
@@ -488,22 +502,15 @@ if ($DryRun -and $Revert) {
      # DYNAMIC: Get all users containing the environment name from database and remove them
      $environmentPattern = $EnvironmentToRevert.ToLower()
      if (-not $DryRun) {
-       Write-Host "Removing all users containing '$environmentPattern'"
        
        # Get all users containing the environment name from database
        $getUsersQuery = "SELECT name FROM sys.database_principals WHERE name LIKE '%$environmentPattern%'"
        $usersToRemove = run_sql_query -Server $main_server -Query $getUsersQuery -Database $name -Token $token
        
        if ($usersToRemove) {
-         Write-Host "Found $($usersToRemove.Count) users to remove:" -ForegroundColor Yellow
-         foreach ($user in $usersToRemove) {
-           Write-Host "  - $($user.name)" -ForegroundColor Yellow
-         }
-         
-         # Remove each user
+         # Remove each user (quiet mode - no verbose output)
          foreach ($user in $usersToRemove) {
            $userName = $user.name
-           Write-Host "Removing user: $userName"
            
            $removeUserQuery = "
              -- Remove user from all roles first (ignore errors if not in role)
@@ -607,14 +614,13 @@ if ($DryRun -and $Revert) {
         DENY DELETE ON OBJECT::user_management.Person TO [$dbContributorsGroup] CASCADE
       END
     "
-    Write-Host "Create $dbContributorsGroup and $dbReadersGroup users on $name main database"
+    # Create users (quiet mode - no verbose output)
     run_sql_query -Server $main_server -Query $query -Database $name -Token $token
 
     if ($name -like "*integratorplusext*") {
       $query = "
         EXEC sp_addrolemember [db_owner], [$dbContributorsGroup];
       "
-      Write-Host "Grant db_owner role to $dbContributorsGroup on $name main database"
       run_sql_query -Server $main_server -Query $query -Database $name -Token $token
     }
     
@@ -636,7 +642,6 @@ if ($DryRun -and $Revert) {
       if (-not (($name -like "*core*") -and (($mi_name -notlike "*core*") -and ($mi_name -notlike "*platform*") -and ($mi_name -notlike "*devops*"))) ) {
         $query += "GRANT CONTROL ON SCHEMA::dbo TO [$mi_name]"
       }
-      Write-Host "Create $mi_name user on $name main database"
       run_sql_query -Server $main_server -Query $query -Database $name -Token $token
     }
   }
@@ -648,7 +653,7 @@ if ($DryRun -and $Revert) {
       END
       EXEC sp_addrolemember N'db_datareader', N'replicaReader'
     "
-    Write-Host "Create replica reader user on $name main database"
+    # Create replica users (quiet mode)
     run_sql_query -Server $main_server -Query $query -Database $name -Token $token
 
     $staticReplicaUserPassword = (az keyvault secret show --subscription $sub --vault-name $key_vault_name -n "$kv_keys_prefix-ConnectionStrings-ReplicaStaticConnection" --query "value" -o tsv | Select-String -Pattern "(?<=password=)[^;]*").Matches.Value
@@ -660,7 +665,6 @@ if ($DryRun -and $Revert) {
       ALTER LOGIN [$staticReplicaUserName] DISABLE
       SELECT convert(varchar(172), sid, 1) as sid FROM master.sys.sql_logins WHERE name = '$staticReplicaUserName'
     "
-    Write-Host "Create static replica user login on main master database"
     $SID = (run_sql_query -Server $main_server -Query $query -Database "master" -Token $token).sid
 
     $query = "
@@ -671,7 +675,6 @@ if ($DryRun -and $Revert) {
       EXEC sp_addrolemember N'db_datareader', N'$staticReplicaUserName'
       GRANT EXEC TO [$staticReplicaUserName]
     "
-    Write-Host "Create static replica user on $name main database"
     run_sql_query -Server $main_server -Query $query -Database $name -Token $token
 
     $query = "
@@ -680,7 +683,6 @@ if ($DryRun -and $Revert) {
         CREATE LOGIN [$staticReplicaUserName] WITH PASSWORD = '$staticReplicaUserPassword', SID = $SID
       END
     "
-    Write-Host "Create static replica user login on replica master database"
     run_sql_query -Server $replica_server -Query $query -Database "master" -Token $token
   }
 
@@ -694,13 +696,13 @@ if ($DryRun -and $Revert) {
     if ($FirstRun -ne "Off") {
       foreach ($server in $servers) {
         if (-not $server.name) { continue }
-        Write-Host "Initiating scan on $name - $($server.name)"
+        # Initiating scan (quiet mode)
         set_baseline -Method POST -EndpointSuffix "/initiateScan" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
       }
       Start-Sleep -Seconds 180
       foreach ($server in $servers) {
         if (-not $server.name) { continue }
-        Write-Host "Setting empty baselines on $name - $($server.name)"
+        # Setting baselines (quiet mode)
         $body = @{properties = @{latestScan = $true; results = @{} } }
         set_baseline -Method PUT -Body $body -EndpointSuffix "/baselines/default" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
       }
@@ -709,7 +711,7 @@ if ($DryRun -and $Revert) {
       foreach ($server in $servers) {
         if (-not $server.name) { continue }
 
-        Write-Host "VA1258 on $name - $($server.name)"
+        # Configuring baselines (quiet mode)
         if ($name -like "*integratorplusext*") {
           $body = @{properties = @{latestScan = $false; results = , @("$env-DBContributors") } }
           set_baseline -Method PUT -Body $body -EndpointSuffix "/baselines/default/rules/VA1258" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
@@ -718,11 +720,8 @@ if ($DryRun -and $Revert) {
           set_baseline -Method DELETE -EndpointSuffix "/baselines/default/rules/VA1258" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
         }
 
-        Write-Host "VA1143 on $name - $($server.name)"
         $body = @{properties = @{latestScan = $false; results = , @("False") } }
         set_baseline -Method PUT -Body $body -EndpointSuffix "/baselines/default/rules/VA1143" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
-
-        Write-Host "VA2109 on $name - $($server.name)"
         $permissions = @(
           @("$env-DBContributors", "db_datareader", "EXTERNAL_GROUP", "EXTERNAL"),
           @("$env-DBContributors", "db_datawriter", "EXTERNAL_GROUP", "EXTERNAL"),
@@ -736,8 +735,6 @@ if ($DryRun -and $Revert) {
         $permissions | Sort-Object -Property { $_[0] }, { $_[1] } | ForEach-Object { $sorted_permissions += , @($_[0], $_[1]) }
         $body = @{properties = @{latestScan = $false; results = $permissions } }
         set_baseline -Method PUT -Body $body -EndpointSuffix "/baselines/default/rules/VA2109" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
-
-        Write-Host "VA1281 on $name - $($server.name)"
         $body = @{properties = @{latestScan = $false; results = @(
               @("db_executor", "$env-DBReaders"),
               @("db_executor", "$env-DBContributors")
@@ -746,8 +743,6 @@ if ($DryRun -and $Revert) {
         }
         $mi_local_services | ForEach-Object { $body.properties.results += , @("db_executor", $_) }
         set_baseline -Method PUT -Body $body -EndpointSuffix "/baselines/default/rules/VA1281" -SubscriptionId $sub -ResourceGroupName $($server.resourceGroup) -ServerName $($server.name) -DatabaseName $name
-
-        Write-Host "VA2130 on $name - $($server.name)"
         $users = @("$env-DBContributors", "$env-DBReaders")
         $mi_local_services | ForEach-Object { $users += $_ }
         if ($replica_server) {
@@ -772,10 +767,17 @@ if ($DryRun -and $Revert) {
   }
 }
 
-# Show completion summary for dry run in revert mode
+# Show completion summary
 if ($DryRun -and $Revert) {
-  Write-Host "`n🔍 DRY RUN COMPLETED - REVERT OPERATIONS" -ForegroundColor Green
-  Write-Host "=========================================" -ForegroundColor Green
-  Write-Host "✅ Processed $count databases" -ForegroundColor Green
-  Write-Host "✅ No actual changes were made (dry run mode)" -ForegroundColor Green
+  Write-Host "`n✅ DRY RUN COMPLETED - REVERT OPERATIONS" -ForegroundColor Green
+  Write-Host "Processed $count databases (no actual changes made)" -ForegroundColor Gray
+} elseif ($DryRun) {
+  Write-Host "`n✅ DRY RUN COMPLETED - SQL CONFIGURATION" -ForegroundColor Green
+  Write-Host "Would process $count databases (no actual changes made)" -ForegroundColor Gray
+} elseif ($Revert) {
+  Write-Host "`n✅ SQL USER REVERT COMPLETED" -ForegroundColor Green
+  Write-Host "Reverted $count databases" -ForegroundColor Gray
+} else {
+  Write-Host "`n✅ SQL CONFIGURATION COMPLETED" -ForegroundColor Green
+  Write-Host "Configured $count databases" -ForegroundColor Gray
 }

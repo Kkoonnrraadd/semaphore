@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 USER root
 
 # Copy and install CA certificate BEFORE any network operations
-# COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
+COPY config/certs/ProxyCA.crt /usr/local/share/ca-certificates/
 RUN apt-get update && apt-get install -y ca-certificates && \
     update-ca-certificates
 

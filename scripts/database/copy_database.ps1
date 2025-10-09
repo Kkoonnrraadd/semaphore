@@ -128,41 +128,6 @@ function Test-CopyPermissions {
     }
 }
 
-function Backup-DatabaseBeforeDeletion {
-    param (
-        [string]$Server,
-        [string]$ResourceGroup,
-        [string]$SubscriptionId,
-        [string]$DatabaseName
-    )
-    
-    Write-Host "  💾 Creating backup before deletion: $DatabaseName" -ForegroundColor Yellow
-    
-    try {
-        # Create a backup using Azure CLI
-        $backupName = "$DatabaseName-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        
-        $null = az sql db export `
-            --name $DatabaseName `
-            --resource-group $ResourceGroup `
-            --server $Server `
-            --subscription $SubscriptionId `
-            --storage-key-type StorageAccessKey `
-            --storage-key "dummy" `
-            --storage-uri "https://dummy.blob.core.windows.net/backups/$backupName.bacpac" `
-            --only-show-errors 2>$null
-        
-        # Since we can't easily create backups without storage, we'll just log the intention
-        Write-Host "    ⚠️  Backup creation would require storage account configuration" -ForegroundColor Yellow
-        Write-Host "    📝 Consider implementing proper backup before deletion" -ForegroundColor Yellow
-        
-        return $true
-        
-    } catch {
-        Write-Host "    ⚠️  Backup creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        return $false
-    }
-}
 
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Database Script" -ForegroundColor Yellow
@@ -805,21 +770,6 @@ $copy_results = $dbs | ForEach-Object -ThrottleLimit 5 -Parallel {
             return @{ db = $dest_dbName; status = "failed"; error = "Insufficient permissions for cross-server copy operation" }
         }
         Write-Host "✅ All cross-server permission validations passed for $dest_dbName" -ForegroundColor Green
-    }
-
-    # Check if destination database exists and create backup before deletion (only for cross-server operations)
-    if (-not $sameServer) {
-        try {
-            $existingDb = az sql db show --name $dest_dbName --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "name" -o tsv 2>$null
-            if ($existingDb -eq $dest_dbName) {
-                Write-Host "📋 Destination database $dest_dbName exists, creating backup before deletion..." -ForegroundColor Yellow
-                Backup-DatabaseBeforeDeletion -Server $dest_server -ResourceGroup $dest_rg -SubscriptionId $dest_subscription -DatabaseName $dest_dbName
-            }
-        } catch {
-            Write-Host "🔍 Destination database $dest_dbName does not exist or cannot be accessed" -ForegroundColor Gray
-        }
-    } else {
-        Write-Host "🔍 Same server operation - no backup needed (databases will be moved, not copied)" -ForegroundColor Gray
     }
 
     Write-Host "🗑️  Deleting $dest_dbName in $dest_server" -ForegroundColor Red

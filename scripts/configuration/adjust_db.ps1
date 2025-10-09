@@ -77,7 +77,7 @@ if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
 if ($DestinationNamespace -eq "manufacturo") {
     $int_expectedName = "integratorplus-$dest_environment-$dest_location"
 } else {
-    $int_expectedName = "ignoreformultitenant"
+    $int_expectedName = "integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
 }
     
 if ($DryRun) {

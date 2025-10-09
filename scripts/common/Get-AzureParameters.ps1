@@ -43,14 +43,30 @@ function Get-AzureCloudEnvironment {
     #>
     try {
         $cloudInfo = az account show --query "environmentName" -o tsv 2>$null
-        if ($cloudInfo) {
+        if ($cloudInfo -and $cloudInfo.Trim() -ne "") {
             return $cloudInfo
         }
     } catch {
-        Write-Host "⚠️ Could not determine Azure cloud environment, using default: AzureUSGovernment" -ForegroundColor Yellow
+        Write-Host "⚠️ Could not determine Azure cloud environment from Azure CLI" -ForegroundColor Yellow
     }
     
-    # Default fallback
+    # Try to detect from subscription URL/endpoint
+    try {
+        $subscriptionId = az account show --query "id" -o tsv 2>$null
+        if ($subscriptionId) {
+            # Check which cloud we're authenticated to
+            $cloudName = az cloud show --query "name" -o tsv 2>$null
+            if ($cloudName -and $cloudName.Trim() -ne "") {
+                Write-Host "✅ Detected cloud from Azure CLI context: $cloudName" -ForegroundColor Green
+                return $cloudName
+            }
+        }
+    } catch {
+        Write-Host "⚠️ Could not determine cloud from Azure CLI context" -ForegroundColor Yellow
+    }
+    
+    # Reasonable default based on common usage
+    Write-Host "⚠️ Using default cloud: AzureUSGovernment (common for your organization)" -ForegroundColor Yellow
     return "AzureUSGovernment"
 }
 
@@ -70,7 +86,7 @@ function Get-SourceFromSubscription {
             Write-Host "🔍 Analyzing subscription: $subscriptionDisplayName ($subscriptionName)" -ForegroundColor Gray
             
             # Try to extract environment from subscription name
-            # Look for patterns like "wus018", "gwc001", "dev", "test", etc.
+            # Look for patterns like "wus018", "gwc001", "gov001", "dev", "test", etc.
             # Extract the environment code after the last underscore
             if ($subscriptionName -match ".*_([A-Za-z0-9]+)$") {
                 $detectedSource = $matches[1].ToLower()
@@ -85,15 +101,27 @@ function Get-SourceFromSubscription {
                 return $detectedSource
             }
             
+            # Try alternative pattern: Extract environment code from anywhere in name
+            # Patterns like: gov001, wus018, gwc001, eus001, etc.
+            if ($subscriptionName -match "([a-z]{3}\d{3})") {
+                $detectedSource = $matches[1].ToLower()
+                Write-Host "✅ Detected source from subscription name pattern: $detectedSource" -ForegroundColor Green
+                return $detectedSource
+            }
+            
             # If no pattern matches, try to get from Azure Graph query
-            return Get-SourceFromAzureGraph
+            $graphResult = Get-SourceFromAzureGraph
+            if ($graphResult) {
+                return $graphResult
+            }
         }
     } catch {
         Write-Host "⚠️ Could not analyze subscription information: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
-    # Final fallback
-    return "gov001"
+    # No fallback - return null to indicate detection failed
+    Write-Host "⚠️ Could not auto-detect source environment from subscription" -ForegroundColor Yellow
+    return $null
 }
 
 function Get-SourceFromAzureGraph {
@@ -117,16 +145,18 @@ resources
         
         $result = az graph query -q $graphQuery --query "data[0].Environment" -o tsv 2>$null
         
-        if ($result -and $result -ne "null") {
+        if ($result -and $result -ne "null" -and $result.Trim() -ne "") {
             Write-Host "✅ Detected source from Azure Graph: $result" -ForegroundColor Green
             return $result
         }
+        
+        Write-Host "⚠️ No environment tags found in Azure Graph" -ForegroundColor Yellow
     } catch {
         Write-Host "⚠️ Azure Graph query failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
-    # Fallback
-    return "gov001"
+    # No fallback - return null to indicate detection failed
+    return $null
 }
 
 function Get-NamespaceFromEnvironment {
@@ -148,53 +178,11 @@ function Get-NamespaceFromEnvironment {
     
     # For source namespace, almost always "manufacturo"
     if ($NamespaceType -eq "source") {
-        return "manufacturo"
+        return $DefaultNamespace
     }
     
-    # For destination namespace, default to "test" unless user specifically provides "dev"
-    # This ensures "test" is the default for all environments
-    return "test"
-    
-    # Use default
+    # For destination namespace, use the provided default
     return $DefaultNamespace
-}
-
-function Get-CustomerAliasToRemove {
-    <#
-    .SYNOPSIS
-        Determines the customer alias to remove based on customer alias pattern
-    #>
-    param(
-        [string]$Source,
-        [string]$CustomerAlias
-    )
-    
-    # If customer alias is provided, extract the prefix before the suffix
-    if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) {
-        # Pattern: mil-space-test -> mil-space, mil-space-dev -> mil-space
-        if ($CustomerAlias -match "^(.+)-(test|dev)$") {
-            $prefix = $matches[1]
-            Write-Host "✅ Extracted customer alias to remove: $prefix (from $CustomerAlias)" -ForegroundColor Green
-            return $prefix
-        }
-    }
-    
-    # Fallback: Customer alias to remove is same as source
-    return $Source
-}
-
-function Get-CustomerAlias {
-    <#
-    .SYNOPSIS
-        Returns the customer alias (should be provided by user)
-    #>
-    param(
-        [string]$UserProvidedCustomerAlias
-    )
-    
-    # Customer alias should be provided by the user
-    # If not provided, return empty string (user must provide it)
-    return $UserProvidedCustomerAlias
 }
 
 # Main parameter detection logic
@@ -202,11 +190,21 @@ Write-Host "🔍 Auto-detecting Azure parameters..." -ForegroundColor Cyan
 
 # 1. Detect Azure Cloud Environment
 $Cloud = Get-AzureCloudEnvironment
-Write-Host "☁️ Detected cloud: $Cloud" -ForegroundColor Green
+Write-Host "☁️  Detected cloud: $Cloud" -ForegroundColor Green
 
 # 2. Detect Source (if not provided)
 if ([string]::IsNullOrWhiteSpace($Source)) {
     $Source = Get-SourceFromSubscription
+    
+    if ([string]::IsNullOrWhiteSpace($Source)) {
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: Could not auto-detect source environment" -ForegroundColor Red
+        Write-Host "   Please provide the Source parameter explicitly." -ForegroundColor Yellow
+        Write-Host "   Example: -Source 'gov001'" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        throw "Source environment could not be detected. Please provide -Source parameter."
+    }
+    
     Write-Host "🎯 Auto-detected source: $Source" -ForegroundColor Green
 } else {
     Write-Host "🎯 Using provided source: $Source" -ForegroundColor Yellow
@@ -236,12 +234,7 @@ if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     Write-Host "🏷️ Using provided destination namespace: $DestinationNamespace" -ForegroundColor Yellow
 }
 
-# 6. Generate derived parameters
-# CustomerAlias should be provided by user - no auto-generation
-$CustomerAlias = ""  # Will be handled by the calling script
-# CustomerAliasToRemove will be calculated in the calling script when CustomerAlias is available
-
-# 7. Set default values for time-sensitive parameters
+# 6. Set default values for time-sensitive parameters
 $DefaultTimezone = [System.TimeZoneInfo]::Local.Id  # Use system timezone
 $DefaultRestoreDateTime = (Get-Date).AddMinutes(-5).ToString("yyyy-MM-dd HH:mm:ss")  # 5 minutes ago
 
@@ -254,7 +247,6 @@ Write-Host "   Source: $Source" -ForegroundColor Gray
 Write-Host "   Source Namespace: $SourceNamespace" -ForegroundColor Gray
 Write-Host "   Destination: $Destination" -ForegroundColor Gray
 Write-Host "   Destination Namespace: $DestinationNamespace" -ForegroundColor Gray
-Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
 Write-Host "   Cloud: $Cloud" -ForegroundColor Gray
 
 # Return the detected parameters
@@ -263,7 +255,6 @@ return @{
     SourceNamespace = $SourceNamespace
     Destination = $Destination
     DestinationNamespace = $DestinationNamespace
-    CustomerAlias = $CustomerAlias
     Cloud = $Cloud
     DefaultTimezone = $DefaultTimezone
     DefaultRestoreDateTime = $DefaultRestoreDateTime

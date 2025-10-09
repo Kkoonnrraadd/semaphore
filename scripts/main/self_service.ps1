@@ -65,7 +65,23 @@ param (
     [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
 
-# AUTOMATIC PARAMETER DETECTION - Replaces JSON configuration with Azure environment detection
+# ═══════════════════════════════════════════════════════════════════════════
+# IMPORT REQUIRED MODULES AND UTILITIES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# 📚 Load Automation Utilities (logging, prerequisites, datetime handling)
+$automationUtilitiesScript = Join-Path $PSScriptRoot "../common/AutomationUtilities.ps1"
+if (-not (Test-Path $automationUtilitiesScript)) {
+    Write-Host "❌ FATAL ERROR: Automation utilities script not found at: $automationUtilitiesScript" -ForegroundColor Red
+    Write-Host "   This file is required for logging and automation functions." -ForegroundColor Yellow
+    exit 1
+}
+. $automationUtilitiesScript
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PARAMETER AUTO-DETECTION
+# ═══════════════════════════════════════════════════════════════════════════
+
 Write-Host "🔧 Auto-detecting parameters from Azure environment..." -ForegroundColor Yellow
 
 # Load the Azure parameter detection function
@@ -109,12 +125,11 @@ if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
     }
 }
 
-# Set default MaxWaitMinutes if not provided
-if ($MaxWaitMinutes -eq 0) {
-    $MaxWaitMinutes = 40
-}
-
 Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
 
 # 📁 HELPER FUNCTION: Get absolute script path
 function Get-ScriptPath {
@@ -126,133 +141,6 @@ function Get-ScriptPath {
         $scriptDir = Split-Path $PSScriptRoot -Parent
         $fullPath = Join-Path $scriptDir $RelativePath
         return $fullPath
-    }
-}
-
-# 🛡️ AUTOMATION-READY FUNCTIONS
-function Write-AutomationLog {
-    param(
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "SUCCESS")]
-        [string]$Level = "INFO"
-    )
-    
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [$Level] $Message"
-    
-    # Color coding for console
-    switch ($Level) {
-        "INFO" { Write-Host $logMessage -ForegroundColor Cyan }
-        "WARN" { Write-Host $logMessage -ForegroundColor Yellow }
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-    }
-    
-    # Write to log file if specified
-    if (-not [string]::IsNullOrEmpty($LogFile)) {
-        try {
-            # Ensure the directory exists
-            $logDir = Split-Path -Parent $LogFile
-            if (-not (Test-Path $logDir)) {
-                New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-            }
-            Add-Content -Path $LogFile -Value $logMessage -Force
-        } catch {
-            # If logging fails, just continue - don't break the script
-            Write-Host "Warning: Could not write to log file: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
-    }
-}
-
-function Test-Prerequisites {
-    param([switch]$DryRun)
-    
-    Write-AutomationLog "🔍 Validating prerequisites for automation..." "INFO"
-    $errors = @()
-    
-    # Check Azure CLI
-    try {
-        $azVersion = az version --output json 2>$null | ConvertFrom-Json
-        if (-not $azVersion) { throw "Azure CLI not found" }
-        Write-AutomationLog "✅ Azure CLI found: $($azVersion.'azure-cli')" "SUCCESS"
-    } catch {
-        $errors += "❌ Azure CLI not installed or not in PATH"
-    }
-    
-    # Check Azure CLI authentication (informational - will be handled in main flow)
-    try {
-        $account = az account show 2>$null | ConvertFrom-Json
-        if (-not $account) { 
-            Write-AutomationLog "ℹ️ Azure CLI not currently authenticated - will authenticate during execution" "INFO"
-        } else {
-            Write-AutomationLog "✅ Azure CLI pre-authenticated as: $($account.user.name)" "SUCCESS"
-        }
-    } catch {
-        Write-AutomationLog "ℹ️ Azure CLI authentication will be handled during script execution" "INFO"
-    }
-    
-    # Check PowerShell modules (SqlServer required for Invoke-SqlCmd)
-    if (-not $DryRun) {
-        $requiredModules = @("SqlServer")
-        foreach ($module in $requiredModules) {
-            if (-not (Get-Module -ListAvailable -Name $module)) {
-                Write-AutomationLog "❌ PowerShell module '$module' not installed - required for SQL operations" "ERROR"
-                $errors += "Missing required PowerShell module: $module"
-            } else {
-                Write-AutomationLog "✅ PowerShell module '$module' available" "SUCCESS"
-            }
-        }
-    } else {
-        Write-AutomationLog "ℹ️ PowerShell module check skipped in dry-run mode" "INFO"
-    }
-    
-    # Check kubectl (for environment management)
-    try {
-        kubectl version --client --output=json 2>$null | Out-Null
-        Write-AutomationLog "✅ kubectl found and configured" "SUCCESS"
-    } catch {
-        Write-AutomationLog "⚠️  kubectl not found - some steps may fail" "WARN"
-    }
-    
-    if ($errors.Count -gt 0) {
-        Write-AutomationLog "❌ Prerequisites validation failed:" "ERROR"
-        foreach ($err in $errors) {
-            Write-AutomationLog $err "ERROR"
-        }
-        throw "Prerequisites not met. Please fix the above issues before running."
-    }
-    
-    Write-AutomationLog "✅ All prerequisites validated successfully" "SUCCESS"
-}
-
-function Get-AutomationDateTime {
-    param(
-        [string]$RestoreDateTime,
-        [string]$Timezone
-    )
-    
-    Write-AutomationLog "🕐 Processing restore point in time for automation..." "INFO"
-    
-    # Handle RestoreDateTime
-    if ([string]::IsNullOrWhiteSpace($RestoreDateTime)) {
-        $RestoreDateTime = (Get-Date).AddMinutes(-15).ToString("yyyy-MM-dd HH:mm:ss")
-        Write-AutomationLog "🤖 Auto-selected restore time: $RestoreDateTime (15 minutes ago)" "INFO"
-    } else {
-        Write-AutomationLog "📅 Using provided restore time: $RestoreDateTime" "INFO"
-    }
-    
-    # Handle Timezone
-    if ([string]::IsNullOrWhiteSpace($Timezone)) {
-        # Use current system timezone as default
-        $Timezone = [System.TimeZoneInfo]::Local.Id
-        Write-AutomationLog "🌍 Auto-selected timezone: $Timezone (current system timezone)" "INFO"
-    } else {
-        Write-AutomationLog "🌍 Using provided timezone: $Timezone" "INFO"
-    }
-    
-    return @{
-        RestoreDateTime = $RestoreDateTime
-        Timezone = $Timezone
     }
 }
 
@@ -282,7 +170,7 @@ function Perform-Migration {
         Write-Host "🔍 Script base directory (from PSScriptRoot): $global:ScriptBaseDir" -ForegroundColor Gray
         $commonDir = Join-Path $global:ScriptBaseDir "common"
         $authScript = Join-Path $commonDir "Connect-Azure.ps1"
-        Write-Host "🔍 Looking for auth script at: $authScript" -ForegroundColor Gray
+        # Write-Host "🔍 Looking for auth script at: $authScript" -ForegroundColor Gray
     } else {
         # Fallback: try new PowerShell-only structure
         $global:ScriptBaseDir = "/scripts"
@@ -360,17 +248,12 @@ function Invoke-Migration {
     Write-Host "☁️ Cloud: $Cloud"
     Write-Host "👤 Customer Alias: $CustomerAlias"
     
-
     if ($DryRun) {
         Write-Host "🔍 DRY RUN MODE ENABLED - No actual changes will be made" -ForegroundColor Yellow
     }
     Write-Host "⏱️ Max Wait Time: $MaxWaitMinutes minutes" -ForegroundColor Cyan
 
     ### Self-Service data refresh 
-    
-    # 🤖 AUTOMATION: Handle restore datetime and timezone without prompts
-    Write-Host "`n🕐 RESTORE POINT IN TIME" -ForegroundColor Cyan
-    Write-Host "=========================" -ForegroundColor Cyan
     
     # Automatic processing - no interactive prompts
     Write-AutomationLog "🤖 AUTOMATION MODE: Processing datetime and timezone automatically" "INFO"
@@ -380,8 +263,31 @@ function Invoke-Migration {
     
     Write-Host "Selected timezone: $timezone" -ForegroundColor Green
     
-    # Step 1: Restore Point in Time
-    Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
+    # Step 1: Grant Permissions
+    Write-Host "`n🔄 STEP 1: GRANT PERMISSIONS" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would grant permissions to SelfServiceRefresh" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would call Azure Function to add SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
+    } else {
+        Write-AutomationLog "🔐 Starting permission grant process..." "INFO"
+        
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Grant" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+        
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+            throw "Permission grant failed: $($permissionResult.Error)"
+        }
+        
+        Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
+    }
+    
+    # Step 2: Restore Point in Time
+    Write-Host "`n🔄 STEP 2: RESTORE POINT IN TIME" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would execute restore point in time" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
@@ -396,8 +302,8 @@ function Invoke-Migration {
         & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $timezone -DryRun:$DryRun  -MaxWaitMinutes $MaxWaitMinutes
     }
     
-    # Step 2: Stop Environment
-    Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
+    # Step 3: Stop Environment
+    Write-Host "`n🔄 STEP 3: STOP ENVIRONMENT" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
@@ -407,8 +313,8 @@ function Invoke-Migration {
         & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
     }
     
-    # Step 3: Copy Attachments
-    Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    # Step 4: Copy Attachments
+    Write-Host "`n🔄 STEP 4: COPY ATTACHMENTS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
@@ -418,8 +324,8 @@ function Invoke-Migration {
         & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
-    # Step 4: Copy Database
-    Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
+    # Step 5: Copy Database
+    Write-Host "`n🔄 STEP 5: COPY DATABASE" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy database" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "database/copy_database.ps1"
@@ -429,8 +335,8 @@ function Invoke-Migration {
         & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
-    # Step 5: Cleanup Environment Configuration
-    Write-Host "`n🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
+    # Step 6: Cleanup Environment Configuration
+    Write-Host "`n🔄 STEP 6: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would cleanup source environment configurations" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Removing CORS origins and redirect URIs for: $Source" -ForegroundColor Gray
@@ -449,8 +355,8 @@ function Invoke-Migration {
         & $scriptPath -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
     }
     
-    # Step 6: Revert SQL Users
-    Write-Host "`n🔄 STEP 6: REVERT SQL USERS" -ForegroundColor Cyan
+    # Step 7: Revert SQL Users
+    Write-Host "`n🔄 STEP 7: REVERT SQL USERS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would revert source environment SQL users" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
@@ -462,8 +368,8 @@ function Invoke-Migration {
         & $scriptPath -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure
     }
     
-    # Step 7: Adjust Resources
-    Write-Host "`n🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
+    # Step 8: Adjust Resources
+    Write-Host "`n🔄 STEP 8: ADJUST RESOURCES" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
@@ -473,8 +379,8 @@ function Invoke-Migration {
         & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace 
     }
     
-    # Step 8: Delete Replicas
-    Write-Host "`n🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
+    # Step 9: Delete Replicas
+    Write-Host "`n🔄 STEP 9: DELETE REPLICAS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would delete and recreate replicas" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
@@ -484,8 +390,8 @@ function Invoke-Migration {
         & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
-    # Step 9: Configure Users
-    Write-Host "`n🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
+    # Step 10: Configure Users
+    Write-Host "`n🔄 STEP 10: CONFIGURE USERS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would configure SQL users" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
@@ -500,8 +406,8 @@ function Invoke-Migration {
         & $scriptPath -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
     }
     
-    # Step 10: Start Environment
-    Write-Host "`n🔄 STEP 10: START ENVIRONMENT" -ForegroundColor Cyan
+    # Step 11: Start Environment
+    Write-Host "`n🔄 STEP 11: START ENVIRONMENT" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would start environment (SKIPPED in dry run)" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
@@ -517,8 +423,8 @@ function Invoke-Migration {
         & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace
     }
     
-    # Step 11: Cleanup
-    Write-Host "`n🔄 STEP 11: CLEANUP" -ForegroundColor Cyan
+    # Step 12: Cleanup
+    Write-Host "`n🔄 STEP 12: CLEANUP" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would delete restored databases" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Source: $Source" -ForegroundColor Gray
@@ -532,6 +438,29 @@ function Invoke-Migration {
         & $scriptPath -source $Source 
     }
     
+    # Step 13: Remove Permissions
+    Write-Host "`n🔄 STEP 13: REMOVE PERMISSIONS" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
+    } else {
+        Write-AutomationLog "🔐 Starting permission removal process..." "INFO"
+        
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+        
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
+            Write-AutomationLog "💡 Permissions may need to be removed manually" "WARN"
+        } else {
+            Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
+        }
+    }
+    
     # Final summary for dry run mode
     if ($DryRun) {
         Write-Host "`n====================================" -ForegroundColor Cyan
@@ -539,6 +468,7 @@ function Invoke-Migration {
         Write-Host "====================================`n" -ForegroundColor Cyan
         Write-Host "🔍 This was a dry run - no actual changes were made" -ForegroundColor Yellow
         Write-Host "📋 The following operations would have been performed:" -ForegroundColor Cyan
+        Write-Host "   • Call Azure Function to grant permissions to SelfServiceRefresh" -ForegroundColor Gray
         Write-Host "   • Restore databases to point in time: $RestoreDateTime ($timezone)" -ForegroundColor Gray
         Write-Host "   • Copy attachments from $Source to $Destination" -ForegroundColor Gray
         Write-Host "   • Copy databases from $Source to $Destination" -ForegroundColor Gray
@@ -548,6 +478,7 @@ function Invoke-Migration {
         Write-Host "   • Delete and recreate replica databases" -ForegroundColor Gray
         Write-Host "   • Configure SQL users and permissions" -ForegroundColor Gray
         Write-Host "   • Clean up temporary restored databases" -ForegroundColor Gray
+        Write-Host "   • Call Azure Function to remove permissions from SelfServiceRefresh" -ForegroundColor Gray
         Write-Host "`n💡 To execute the actual operations, run without the -DryRun parameter" -ForegroundColor Green
     } else {
         Write-Host "`n====================================" -ForegroundColor Cyan
@@ -557,9 +488,9 @@ function Invoke-Migration {
     }
 }
 
-
-
-# 🚀 MAIN EXECUTION WITH AUTOMATION SUPPORT
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN SCRIPT EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════
 Write-AutomationLog "🚀 Starting Self-Service Data Refresh" "INFO"
 Write-AutomationLog "📋 Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
 Write-AutomationLog "☁️  Cloud: $Cloud | DryRun: $DryRun" "INFO"

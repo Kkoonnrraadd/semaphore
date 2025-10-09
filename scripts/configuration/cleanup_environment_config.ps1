@@ -19,7 +19,6 @@ if ($DryRun) {
 }
 
 $destination_lower = (Get-Culture).TextInfo.ToLower($destination)
-$environmentToClean_lower = (Get-Culture).TextInfo.ToLower($EnvironmentToClean)
 
 $graph_query = "
   resources
@@ -52,9 +51,7 @@ $FullEnvironmentToClean = if ($MultitenantToRemove -eq "manufacturo") {
 Write-Host "Cleaning up configuration for environment: $FullEnvironmentToClean"
 
 $dest_split = $dest_rg -split "-"
-$dest_product     = $dest_split[1]
 $dest_location    = $dest_split[-1]
-$dest_type        = $dest_split[2]
 $dest_environment = $dest_split[3]
 
 # Get access token

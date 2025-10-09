@@ -113,7 +113,7 @@ $Cloud = if ($parsedParams.ContainsKey("Cloud")) { $parsedParams["Cloud"] } else
 $DryRun = if ($parsedParams.ContainsKey("DryRun")) { 
     $dryRunValue = $parsedParams["DryRun"]
     $dryRunBool = if ($dryRunValue -eq "true" -or $dryRunValue -eq $true) { $true } else { $false }
-    Write-Host "🔧 Converted DryRun: '$dryRunValue' → $dryRunBool" -ForegroundColor Yellow
+    # Write-Host "🔧 Converted DryRun: '$dryRunValue' → $dryRunBool" -ForegroundColor Yellow
     $dryRunBool
 } else { 
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
@@ -147,7 +147,7 @@ $selfServiceScript = Join-Path $scriptDir "self_service.ps1"
 $MaxWaitMinutesInt = 40  # Default value
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
     if ([int]::TryParse($MaxWaitMinutes, [ref]$MaxWaitMinutesInt)) {
-        Write-Host "🔧 Converted MaxWaitMinutes: '$MaxWaitMinutes' → $MaxWaitMinutesInt" -ForegroundColor Yellow
+        # Write-Host "🔧 Converted MaxWaitMinutes: '$MaxWaitMinutes' → $MaxWaitMinutesInt" -ForegroundColor Yellow
     } else {
         Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 40" -ForegroundColor Yellow
         $MaxWaitMinutesInt = 40

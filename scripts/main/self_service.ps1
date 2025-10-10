@@ -164,8 +164,14 @@ function Perform-Migration {
         Write-Host "📝 Using authentication script: $authScript" -ForegroundColor Gray
         Write-Host "🔑 Authenticating with Service Principal (AZURE_CLIENT_ID from env)" -ForegroundColor Gray
         
-        # Try to authenticate - the Connect-Azure script will try different clouds
-        $authResult = & $authScript
+        # Pass user-provided Cloud parameter if available, otherwise Connect-Azure will auto-detect
+        if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
+            Write-Host "🌐 Using user-provided cloud: $($script:OriginalCloud)" -ForegroundColor Gray
+            $authResult = & $authScript -Cloud $script:OriginalCloud
+        } else {
+            Write-Host "🌐 Cloud not provided, will auto-detect" -ForegroundColor Gray
+            $authResult = & $authScript
+        }
         if (-not $authResult) {
             Write-AutomationLog "❌ FATAL ERROR: Failed to authenticate to Azure" "ERROR"
             Write-Host "❌ Azure authentication failed. Cannot proceed." -ForegroundColor Red
@@ -277,6 +283,10 @@ function Perform-Migration {
     Write-Host "   Cloud: $($script:Cloud)" -ForegroundColor Gray
     Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "   Customer Alias to Remove: $($script:CustomerAliasToRemove)" -ForegroundColor Gray
+    
+    # Log final parameters
+    Write-AutomationLog "📋 Final Parameters: Source=$($script:Source)/$($script:SourceNamespace) → Destination=$($script:Destination)/$($script:DestinationNamespace)" "INFO"
+    Write-AutomationLog "☁️  Cloud: $($script:Cloud) | DryRun: $DryRun" "INFO"
     
     # ═══════════════════════════════════════════════════════════════════════════
     # STEP 0D: GRANT PERMISSIONS (Now that we know Source)
@@ -603,8 +613,8 @@ function Invoke-Migration {
 # MAIN SCRIPT EXECUTION
 # ═══════════════════════════════════════════════════════════════════════════
 Write-AutomationLog "🚀 Starting Self-Service Data Refresh" "INFO"
-Write-AutomationLog "📋 Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
-Write-AutomationLog "☁️  Cloud: $Cloud | DryRun: $DryRun" "INFO"
+Write-AutomationLog "📋 Initial Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
+Write-AutomationLog "☁️  Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<will auto-detect>' } else { $Cloud }) | DryRun: $DryRun" "INFO"
 if (-not [string]::IsNullOrEmpty($LogFile)) {
     Write-AutomationLog "📝 Logging to file: $LogFile" "INFO"
 }

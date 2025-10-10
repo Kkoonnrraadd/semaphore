@@ -592,6 +592,129 @@ Write-Host "🔍 DEBUG: Total databases to process: $($dbs.Count)" -ForegroundCo
 $copy_results = $dbs | ForEach-Object -ThrottleLimit 5 -Parallel {
     Write-Host "🔍 DEBUG: Starting parallel processing for database: $($_.name)" -ForegroundColor Magenta
     
+    # Define Test-DatabasePermissions function within parallel block
+    function Test-DatabasePermissions {
+        param (
+            [string]$ServerFQDN,
+            [string]$AccessToken,
+            [string]$DatabaseName = "master"
+        )
+        
+        Write-Host "  🔍 Testing database permissions on $ServerFQDN..." -ForegroundColor Gray
+        
+        try {
+            # Test basic connectivity
+            $connectivityQuery = "SELECT @@VERSION as version, DB_NAME() as current_db"
+            $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database $DatabaseName -Query $connectivityQuery -ConnectionTimeout 15 -QueryTimeout 30
+            
+            if ($result) {
+                Write-Host "    ✅ Basic connectivity successful" -ForegroundColor Green
+                Write-Host "    📋 Current Database: $($result.current_db)" -ForegroundColor Gray
+                Write-Host "    📋 SQL Server Version: $($result.version.Split("`n")[0])" -ForegroundColor Gray
+            } else {
+                Write-Host "    ❌ Basic connectivity failed" -ForegroundColor Red
+                return $false
+            }
+            
+            # Test if user has permissions to create databases
+            $permissionQuery = @"
+SELECT 
+    HAS_PERMS_BY_NAME('master', 'DATABASE', 'CREATE DATABASE') as can_create_db,
+    IS_SRVROLEMEMBER('dbcreator') as is_dbcreator,
+    IS_SRVROLEMEMBER('sysadmin') as is_sysadmin
+"@
+            
+            $permissions = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database "master" -Query $permissionQuery -ConnectionTimeout 15 -QueryTimeout 30
+            
+            Write-Host "    📋 Permission Query Results:" -ForegroundColor Gray
+            Write-Host "      • Can Create Database: $($permissions.can_create_db)" -ForegroundColor Gray
+            Write-Host "      • Is dbcreator Role: $($permissions.is_dbcreator)" -ForegroundColor Gray
+            Write-Host "      • Is sysadmin Role: $($permissions.is_sysadmin)" -ForegroundColor Gray
+            
+            if ($permissions.can_create_db -eq 1 -or $permissions.is_dbcreator -eq 1 -or $permissions.is_sysadmin -eq 1) {
+                Write-Host "    ✅ Database creation permissions confirmed" -ForegroundColor Green
+            } else {
+                Write-Host "    ❌ Insufficient permissions to create databases" -ForegroundColor Red
+                return $false
+            }
+            
+            # Test if user can query system tables (needed for copy operations)
+            $systemQuery = "SELECT COUNT(*) as table_count FROM sys.databases"
+            $systemResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database "master" -Query $systemQuery -ConnectionTimeout 15 -QueryTimeout 30
+            
+            Write-Host "    📋 System Table Query Results:" -ForegroundColor Gray
+            Write-Host "      • Database Count: $($systemResult.table_count)" -ForegroundColor Gray
+            
+            if ($systemResult -and $systemResult.table_count -ge 0) {
+                Write-Host "    ✅ System table access confirmed" -ForegroundColor Green
+            } else {
+                Write-Host "    ❌ Cannot access system tables" -ForegroundColor Red
+                return $false
+            }
+            
+            return $true
+            
+        } catch {
+            Write-Host "    ❌ Permission test failed: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+    }
+
+    function Test-CopyPermissions {
+        param (
+            [string]$SourceServer,
+            [string]$SourceDatabase,
+            [string]$DestServer,
+            [string]$DestDatabase,
+            [string]$AccessToken
+        )
+        
+        # Check if same server
+        if ($SourceServer -eq $DestServer) {
+            Write-Host "  🔍 Same server operation - skipping cross-server copy test..." -ForegroundColor Gray
+            return $true
+        }
+        
+        Write-Host "  🔍 Testing cross-server copy permissions..." -ForegroundColor Gray
+        
+        try {
+            # Test if we can query the source database
+            $sourceQuery = "SELECT COUNT(*) as table_count FROM sys.tables"
+            $sourceResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $SourceServer -Database $SourceDatabase -Query $sourceQuery -ConnectionTimeout 15 -QueryTimeout 30
+            
+            if (-not $sourceResult) {
+                Write-Host "    ❌ Cannot access source database $SourceDatabase" -ForegroundColor Red
+                return $false
+            }
+            
+            Write-Host "    ✅ Source database access confirmed" -ForegroundColor Green
+            
+            # Test if we can create a test database (simulate copy operation)
+            $testDbName = "test_copy_permissions_$(Get-Random)"
+            $createTestQuery = "CREATE DATABASE [$testDbName]"
+            
+            try {
+                Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServer -Query $createTestQuery -ConnectionTimeout 15 -QueryTimeout 30
+                Write-Host "    ✅ Database creation test successful" -ForegroundColor Green
+                
+                # Clean up test database
+                $dropTestQuery = "DROP DATABASE [$testDbName]"
+                Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServer -Query $dropTestQuery -ConnectionTimeout 15 -QueryTimeout 30
+                Write-Host "    ✅ Test database cleaned up" -ForegroundColor Green
+                
+                return $true
+                
+            } catch {
+                Write-Host "    ❌ Database creation test failed: $($_.Exception.Message)" -ForegroundColor Red
+                return $false
+            }
+            
+        } catch {
+            Write-Host "    ❌ Copy permission test failed: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+    }
+    
     $source_environment = $using:source_lower
     $source_server = $using:source_server
     $dest_environment = $using:destination_lower

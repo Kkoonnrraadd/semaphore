@@ -52,6 +52,41 @@ param(
 # Azure Function Configuration
 $functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
 $functionCode = $env:AZURE_FUNCTION_APP_SECRET
+
+# Validate that the Azure Function secret is configured
+if ([string]::IsNullOrWhiteSpace($functionCode)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ AZURE_FUNCTION_APP_SECRET environment variable is not set!" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "To fix this, ensure AZURE_FUNCTION_APP_SECRET is set in your environment:" -ForegroundColor Gray
+    Write-Host "  • In docker-compose.yaml: Add to environment section" -ForegroundColor Gray
+    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
+    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "Example (docker-compose.yaml):" -ForegroundColor Gray
+    Write-Host "  environment:" -ForegroundColor Gray
+    Write-Host "    AZURE_FUNCTION_APP_SECRET: your-secret-here" -ForegroundColor Gray
+    Write-Host "" -ForegroundColor Red
+    
+    # Return structured error for automation
+    return @{
+        Success = $false
+        Action = $Action
+        Environment = $Environment
+        ServiceAccount = $ServiceAccount
+        Response = $null
+        Duration = 0
+        Error = "AZURE_FUNCTION_APP_SECRET environment variable is not set"
+        StatusCode = $null
+    }
+}
+
 $functionUrl = "${functionBaseUrl}?code=${functionCode}"
 
 # Color-coded output for better visibility
@@ -182,11 +217,26 @@ try {
     Write-Host ""
     
     # Try to get HTTP status code if available
+    $statusCode = $null
     if ($_.Exception.Response) {
         try {
             $statusCode = [int]$_.Exception.Response.StatusCode
             $statusDescription = $_.Exception.Response.StatusDescription
             Write-Host "   HTTP Status: $statusCode - $statusDescription" -ForegroundColor Red
+            
+            # Provide specific guidance for common errors
+            if ($statusCode -eq 401) {
+                Write-Host "" -ForegroundColor Yellow
+                Write-Host "   ⚠️  401 Unauthorized - This usually means:" -ForegroundColor Yellow
+                Write-Host "      1. AZURE_FUNCTION_APP_SECRET is missing or incorrect" -ForegroundColor Yellow
+                Write-Host "      2. The Azure Function key has expired or changed" -ForegroundColor Yellow
+                Write-Host "" -ForegroundColor Gray
+                Write-Host "   🔧 To fix:" -ForegroundColor Gray
+                Write-Host "      • Check that AZURE_FUNCTION_APP_SECRET is set in your pod" -ForegroundColor Gray
+                Write-Host "      • Verify the secret value matches the Azure Function's key" -ForegroundColor Gray
+                Write-Host "      • Check: kubectl get pods -n semaphore" -ForegroundColor Gray
+                Write-Host "      • Verify: kubectl exec -n semaphore <pod> -- env | grep AZURE_FUNCTION" -ForegroundColor Gray
+            }
         } catch {
             Write-Host "   HTTP Status: Unable to retrieve" -ForegroundColor Red
         }

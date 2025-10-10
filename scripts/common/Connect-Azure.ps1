@@ -1,15 +1,33 @@
 param(
-    [string]$Cloud = "AzureUSGovernment"
+    [string]$Cloud = ""
 )
 
 Write-Host "🔐 Setting up Azure authentication..." -ForegroundColor Cyan
-Write-Host "🌐 Using cloud: $Cloud" -ForegroundColor Gray
 
-# Set Azure CLI to use the correct cloud
-Write-Host "⚙️ Configuring Azure CLI for $Cloud..." -ForegroundColor Yellow
-az cloud set --name $Cloud 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "⚠️ Warning: Could not set cloud to $Cloud, using default" -ForegroundColor Yellow
+# If Cloud is provided, use it. Otherwise, try to detect or try both clouds
+if (-not [string]::IsNullOrWhiteSpace($Cloud)) {
+    Write-Host "🌐 Using specified cloud: $Cloud" -ForegroundColor Gray
+    az cloud set --name $Cloud 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "⚠️ Warning: Could not set cloud to $Cloud" -ForegroundColor Yellow
+    }
+} else {
+    # Try to detect from current context
+    try {
+        $currentCloud = az cloud show --query "name" -o tsv 2>$null
+        if (-not [string]::IsNullOrWhiteSpace($currentCloud)) {
+            Write-Host "🌐 Detected current cloud: $currentCloud" -ForegroundColor Gray
+            $Cloud = $currentCloud
+        } else {
+            Write-Host "❌ No cloud context found and no Cloud parameter provided" -ForegroundColor Red
+            Write-Host "   Please provide -Cloud parameter or ensure Azure CLI has a cloud context set" -ForegroundColor Yellow
+            return $false
+        }
+    } catch {
+        Write-Host "❌ Failed to detect Azure cloud context" -ForegroundColor Red
+        Write-Host "   Please provide -Cloud parameter (e.g., 'AzureCloud' or 'AzureUSGovernment')" -ForegroundColor Yellow
+        return $false
+    }
 }
 
 # Check if already authenticated

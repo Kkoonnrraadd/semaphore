@@ -31,6 +31,11 @@ try {
     Write-Host "   Executing: $aks_cmd" -ForegroundColor Gray
     Invoke-Expression $aks_cmd
     
+    # Convert kubelogin to different login mode
+    $kubelogin_cmd = "kubelogin convert-kubeconfig -l azurecli"
+    Write-Host "   Executing: $kubelogin_cmd" -ForegroundColor Gray
+    Invoke-Expression $kubelogin_cmd
+
     # Verify the context was set successfully
     $current_context = kubectl config current-context 2>$null
     if ($current_context -eq $source_aks) {

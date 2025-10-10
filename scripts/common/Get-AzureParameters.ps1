@@ -65,9 +65,13 @@ function Get-AzureCloudEnvironment {
         Write-Host "⚠️ Could not determine cloud from Azure CLI context" -ForegroundColor Yellow
     }
     
-    # Reasonable default based on common usage
-    Write-Host "⚠️ Using default cloud: AzureUSGovernment (common for your organization)" -ForegroundColor Yellow
-    return "AzureUSGovernment"
+    # No default - fail if cannot detect
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: Could not detect Azure cloud environment" -ForegroundColor Red
+    Write-Host "   Please provide -Cloud parameter explicitly" -ForegroundColor Yellow
+    Write-Host "   Example: -Cloud 'AzureUSGovernment' or -Cloud 'AzureCloud'" -ForegroundColor Gray
+    Write-Host "" -ForegroundColor Red
+    throw "Cloud environment could not be detected. Please provide -Cloud parameter."
 }
 
 function Get-SourceFromSubscription {
@@ -162,27 +166,28 @@ resources
 function Get-NamespaceFromEnvironment {
     <#
     .SYNOPSIS
-        Determines the appropriate namespace based on environment and user input
+        Returns namespace - either user-provided or organizational default
     #>
     param(
-        [string]$Environment,
         [string]$UserProvidedNamespace,
-        [string]$DefaultNamespace,
         [string]$NamespaceType = "destination"  # "source" or "destination"
     )
     
-    # If user provided a namespace, use it
+    # If user provided a namespace, use it (ALWAYS wins)
     if (-not [string]::IsNullOrWhiteSpace($UserProvidedNamespace)) {
+        Write-Host "✅ Using provided $NamespaceType namespace: $UserProvidedNamespace" -ForegroundColor Green
         return $UserProvidedNamespace
     }
     
-    # For source namespace, almost always "manufacturo"
+    # Use organizational defaults
+    # These are the ONLY valid namespaces for your organization
     if ($NamespaceType -eq "source") {
-        return $DefaultNamespace
+        Write-Host "✅ Using default source namespace: manufacturo" -ForegroundColor Green
+        return "manufacturo"
+    } else {
+        Write-Host "✅ Using default destination namespace: test" -ForegroundColor Green
+        return "test"
     }
-    
-    # For destination namespace, use the provided default
-    return $DefaultNamespace
 }
 
 # Main parameter detection logic
@@ -212,8 +217,8 @@ if ([string]::IsNullOrWhiteSpace($Source)) {
 
 # 3. Detect Source Namespace (if not provided)
 if ([string]::IsNullOrWhiteSpace($SourceNamespace)) {
-    $SourceNamespace = Get-NamespaceFromEnvironment -Environment $Source -UserProvidedNamespace $SourceNamespace -DefaultNamespace "manufacturo" -NamespaceType "source"
-    Write-Host "🏷️ Auto-detected source namespace: $SourceNamespace" -ForegroundColor Green
+    $SourceNamespace = Get-NamespaceFromEnvironment -UserProvidedNamespace $SourceNamespace -NamespaceType "source"
+    # Already logged in function
 } else {
     Write-Host "🏷️ Using provided source namespace: $SourceNamespace" -ForegroundColor Yellow
 }
@@ -228,18 +233,47 @@ if ([string]::IsNullOrWhiteSpace($Destination)) {
 
 # 5. Detect Destination Namespace (if not provided)
 if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
-    $DestinationNamespace = Get-NamespaceFromEnvironment -Environment $Destination -UserProvidedNamespace $DestinationNamespace -DefaultNamespace "test" -NamespaceType "destination"
-    Write-Host "🏷️ Auto-detected destination namespace: $DestinationNamespace" -ForegroundColor Green
+    $DestinationNamespace = Get-NamespaceFromEnvironment -UserProvidedNamespace $DestinationNamespace -NamespaceType "destination"
+    # Already logged in function
 } else {
     Write-Host "🏷️ Using provided destination namespace: $DestinationNamespace" -ForegroundColor Yellow
 }
 
 # 6. Set default values for time-sensitive parameters
-$DefaultTimezone = [System.TimeZoneInfo]::Local.Id  # Use system timezone
-$DefaultRestoreDateTime = (Get-Date).AddMinutes(-5).ToString("yyyy-MM-dd HH:mm:ss")  # 5 minutes ago
+# Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable (required for safety)
+$envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
+if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
+    $DefaultTimezone = $envTimezone
+    Write-Host "🕐 Set default timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $DefaultTimezone" -ForegroundColor Green
+} else {
+    # FAIL: Timezone is required to prevent incorrect data exports
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set" -ForegroundColor Red
+    Write-Host "   This is required to prevent incorrect timezone assumptions." -ForegroundColor Yellow
+    Write-Host "   Please set SEMAPHORE_SCHEDULE_TIMEZONE in docker-compose.yaml" -ForegroundColor Yellow
+    Write-Host "   Example: SEMAPHORE_SCHEDULE_TIMEZONE: 'UTC'" -ForegroundColor Gray
+    Write-Host "" -ForegroundColor Red
+    throw "SEMAPHORE_SCHEDULE_TIMEZONE environment variable must be set. No default will be assumed to prevent data errors."
+}
 
-Write-Host "🕐 Set default timezone: $DefaultTimezone (system timezone)" -ForegroundColor Green
-Write-Host "🕐 Set default restore time: $DefaultRestoreDateTime (5 minutes ago)" -ForegroundColor Green
+# Calculate default restore time in the configured timezone
+try {
+    $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($DefaultTimezone)
+    # Get current UTC time
+    $utcNow = [DateTime]::UtcNow
+    # Convert to the configured timezone
+    $currentTimeInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $timezoneInfo)
+    # Subtract 5 minutes
+    $DefaultRestoreDateTime = $currentTimeInTimezone.AddMinutes(-5).ToString("yyyy-MM-dd HH:mm:ss")
+    Write-Host "🕐 Set default restore time: $DefaultRestoreDateTime (5 minutes ago in $DefaultTimezone)" -ForegroundColor Green
+} catch {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: Invalid timezone '$DefaultTimezone'" -ForegroundColor Red
+    Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "   Please use a valid IANA timezone identifier" -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    throw "Invalid timezone configuration: $DefaultTimezone"
+}
 
 Write-Host "✅ Parameter detection completed" -ForegroundColor Green
 Write-Host "📋 Detected parameters:" -ForegroundColor Cyan

@@ -155,21 +155,41 @@ function Get-AutomationDateTime {
     
     Write-AutomationLog "🕐 Processing restore point in time for automation..." "INFO"
     
-    # Handle RestoreDateTime
-    if ([string]::IsNullOrWhiteSpace($RestoreDateTime)) {
-        $RestoreDateTime = (Get-Date).AddMinutes(-15).ToString("yyyy-MM-dd HH:mm:ss")
-        Write-AutomationLog "🤖 Auto-selected restore time: $RestoreDateTime (15 minutes ago)" "INFO"
-    } else {
-        Write-AutomationLog "📅 Using provided restore time: $RestoreDateTime" "INFO"
-    }
-    
-    # Handle Timezone
+    # Handle Timezone FIRST (needed to calculate default RestoreDateTime correctly)
     if ([string]::IsNullOrWhiteSpace($Timezone)) {
-        # Use current system timezone as default
-        $Timezone = [System.TimeZoneInfo]::Local.Id
-        Write-AutomationLog "🌍 Auto-selected timezone: $Timezone (current system timezone)" "INFO"
+        # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable
+        $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
+        
+        if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
+            $Timezone = $envTimezone
+            Write-AutomationLog "🌍 Auto-selected timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $Timezone" "INFO"
+        } else {
+            # FAIL: Timezone is required - do not proceed with incorrect data
+            Write-AutomationLog "❌ FATAL ERROR: Timezone parameter is required but not provided" "ERROR"
+            Write-AutomationLog "   Please provide timezone via:" "ERROR"
+            Write-AutomationLog "   1. -Timezone parameter in the script call" "ERROR"
+            Write-AutomationLog "   2. SEMAPHORE_SCHEDULE_TIMEZONE environment variable" "ERROR"
+            throw "Timezone is required. Set SEMAPHORE_SCHEDULE_TIMEZONE environment variable or provide -Timezone parameter."
+        }
     } else {
         Write-AutomationLog "🌍 Using provided timezone: $Timezone" "INFO"
+    }
+    
+    # Handle RestoreDateTime (now that we know the timezone)
+    if ([string]::IsNullOrWhiteSpace($RestoreDateTime)) {
+        try {
+            # Calculate restore time in the configured timezone
+            $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($Timezone)
+            $utcNow = [DateTime]::UtcNow
+            $currentTimeInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $timezoneInfo)
+            $RestoreDateTime = $currentTimeInTimezone.AddMinutes(-15).ToString("yyyy-MM-dd HH:mm:ss")
+            Write-AutomationLog "🤖 Auto-selected restore time: $RestoreDateTime (15 minutes ago in $Timezone)" "INFO"
+        } catch {
+            Write-AutomationLog "❌ ERROR: Invalid timezone '$Timezone': $($_.Exception.Message)" "ERROR"
+            throw "Invalid timezone configuration: $Timezone"
+        }
+    } else {
+        Write-AutomationLog "📅 Using provided restore time: $RestoreDateTime" "INFO"
     }
     
     return @{

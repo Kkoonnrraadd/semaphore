@@ -106,6 +106,11 @@ RUN mkdir -p /opt/azure-cli-extensions && \
 # Install extensions for the semaphore user as well
 RUN su - semaphore -c "az extension add --name resource-graph --yes" || true
 
+# Install timezone data (before switching to semaphore user)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 USER semaphore
 
 # Environment configuration
@@ -113,7 +118,7 @@ ENV PATH="/opt/mssql-tools18/bin:$PATH"
 ENV AZURE_EXTENSION_DIR="/opt/azure-cli-extensions"
 RUN echo 'export PATH="/opt/mssql-tools18/bin:$PATH"' >> /home/semaphore/.bashrc
 RUN echo 'export AZURE_EXTENSION_DIR="/opt/azure-cli-extensions"' >> /home/semaphore/.bashrc
-
+    
 # Verify binary installations and extensions
 RUN az version
 RUN az extension list

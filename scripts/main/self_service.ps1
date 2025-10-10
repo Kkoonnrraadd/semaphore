@@ -195,12 +195,6 @@ function Perform-Migration {
     Write-Host "`n🔐 STEP 0C: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-AutomationLog "🔐 Granting permissions for Service Principal" "INFO"
     
-    # DEBUG: Check what we have
-    Write-Host "🔍 DEBUG: script:OriginalSource = '$($script:OriginalSource)'" -ForegroundColor Magenta
-    Write-Host "🔍 DEBUG: env:ENVIRONMENT = '$($env:ENVIRONMENT)'" -ForegroundColor Magenta
-    $sysEnv = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
-    Write-Host "🔍 DEBUG: System.Environment ENVIRONMENT = '$sysEnv'" -ForegroundColor Magenta
-    
     # Determine target environment with correct priority:
     # 1. User-provided Source parameter (highest priority)
     # 2. ENVIRONMENT variable (fallback)
@@ -213,10 +207,6 @@ function Perform-Migration {
         # Fallback to ENVIRONMENT variable
         $targetEnvironment = $env:ENVIRONMENT.ToLower()
         Write-Host "📋 Target Environment: $targetEnvironment (from ENVIRONMENT variable)" -ForegroundColor Gray
-    } elseif (-not [string]::IsNullOrWhiteSpace($sysEnv)) {
-        # Try System.Environment method
-        $targetEnvironment = $sysEnv.ToLower()
-        Write-Host "📋 Target Environment: $targetEnvironment (from System.Environment)" -ForegroundColor Gray
     } else {
         Write-Host "" -ForegroundColor Red
         Write-Host "❌ FATAL ERROR: No environment specified" -ForegroundColor Red

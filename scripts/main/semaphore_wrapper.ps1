@@ -98,12 +98,6 @@ function Parse-Arguments {
 Write-Host "🔧 Semaphore Wrapper: Parsing command line arguments..." -ForegroundColor Cyan
 Write-Host "📋 Raw arguments: $($args -join ' ')" -ForegroundColor Gray
 
-# DEBUG: Check environment variable access
-Write-Host "🔍 DEBUG: Checking ENVIRONMENT variable access..." -ForegroundColor Magenta
-Write-Host "🔍 DEBUG: env:ENVIRONMENT = '$($env:ENVIRONMENT)'" -ForegroundColor Magenta
-$sysEnvCheck = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
-Write-Host "🔍 DEBUG: System.Environment.GetEnvironmentVariable('ENVIRONMENT') = '$sysEnvCheck'" -ForegroundColor Magenta
-
 $parsedParams = Parse-Arguments -Arguments $args
 
 # Extract parameters - no defaults needed as self_service.ps1 will auto-detect them

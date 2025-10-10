@@ -342,6 +342,17 @@ function Perform-Migration {
     Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "   Customer Alias to Remove: $($script:CustomerAliasToRemove)" -ForegroundColor Gray
     
+    # Validate that destination namespace is NOT "manufacturo"
+    if ($script:DestinationNamespace -eq "manufacturo") {
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: Destination namespace cannot be 'manufacturo'" -ForegroundColor Red
+        Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
+        Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Red
+        Write-AutomationLog "❌ FATAL ERROR: Destination namespace 'manufacturo' is not allowed" "ERROR"
+        exit 1
+    }
+    
     # Log final parameters
     Write-AutomationLog "📋 Final Parameters: Source=$($script:Source)/$($script:SourceNamespace) → Destination=$($script:Destination)/$($script:DestinationNamespace)" "INFO"
     Write-AutomationLog "☁️  Cloud: $($script:Cloud) | DryRun: $DryRun" "INFO"

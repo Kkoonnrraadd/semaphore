@@ -265,28 +265,6 @@ if ($sameServer) {
 Write-Host "✅ All pre-flight permission validations passed" -ForegroundColor Green
 Write-Host ""
 
-# Safety confirmation (only for non-dry-run mode)
-if (-not $DryRun) {
-    Write-Host "⚠️  SAFETY WARNING" -ForegroundColor Red
-    Write-Host "=================" -ForegroundColor Red
-    if ($sameServer) {
-        Write-Host "This script will DELETE existing databases on the same server before moving." -ForegroundColor Yellow
-        Write-Host "Since source and destination are the same server, no backup is needed." -ForegroundColor Yellow
-    } else {
-        Write-Host "This script will DELETE existing databases on the destination server before copying." -ForegroundColor Yellow
-        Write-Host "Make sure you have proper backups before proceeding!" -ForegroundColor Yellow
-    }
-    Write-Host ""
-
-    $confirmation = Read-Host "Do you want to continue? Type 'YES' to proceed"
-    if ($confirmation -ne "YES") {
-        Write-Host "❌ Operation cancelled by user" -ForegroundColor Yellow
-        exit 0
-    }
-    Write-Host "✅ User confirmed - proceeding with database copy operations" -ForegroundColor Green
-    Write-Host ""
-}
-
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Database Copy Preview" -ForegroundColor Yellow
     Write-Host "=======================================" -ForegroundColor Yellow

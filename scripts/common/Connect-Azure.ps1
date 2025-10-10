@@ -4,58 +4,90 @@ param(
 
 Write-Host "🔐 Setting up Azure authentication..." -ForegroundColor Cyan
 
-# If Cloud is provided, use it. Otherwise, try to detect or try both clouds
-if (-not [string]::IsNullOrWhiteSpace($Cloud)) {
-    Write-Host "🌐 Using specified cloud: $Cloud" -ForegroundColor Gray
-    az cloud set --name $Cloud 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "⚠️ Warning: Could not set cloud to $Cloud" -ForegroundColor Yellow
-    }
-} else {
-    # Try to detect from current context
-    try {
-        $currentCloud = az cloud show --query "name" -o tsv 2>$null
-        if (-not [string]::IsNullOrWhiteSpace($currentCloud)) {
-            Write-Host "🌐 Detected current cloud: $currentCloud" -ForegroundColor Gray
-            $Cloud = $currentCloud
-        } else {
-            Write-Host "❌ No cloud context found and no Cloud parameter provided" -ForegroundColor Red
-            Write-Host "   Please provide -Cloud parameter or ensure Azure CLI has a cloud context set" -ForegroundColor Yellow
-            return $false
-        }
-    } catch {
-        Write-Host "❌ Failed to detect Azure cloud context" -ForegroundColor Red
-        Write-Host "   Please provide -Cloud parameter (e.g., 'AzureCloud' or 'AzureUSGovernment')" -ForegroundColor Yellow
-        return $false
-    }
-}
-
 # Check if already authenticated
 try {
     $context = az account show 2>$null | ConvertFrom-Json
     if ($context) {
         Write-Host "✅ Already authenticated to Azure" -ForegroundColor Green
-        Write-Host "   Subscription: $($context.name) ($($context.id))" -ForegroundColor Gray
+        $currentCloud = az cloud show --query "name" -o tsv 2>$null
+        Write-Host "   Cloud: $currentCloud" -ForegroundColor Gray
+        Write-Host "   Tenant: $($context.tenantId)" -ForegroundColor Gray
+        Write-Host "   Current Subscription: $($context.name)" -ForegroundColor Gray
+        Write-Host "   Total Subscriptions: $((az account list --query 'length(@)' -o tsv 2>$null)) available" -ForegroundColor Gray
         return $true
     }
 } catch {
     # Not authenticated, continue with login
 }
 
-# Try Service Principal authentication first
+# Try Service Principal authentication
 if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID) {
-    Write-Host "🔑 Using Service Principal authentication..." -ForegroundColor Yellow
+    Write-Host "🔑 Authenticating with Service Principal..." -ForegroundColor Yellow
     
     try {
+        # Authenticate - cloud context will be determined automatically by the tenant
         $result = az login --service-principal --username $env:AZURE_CLIENT_ID --password $env:AZURE_CLIENT_SECRET --tenant $env:AZURE_TENANT_ID --output json 2>&1
             
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
             
-            # Set default subscription if provided
-            if ($env:AZURE_SUBSCRIPTION_ID) {
-                az account set --subscription $env:AZURE_SUBSCRIPTION_ID
-                Write-Host "📋 Set default subscription: $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Green
+            # Get cloud context from authenticated session
+            $detectedCloud = az cloud show --query "name" -o tsv 2>$null
+            Write-Host "🌐 Detected cloud: $detectedCloud" -ForegroundColor Gray
+            
+            # Validate cloud if explicitly provided
+            if (-not [string]::IsNullOrWhiteSpace($Cloud) -and $detectedCloud -ne $Cloud) {
+                Write-Host "⚠️ Warning: Expected cloud '$Cloud' but authenticated to '$detectedCloud'" -ForegroundColor Yellow
+            }
+            
+            # Show available subscriptions
+            $subscriptions = az account list --query "[].{name:name, id:id, state:state}" -o json 2>$null | ConvertFrom-Json
+            if ($subscriptions) {
+                Write-Host "📋 Available subscriptions: $($subscriptions.Count)" -ForegroundColor Gray
+                foreach ($sub in $subscriptions) {
+                    $marker = if ($sub.state -eq "Enabled") { "✓" } else { "○" }
+                    Write-Host "   $marker $($sub.name) ($($sub.id))" -ForegroundColor DarkGray
+                }
+            }
+            
+            # Check for ENVIRONMENT variable and set subscription context based on it
+            if ($env:ENVIRONMENT) {
+                Write-Host "`n🎯 ENVIRONMENT variable detected: $env:ENVIRONMENT" -ForegroundColor Cyan
+                Write-Host "   Searching for subscription containing resources with this environment tag..." -ForegroundColor Gray
+                
+                try {
+                    # Use Azure Resource Graph to find resources with this environment tag
+                    # This will return the subscription ID where these resources exist
+                    $envLower = $env:ENVIRONMENT.ToLower()
+                    $graphQuery = "resources | where tags.Environment == '$envLower' | project subscriptionId | limit 1"
+                    
+                    $queryResult = az graph query -q $graphQuery --query "data[0].subscriptionId" -o tsv 2>$null
+                    
+                    if ($queryResult -and -not [string]::IsNullOrWhiteSpace($queryResult)) {
+                        # Set this subscription as the default context
+                        az account set --subscription $queryResult 2>$null
+                        
+                        if ($LASTEXITCODE -eq 0) {
+                            $subContext = az account show --query "{name:name, id:id}" -o json 2>$null | ConvertFrom-Json
+                            Write-Host "✅ Set subscription context based on ENVIRONMENT '$env:ENVIRONMENT'" -ForegroundColor Green
+                            Write-Host "   → Subscription: $($subContext.name)" -ForegroundColor Gray
+                            Write-Host "   → ID: $($subContext.id)" -ForegroundColor Gray
+                        } else {
+                            Write-Host "⚠️ Warning: Could not set subscription context to: $queryResult" -ForegroundColor Yellow
+                        }
+                    } else {
+                        Write-Host "⚠️ Warning: No resources found with Environment tag '$env:ENVIRONMENT'" -ForegroundColor Yellow
+                        Write-Host "   Using default subscription from authentication" -ForegroundColor Gray
+                    }
+                } catch {
+                    Write-Host "⚠️ Warning: Could not query resources for ENVIRONMENT '$env:ENVIRONMENT'" -ForegroundColor Yellow
+                    Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Gray
+                    Write-Host "   Using default subscription from authentication" -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "`nℹ️  No ENVIRONMENT variable set" -ForegroundColor Gray
+                Write-Host "   Operations will need to specify subscription explicitly via --subscription flag" -ForegroundColor Gray
+                Write-Host "   Or set ENVIRONMENT variable (e.g., 'gov001') to auto-select subscription" -ForegroundColor Gray
             }
             
             return $true
@@ -98,8 +130,7 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
 
 # No authentication method available
 Write-Host "❌ No Azure credentials found in environment variables" -ForegroundColor Red
-Write-Host "   - Service Principal: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID" -ForegroundColor Yellow
-Write-Host "   - Username/Password: AZURE_USERNAME, AZURE_PASSWORD" -ForegroundColor Yellow
-Write-Host "   - Optional: AZURE_SUBSCRIPTION_ID for default subscription" -ForegroundColor Yellow
+Write-Host "   Required: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID" -ForegroundColor Yellow
+Write-Host "   Note: Cloud context will be automatically detected after authentication" -ForegroundColor Gray
 
 return $false

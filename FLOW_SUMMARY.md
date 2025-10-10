@@ -75,7 +75,14 @@ The script uses these environment variables:
 - `AZURE_CLIENT_ID` - Service Principal client ID
 - `AZURE_CLIENT_SECRET` - Service Principal secret
 - `AZURE_TENANT_ID` - Azure AD tenant ID
-- `AZURE_SUBSCRIPTION_ID` - Azure subscription ID
+
+### Optional but Recommended:
+- `ENVIRONMENT` - Environment name (e.g., `gov001`, `wus018`) - Used to automatically set subscription context and determine source/destination
+
+**Note:** 
+- Cloud context is automatically detected after Service Principal authentication
+- If `ENVIRONMENT` is set, the subscription containing resources with that environment tag is automatically set as the default context
+- Individual operations can still specify different subscriptions using `--subscription` flags
 
 ### Required for Azure Function (Permissions):
 - `AZURE_FUNCTION_APP_SECRET` - Secret for calling permission management function

@@ -1,32 +1,36 @@
 <#
 .SYNOPSIS
-    Automatically detects Azure parameters from the current Azure environment
+    Gets Azure parameters from environment variables and Azure CLI context
 
 .DESCRIPTION
-    This script analyzes the current Azure subscription and environment to automatically
-    determine parameters that were previously hardcoded in self_service_defaults.json
+    This script collects parameters from:
+    - ENVIRONMENT variable → Source
+    - Azure CLI context → Cloud (from Connect-Azure.ps1)
+    - SEMAPHORE_SCHEDULE_TIMEZONE → Timezone
+    - Defaults → Namespaces (manufacturo, test)
+    
+    No complex detection - uses simple, explicit configuration.
 
 .PARAMETER Source
-    Optional source environment name (if not provided, will be auto-detected)
+    Optional source environment name (if not provided, uses ENVIRONMENT variable)
 
 .PARAMETER Destination
-    Optional destination environment name (if not provided, will be auto-detected)
+    Optional destination environment name (defaults to same as source)
 
 .PARAMETER SourceNamespace
-    Optional source namespace (if not provided, will be auto-detected)
+    Optional source namespace (defaults to "manufacturo")
 
 .PARAMETER DestinationNamespace
-    Optional destination namespace (if not provided, will be auto-detected)
+    Optional destination namespace (defaults to "test")
 
 .EXAMPLE
-    $params = Get-AzureParameters
-    Write-Host "Detected source: $($params.Source)"
-    Write-Host "Detected cloud: $($params.Cloud)"
+    # With ENVIRONMENT=gov001 set
+    $params = & Get-AzureParameters.ps1
+    # Returns: Source=gov001, Cloud=AzureUSGovernment, etc.
 
 .EXAMPLE
-    $params = Get-AzureParameters -Source "prod" -DestinationNamespace "test"
-    Write-Host "Using provided source: $($params.Source)"
-    Write-Host "Auto-detected cloud: $($params.Cloud)"
+    # Override specific values
+    $params = & Get-AzureParameters.ps1 -Source "prod" -DestinationNamespace "qa"
 #>
 
 param(
@@ -35,133 +39,6 @@ param(
     [AllowEmptyString()][string]$SourceNamespace,
     [AllowEmptyString()][string]$DestinationNamespace
 )
-
-function Get-AzureCloudEnvironment {
-    <#
-    .SYNOPSIS
-        Determines the Azure cloud environment from the current Azure CLI context
-    #>
-    try {
-        $cloudInfo = az account show --query "environmentName" -o tsv 2>$null
-        if ($cloudInfo -and $cloudInfo.Trim() -ne "") {
-            return $cloudInfo
-        }
-    } catch {
-        Write-Host "⚠️ Could not determine Azure cloud environment from Azure CLI" -ForegroundColor Yellow
-    }
-    
-    # Try to detect from subscription URL/endpoint
-    try {
-        $subscriptionId = az account show --query "id" -o tsv 2>$null
-        if ($subscriptionId) {
-            # Check which cloud we're authenticated to
-            $cloudName = az cloud show --query "name" -o tsv 2>$null
-            if ($cloudName -and $cloudName.Trim() -ne "") {
-                Write-Host "✅ Detected cloud from Azure CLI context: $cloudName" -ForegroundColor Green
-                return $cloudName
-            }
-        }
-    } catch {
-        Write-Host "⚠️ Could not determine cloud from Azure CLI context" -ForegroundColor Yellow
-    }
-    
-    # No default - fail if cannot detect
-    Write-Host "" -ForegroundColor Red
-    Write-Host "❌ FATAL ERROR: Could not detect Azure cloud environment" -ForegroundColor Red
-    Write-Host "   Please provide -Cloud parameter explicitly" -ForegroundColor Yellow
-    Write-Host "   Example: -Cloud 'AzureUSGovernment' or -Cloud 'AzureCloud'" -ForegroundColor Gray
-    Write-Host "" -ForegroundColor Red
-    throw "Cloud environment could not be detected. Please provide -Cloud parameter."
-}
-
-function Get-SourceFromSubscription {
-    <#
-    .SYNOPSIS
-        Attempts to determine the source environment from subscription information
-    #>
-    try {
-        # Get subscription information
-        $subscription = az account show --query "{id:id, name:name, displayName:displayName}" -o json 2>$null | ConvertFrom-Json
-        
-        if ($subscription) {
-            $subscriptionName = $subscription.name
-            $subscriptionDisplayName = $subscription.displayName
-            
-            Write-Host "🔍 Analyzing subscription: $subscriptionDisplayName ($subscriptionName)" -ForegroundColor Gray
-            
-            # Try to extract environment from subscription name
-            # Look for patterns like "wus018", "gwc001", "gov001", "dev", "test", etc.
-            # Extract the environment code after the last underscore
-            if ($subscriptionName -match ".*_([A-Za-z0-9]+)$") {
-                $detectedSource = $matches[1].ToLower()
-                Write-Host "✅ Detected source from subscription name: $detectedSource" -ForegroundColor Green
-                return $detectedSource
-            }
-            
-            # Try to extract from display name with same pattern
-            if ($subscriptionDisplayName -match ".*_([A-Za-z0-9]+)$") {
-                $detectedSource = $matches[1].ToLower()
-                Write-Host "✅ Detected source from subscription display name: $detectedSource" -ForegroundColor Green
-                return $detectedSource
-            }
-            
-            # Try alternative pattern: Extract environment code from anywhere in name
-            # Patterns like: gov001, wus018, gwc001, eus001, etc.
-            if ($subscriptionName -match "([a-z]{3}\d{3})") {
-                $detectedSource = $matches[1].ToLower()
-                Write-Host "✅ Detected source from subscription name pattern: $detectedSource" -ForegroundColor Green
-                return $detectedSource
-            }
-            
-            # If no pattern matches, try to get from Azure Graph query
-            $graphResult = Get-SourceFromAzureGraph
-            if ($graphResult) {
-                return $graphResult
-            }
-        }
-    } catch {
-        Write-Host "⚠️ Could not analyze subscription information: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # No fallback - return null to indicate detection failed
-    Write-Host "⚠️ Could not auto-detect source environment from subscription" -ForegroundColor Yellow
-    return $null
-}
-
-function Get-SourceFromAzureGraph {
-    <#
-    .SYNOPSIS
-        Uses Azure Graph to find the most common environment in the current subscription
-    #>
-    try {
-        Write-Host "🔍 Querying Azure Graph for environment information..." -ForegroundColor Gray
-        
-        # Query for SQL servers to find environment tags
-        $graphQuery = @"
-resources
-| where type =~ 'microsoft.sql/servers'
-| where tags.Environment != ''
-| summarize count() by Environment = tags.Environment
-| order by count_ desc
-| take 1
-| project Environment
-"@
-        
-        $result = az graph query -q $graphQuery --query "data[0].Environment" -o tsv 2>$null
-        
-        if ($result -and $result -ne "null" -and $result.Trim() -ne "") {
-            Write-Host "✅ Detected source from Azure Graph: $result" -ForegroundColor Green
-            return $result
-        }
-        
-        Write-Host "⚠️ No environment tags found in Azure Graph" -ForegroundColor Yellow
-    } catch {
-        Write-Host "⚠️ Azure Graph query failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # No fallback - return null to indicate detection failed
-    return $null
-}
 
 function Get-NamespaceFromEnvironment {
     <#
@@ -193,26 +70,33 @@ function Get-NamespaceFromEnvironment {
 # Main parameter detection logic
 Write-Host "🔍 Auto-detecting Azure parameters..." -ForegroundColor Cyan
 
-# 1. Detect Azure Cloud Environment
-$Cloud = Get-AzureCloudEnvironment
-Write-Host "☁️  Detected cloud: $Cloud" -ForegroundColor Green
+# 1. Get Cloud from authenticated Azure CLI context (already set by Connect-Azure.ps1)
+$Cloud = az cloud show --query "name" -o tsv 2>$null
+if (-not $Cloud) {
+    Write-Host "❌ ERROR: Not authenticated to Azure. Please run Connect-Azure.ps1 first." -ForegroundColor Red
+    throw "Azure authentication required"
+}
+Write-Host "☁️  Cloud from Azure CLI context: $Cloud" -ForegroundColor Green
 
-# 2. Detect Source (if not provided)
+# 2. Get Source from ENVIRONMENT variable or parameter
 if ([string]::IsNullOrWhiteSpace($Source)) {
-    $Source = Get-SourceFromSubscription
-    
-    if ([string]::IsNullOrWhiteSpace($Source)) {
+    # Get from ENVIRONMENT variable (required)
+    if ($env:ENVIRONMENT) {
+        $Source = $env:ENVIRONMENT.ToLower()
+        Write-Host "🎯 Source from ENVIRONMENT variable: $Source" -ForegroundColor Green
+    } else {
         Write-Host "" -ForegroundColor Red
-        Write-Host "❌ FATAL ERROR: Could not auto-detect source environment" -ForegroundColor Red
-        Write-Host "   Please provide the Source parameter explicitly." -ForegroundColor Yellow
-        Write-Host "   Example: -Source 'gov001'" -ForegroundColor Gray
+        Write-Host "❌ FATAL ERROR: Source environment not provided and ENVIRONMENT variable not set" -ForegroundColor Red
+        Write-Host "   Please either:" -ForegroundColor Yellow
+        Write-Host "   1. Set ENVIRONMENT variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
+        Write-Host "   2. Provide the Source parameter explicitly (e.g., -Source 'gov001')" -ForegroundColor Gray
         Write-Host "" -ForegroundColor Red
-        throw "Source environment could not be detected. Please provide -Source parameter."
+        throw "Source environment must be provided via ENVIRONMENT variable or -Source parameter."
     }
-    
-    Write-Host "🎯 Auto-detected source: $Source" -ForegroundColor Green
 } else {
-    Write-Host "🎯 Using provided source: $Source" -ForegroundColor Yellow
+    # User explicitly provided Source - respect their choice
+    Write-Host "🎯 Using USER-PROVIDED source: $Source" -ForegroundColor Yellow
+    $Source = $Source.ToLower()
 }
 
 # 3. Detect Source Namespace (if not provided)
@@ -228,7 +112,9 @@ if ([string]::IsNullOrWhiteSpace($Destination)) {
     $Destination = $Source  # Same as source by default
     Write-Host "🎯 Auto-detected destination: $Destination (same as source)" -ForegroundColor Green
 } else {
-    Write-Host "🎯 Using provided destination: $Destination" -ForegroundColor Yellow
+    # User explicitly provided Destination - respect their choice
+    Write-Host "🎯 Using USER-PROVIDED destination: $Destination" -ForegroundColor Yellow
+    $Destination = $Destination.ToLower()
 }
 
 # 5. Detect Destination Namespace (if not provided)
@@ -239,6 +125,18 @@ if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     Write-Host "🏷️ Using provided destination namespace: $DestinationNamespace" -ForegroundColor Yellow
 }
 
+# SAFETY CHECK: Prevent Source = Destination (would overwrite source!)
+if ($Source -eq $Destination -and $SourceNamespace -eq $DestinationNamespace) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "🚫 BLOCKED: Source and Destination cannot be the same!" -ForegroundColor Red
+    Write-Host "   Source: $Source/$SourceNamespace" -ForegroundColor Yellow
+    Write-Host "   Destination: $Destination/$DestinationNamespace" -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    Write-Host "   This would overwrite the source environment and cause data loss!" -ForegroundColor Red
+    Write-Host "   Please specify a different destination environment." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    throw "SAFETY: Source and Destination must be different to prevent data loss"
+}
 # 6. Set default values for time-sensitive parameters
 # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable (required for safety)
 $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")

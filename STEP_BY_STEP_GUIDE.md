@@ -39,44 +39,55 @@ Everything else is **optional** and will be auto-detected from your Azure enviro
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ STEP 4: Early Permission Grant (OPTIONAL)                       │
-│ Decision Point: Did user provide Source?                        │
-│                                                                  │
-│ ✅ YES (Source provided)                                         │
-│    → Grant permissions NOW using that Source                    │
-│    → Set flag: $script:PermissionsGrantedEarly = $true         │
-│                                                                  │
-│ ❌ NO (Source empty)                                             │
-│    → Skip for now                                               │
-│    → Will grant permissions later after detection               │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ STEP 5: Azure Authentication                                    │
+│ STEP 4: Azure Authentication                                    │
 │ Uses environment variables from your pod:                       │
 │ - AZURE_CLIENT_ID                                              │
 │ - AZURE_CLIENT_SECRET                                          │
 │ - AZURE_TENANT_ID                                              │
-│ - AZURE_SUBSCRIPTION_ID                                        │
+│ - ENVIRONMENT (REQUIRED for auto-config, e.g., 'gov001')       │
 │                                                                  │
-│ Question: Which Azure Cloud?                                    │
-│ - If user provided Cloud → use it                              │
-│ - If empty → Get from Azure CLI context                        │
-│ - If still unknown → FAIL (no hardcoded default)               │
+│ Flow:                                                            │
+│ 1. Authenticate with Service Principal                          │
+│ 2. Cloud context auto-detected from authenticated tenant        │
+│ 3. If ENVIRONMENT is set → Find subscription with resources     │
+│    tagged with that environment and set as default context      │
+│ 4. If ENVIRONMENT not set → Use first available subscription    │
+│                                                                  │
+│ Question: Which Azure Cloud? (optional)                         │
+│ - If user provided Cloud → validate after authentication       │
+│ - If empty → Auto-detected from authenticated tenant           │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 5: Grant Permissions (RIGHT AFTER AUTHENTICATION!)        │
+│ NOW we have ENVIRONMENT variable, grant permissions early!      │
+│                                                                  │
+│ Uses: ENVIRONMENT variable (from pod env)                       │
+│ Calls: Azure Function to grant Service Principal access         │
+│                                                                  │
+│ Flow:                                                            │
+│ - Check if ENVIRONMENT is set (e.g., 'gov001')                  │
+│ - If YES: Call Azure Function to grant SelfServiceRefresh       │
+│   permissions to subscription matching that environment         │
+│ - Wait for permissions to propagate (30 seconds)                │
+│ - If NO: Show warning, skip (may fail later)                    │
+│                                                                  │
+│ This runs BEFORE parameter detection so SP has proper access!   │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ STEP 6: Auto-Detect Parameters from Azure                       │
-│ NOW we're authenticated, so we can query Azure resources!       │
+│ NOW we have permissions and can query Azure resources!          │
 │                                                                  │
 │ Calls: Get-AzureParameters.ps1                                  │
-│ This script queries:                                             │
-│ - Azure subscription name → extracts Source                     │
-│ - Azure Graph (resource tags) → confirms environment            │
-│ - Subscription metadata → gets Cloud info                       │
+│ This script determines Source with priority:                    │
+│ 1. User provided Source parameter (highest priority)            │
+│ 2. ENVIRONMENT variable (e.g., 'gov001')                        │
+│ 3. Extract from current subscription name                       │
+│ 4. Query Azure Graph for resource tags                          │
 │                                                                  │
 │ Returns:                                                         │
-│ - Source (detected from subscription)                            │
+│ - Source (from ENVIRONMENT or subscription detection)           │
 │ - SourceNamespace (detected from resources or default)          │
 │ - Destination (detected or same as Source)                      │
 │ - DestinationNamespace (detected from resources or default)     │

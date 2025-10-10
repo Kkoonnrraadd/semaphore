@@ -179,7 +179,6 @@ function Perform-Migration {
             Write-Host "   - AZURE_CLIENT_ID" -ForegroundColor Gray
             Write-Host "   - AZURE_CLIENT_SECRET" -ForegroundColor Gray
             Write-Host "   - AZURE_TENANT_ID" -ForegroundColor Gray
-            Write-Host "   - AZURE_SUBSCRIPTION_ID" -ForegroundColor Gray
             exit 1
         }
         Write-Host "✅ Azure authentication successful" -ForegroundColor Green
@@ -190,10 +189,69 @@ function Perform-Migration {
     }
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0C: AUTO-DETECT PARAMETERS FROM AZURE (Now that we're authenticated)
+    # STEP 0C: GRANT PERMISSIONS (Using ENVIRONMENT variable)
     # ═══════════════════════════════════════════════════════════════════════════
     
-    Write-Host "`n🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
+    Write-Host "`n🔐 STEP 0C: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-AutomationLog "🔐 Granting permissions for Service Principal" "INFO"
+    
+    # Determine target environment with correct priority:
+    # 1. User-provided Source parameter (highest priority)
+    # 2. ENVIRONMENT variable (fallback)
+    $targetEnvironment = $null
+    if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
+        # User explicitly provided Source - use it
+        $targetEnvironment = $script:OriginalSource.ToLower()
+        Write-Host "📋 Target Environment: $targetEnvironment (from USER-PROVIDED Source)" -ForegroundColor Gray
+    } elseif ($env:ENVIRONMENT) {
+        # Fallback to ENVIRONMENT variable
+        $targetEnvironment = $env:ENVIRONMENT.ToLower()
+        Write-Host "📋 Target Environment: $targetEnvironment (from ENVIRONMENT variable)" -ForegroundColor Gray
+    } else {
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: No environment specified" -ForegroundColor Red
+        Write-Host "   Cannot grant permissions without knowing the environment" -ForegroundColor Yellow
+        Write-Host "   Please either:" -ForegroundColor Yellow
+        Write-Host "   1. Provide -Source parameter (e.g., -Source 'gov001')" -ForegroundColor Gray
+        Write-Host "   2. Set ENVIRONMENT variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        Write-AutomationLog "❌ FATAL ERROR: No environment specified for permission grant" "ERROR"
+        throw "Cannot proceed without environment specification for permission granting"
+    }
+    
+    if ($targetEnvironment) {
+        Write-Host "📋 Service Account: SelfServiceRefresh" -ForegroundColor Gray
+        Write-Host "📋 Action: Grant" -ForegroundColor Gray
+        
+        # Call the dedicated permission management script
+        # NOTE: This ALWAYS runs, even in dry-run mode, because:
+        # 1. Permissions are needed for subsequent Azure operations
+        # 2. Azure Function call is safe (idempotent)
+        # 3. No actual infrastructure changes
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        if (Test-Path $permissionScript) {
+            Write-Host "🔑 Calling Azure Function to grant permissions..." -ForegroundColor Gray
+            $permissionResult = & $permissionScript -Action "Grant" -Environment $targetEnvironment -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+            
+            if (-not $permissionResult.Success) {
+                Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
+                Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+                throw "Permission grant failed: $($permissionResult.Error)"
+            }
+            
+            Write-Host "✅ Permissions granted successfully for environment: $targetEnvironment" -ForegroundColor Green
+            Write-AutomationLog "✅ Permissions granted successfully for $targetEnvironment" "SUCCESS"
+        } else {
+            Write-AutomationLog "❌ FATAL ERROR: Permission script not found at $permissionScript" "ERROR"
+            throw "Cannot proceed without granting permissions"
+        }
+    }
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0D: AUTO-DETECT PARAMETERS FROM AZURE (Now that we have permissions)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-Host "`n🔧 STEP 0D: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
     
     # Load the Azure parameter detection function
     $azureParamsScript = Join-Path $global:ScriptBaseDir "common/Get-AzureParameters.ps1"
@@ -287,37 +345,6 @@ function Perform-Migration {
     # Log final parameters
     Write-AutomationLog "📋 Final Parameters: Source=$($script:Source)/$($script:SourceNamespace) → Destination=$($script:Destination)/$($script:DestinationNamespace)" "INFO"
     Write-AutomationLog "☁️  Cloud: $($script:Cloud) | DryRun: $DryRun" "INFO"
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0D: GRANT PERMISSIONS (Now that we know Source)
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    Write-Host "`n🔄 STEP 0D: GRANT PERMISSIONS (Always - Dry Run or Not)" -ForegroundColor Cyan
-    Write-AutomationLog "🔐 Granting permissions for source environment: $($script:Source)" "INFO"
-    Write-Host "📋 Environment: $($script:Source)" -ForegroundColor Gray
-    Write-Host "📋 Service Account: SelfServiceRefresh" -ForegroundColor Gray
-    Write-Host "📋 Action: Grant" -ForegroundColor Gray
-    
-    # Call the dedicated permission management script
-    # NOTE: This ALWAYS runs, even in dry-run mode, because:
-    # 1. Permissions are needed for subsequent Azure operations
-    # 2. Azure Function call is safe (idempotent)
-    # 3. No actual infrastructure changes
-    $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    if (Test-Path $permissionScript) {
-        $permissionResult = & $permissionScript -Action "Grant" -Environment $script:Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
-        
-        if (-not $permissionResult.Success) {
-            Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
-            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-            throw "Permission grant failed: $($permissionResult.Error)"
-        }
-        
-        Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
-    } else {
-        Write-AutomationLog "❌ FATAL ERROR: Permission script not found at $permissionScript" "ERROR"
-        throw "Cannot proceed without granting permissions"
-    }
     
     # ═══════════════════════════════════════════════════════════════════════════
     # STEP 0E: VALIDATE PREREQUISITES

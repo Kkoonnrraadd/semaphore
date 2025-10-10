@@ -98,6 +98,12 @@ function Parse-Arguments {
 Write-Host "🔧 Semaphore Wrapper: Parsing command line arguments..." -ForegroundColor Cyan
 Write-Host "📋 Raw arguments: $($args -join ' ')" -ForegroundColor Gray
 
+# DEBUG: Check environment variable access
+Write-Host "🔍 DEBUG: Checking ENVIRONMENT variable access..." -ForegroundColor Magenta
+Write-Host "🔍 DEBUG: env:ENVIRONMENT = '$($env:ENVIRONMENT)'" -ForegroundColor Magenta
+$sysEnvCheck = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
+Write-Host "🔍 DEBUG: System.Environment.GetEnvironmentVariable('ENVIRONMENT') = '$sysEnvCheck'" -ForegroundColor Magenta
+
 $parsedParams = Parse-Arguments -Arguments $args
 
 # Extract parameters - no defaults needed as self_service.ps1 will auto-detect them
@@ -161,7 +167,22 @@ $scriptParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $scriptParams['RestoreDateTime'] = $RestoreDateTime }
 if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $scriptParams['Timezone'] = $Timezone }
 if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { $scriptParams['SourceNamespace'] = $SourceNamespace }
-if (-not [string]::IsNullOrWhiteSpace($Source)) { $scriptParams['Source'] = $Source }
+
+# Special handling for Source - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($Source)) { 
+    $scriptParams['Source'] = $Source 
+    Write-Host "📋 Wrapper: Using provided Source = $Source" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['Source'] = $envVar
+        Write-Host "📋 Wrapper: Using ENVIRONMENT variable as Source = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No Source provided and ENVIRONMENT variable not set" -ForegroundColor Yellow
+    }
+}
+
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) { $scriptParams['DestinationNamespace'] = $DestinationNamespace }
 if (-not [string]::IsNullOrWhiteSpace($Destination)) { $scriptParams['Destination'] = $Destination }
 if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { $scriptParams['CustomerAlias'] = $CustomerAlias }

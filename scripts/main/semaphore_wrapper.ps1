@@ -156,18 +156,21 @@ if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
 
 Write-Host "🚀 Calling self_service.ps1 with converted parameters..." -ForegroundColor Green
 
-# Call the main script with named parameters
-& $selfServiceScript `
-    -RestoreDateTime $RestoreDateTime `
-    -Timezone $Timezone `
-    -SourceNamespace $SourceNamespace `
-    -Source $Source `
-    -DestinationNamespace $DestinationNamespace `
-    -Destination $Destination `
-    -CustomerAlias $CustomerAlias `
-    -CustomerAliasToRemove $CustomerAliasToRemove `
-    -Cloud $Cloud `
-    -DryRun:$DryRun `
-    -MaxWaitMinutes $MaxWaitMinutesInt
+# Build parameter hashtable - only include non-empty values
+$scriptParams = @{}
+if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $scriptParams['RestoreDateTime'] = $RestoreDateTime }
+if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $scriptParams['Timezone'] = $Timezone }
+if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { $scriptParams['SourceNamespace'] = $SourceNamespace }
+if (-not [string]::IsNullOrWhiteSpace($Source)) { $scriptParams['Source'] = $Source }
+if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) { $scriptParams['DestinationNamespace'] = $DestinationNamespace }
+if (-not [string]::IsNullOrWhiteSpace($Destination)) { $scriptParams['Destination'] = $Destination }
+if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { $scriptParams['CustomerAlias'] = $CustomerAlias }
+if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove }
+if (-not [string]::IsNullOrWhiteSpace($Cloud)) { $scriptParams['Cloud'] = $Cloud }
+$scriptParams['DryRun'] = $DryRun
+$scriptParams['MaxWaitMinutes'] = $MaxWaitMinutesInt
+
+# Call the main script with splatting - only passes parameters that have values
+& $selfServiceScript @scriptParams
 
 Write-Host "✅ Semaphore wrapper completed" -ForegroundColor Green

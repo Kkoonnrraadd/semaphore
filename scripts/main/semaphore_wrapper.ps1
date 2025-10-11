@@ -119,7 +119,7 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
-$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "60" }
+$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
 Write-Host "🔧 Semaphore Wrapper: Converting parameters for self_service.ps1" -ForegroundColor Cyan
@@ -144,10 +144,11 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $selfServiceScript = Join-Path $scriptDir "self_service.ps1"
 
 # Convert MaxWaitMinutes to integer
+$MaxWaitMinutesInt = 60  # Default value
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
-    if ([int]::TryParse($MaxWaitMinutes, [ref]$MaxWaitMinutesInt)) {
-        # Write-Host "🔧 Converted MaxWaitMinutes: '$MaxWaitMinutes' → $MaxWaitMinutesInt" -ForegroundColor Yellow
-    } else {
+    try {
+        $MaxWaitMinutesInt = [int]::Parse($MaxWaitMinutes)
+    } catch {
         Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 60" -ForegroundColor Yellow
         $MaxWaitMinutesInt = 60
     }

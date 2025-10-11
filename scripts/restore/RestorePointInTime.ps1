@@ -4,8 +4,7 @@
     [Parameter(Mandatory)][string]$RestoreDateTime,
     [Parameter(Mandatory)][string]$Timezone,  # Required - provided by wrapper or user
     [switch]$DryRun,
-    [int]$MaxWaitMinutes = 60,
-    [switch]$VerboseLogging
+    [int]$MaxWaitMinutes = 60
 )
 
 # ============================================================================
@@ -469,9 +468,11 @@ foreach ($db in $databasesToRestore) {
         $successCount++
     } else {
         $failCount++
-        Write-Host "`n⚠️  WARNING: Restore failed for $($result.Database)" -ForegroundColor Red
+        Write-Host "`n❌ CRITICAL ERROR: Restore failed for $($result.Database)" -ForegroundColor Red
+        Write-Host "   Phase: $($result.Phase)" -ForegroundColor Red
         Write-Host "   Error: $($result.Error)" -ForegroundColor Red
-        Write-Host "   You may want to investigate before continuing." -ForegroundColor Yellow
+        Write-Host "`n🛑 STOPPING EXECUTION - Fix the error and retry" -ForegroundColor Red
+        exit 1
     }
 }
 

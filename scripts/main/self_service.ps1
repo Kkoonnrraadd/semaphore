@@ -475,7 +475,7 @@ function Invoke-Migration {
         & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
     }
     
     # Step 5: Cleanup Environment Configuration

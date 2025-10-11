@@ -180,30 +180,26 @@ Removed duplicate definitions of:
 
 ### Copy Database
 ```powershell
-# With environment variables set (ENVIRONMENT, SEMAPHORE_SCHEDULE_TIMEZONE)
+# Normal execution - stops immediately on ANY error
 ./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test"
 
-# Dry run
+# Dry run - preview only
 ./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test" -DryRun
-
-# With verbose logging
-./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test" -VerboseLogging
 ```
 
 ### Restore Point in Time
 ```powershell
-# Using SEMAPHORE_SCHEDULE_TIMEZONE environment variable
+# Normal execution - stops immediately on ANY error
 ./RestorePointInTime.ps1 -source "dev" -SourceNamespace "manufacturo" -RestoreDateTime "2025-10-11 14:30:00" -Timezone "UTC"
 
-# Override timezone
-./RestorePointInTime.ps1 -source "dev" -SourceNamespace "manufacturo" -RestoreDateTime "2025-10-11 14:30:00" -Timezone "America/Los_Angeles"
-
-# Dry run
+# Dry run - preview only
 ./RestorePointInTime.ps1 -source "dev" -SourceNamespace "manufacturo" -RestoreDateTime "2025-10-11 14:30:00" -Timezone "UTC" -DryRun
 
-# Custom wait time
+# Custom wait time per database
 ./RestorePointInTime.ps1 -source "dev" -SourceNamespace "manufacturo" -RestoreDateTime "2025-10-11 14:30:00" -Timezone "UTC" -MaxWaitMinutes 90
 ```
+
+**Note:** All scripts now **fail immediately** on any error. There's no room for errors in production operations.
 
 ### Via Wrapper (Semaphore)
 ```bash

@@ -3,8 +3,7 @@
     [Parameter(Mandatory)] [string]$destination,
     [Parameter(Mandatory)][string]$SourceNamespace, 
     [Parameter(Mandatory)][string]$DestinationNamespace,
-    [switch]$DryRun,
-    [switch]$VerboseLogging
+    [switch]$DryRun
 )
 
 # ============================================================================
@@ -188,10 +187,6 @@ function Save-DatabaseTags {
     )
     
     try {
-        if ($VerboseLogging) {
-            Write-Host "  🔍 Checking for existing tags on: $DatabaseName" -ForegroundColor Gray
-        }
-        
         $existingDb = az sql db show --subscription $SubscriptionId --resource-group $ResourceGroup --server $Server --name $DatabaseName --query "tags" -o json 2>$null | ConvertFrom-Json
         
         if ($existingDb -and $existingDb.PSObject.Properties.Count -gt 0) {
@@ -290,10 +285,6 @@ function Copy-SingleDatabase {
     
     # Build SQL copy command
     $sqlCommand = "CREATE DATABASE [$DestinationDatabaseName] AS COPY OF [$SourceServer].[$SourceDatabaseName] (SERVICE_OBJECTIVE = ELASTIC_POOL(name = [$DestElasticPool]));"
-    
-    if ($VerboseLogging) {
-        Write-Host "  🔍 SQL Command: $sqlCommand" -ForegroundColor Magenta
-    }
     
     # Execute copy with retry logic
     Write-Host "  🔄 Initiating database copy..." -ForegroundColor Yellow
@@ -674,9 +665,11 @@ foreach ($dbInfo in $databasesToProcess) {
         $successCount++
         } else {
         $failCount++
-        Write-Host "`n⚠️  WARNING: Copy failed for $($result.Database)" -ForegroundColor Red
+        Write-Host "`n❌ CRITICAL ERROR: Copy failed for $($result.Database)" -ForegroundColor Red
+        Write-Host "   Phase: $($result.Phase)" -ForegroundColor Red
         Write-Host "   Error: $($result.Error)" -ForegroundColor Red
-        Write-Host "   You may want to stop and investigate before continuing." -ForegroundColor Yellow
+        Write-Host "`n🛑 STOPPING EXECUTION - Fix the error and retry" -ForegroundColor Red
+        exit 1
     }
 }
 

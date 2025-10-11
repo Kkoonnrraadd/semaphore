@@ -119,7 +119,7 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
-$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
+$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "60" }
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
 Write-Host "🔧 Semaphore Wrapper: Converting parameters for self_service.ps1" -ForegroundColor Cyan

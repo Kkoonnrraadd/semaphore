@@ -4,7 +4,8 @@
     [Parameter(Mandatory)][string]$RestoreDateTime,
     [Parameter(Mandatory)][string]$Timezone,  # Required - provided by wrapper or user
     [switch]$DryRun,
-    [int]$MaxWaitMinutes = 60
+    [int]$MaxWaitMinutes = 60,
+    [int]$ParallelJobs = 5  # Number of databases to restore in parallel
 )
 
 # ============================================================================
@@ -439,43 +440,164 @@ if ($DryRun) {
 }
 
 # ============================================================================
-# RESTORE DATABASES (SEQUENTIAL)
+# RESTORE DATABASES (PARALLEL)
 # ============================================================================
 
 Write-Host "🚀 STARTING DATABASE RESTORE PROCESS" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "Processing $($databasesToRestore.Count) databases sequentially" -ForegroundColor White
+Write-Host "Processing $($databasesToRestore.Count) databases in parallel" -ForegroundColor White
+Write-Host "Parallel jobs: $ParallelJobs" -ForegroundColor Gray
 Write-Host "Max wait time per database: $MaxWaitMinutes minutes" -ForegroundColor Gray
 Write-Host ""
 
+# Use PowerShell jobs for parallel execution
 $results = @()
+$jobs = @()
+
+foreach ($db in $databasesToRestore) {
+    # Wait if we've reached the max parallel jobs
+    while ((Get-Job -State Running).Count -ge $ParallelJobs) {
+        Start-Sleep -Seconds 2
+    }
+    
+    Write-Host "🔄 Starting restore for: $($db.name)" -ForegroundColor Cyan
+    
+    # Start restore job in background
+    $job = Start-Job -ScriptBlock {
+        param(
+            $DatabaseName,
+            $SourceSubscription,
+            $SourceResourceGroup,
+            $SourceServer,
+            $SourceServerFQDN,
+            $RestorePointUtc,
+            $RestorePointInTimezone,
+            $Timezone,
+            $MaxWaitMinutes
+        )
+        
+        $restoredDbName = "$DatabaseName-restored"
+        
+        # Start the restore operation
+        try {
+            # Capture both stdout and stderr
+            $restoreOutput = az sql db restore `
+                --dest-name $restoredDbName `
+                --edition Standard `
+                --name $DatabaseName `
+                --resource-group $SourceResourceGroup `
+                --server $SourceServer `
+                --subscription $SourceSubscription `
+                --service-objective S3 `
+                --time $($RestorePointUtc.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')) `
+                --no-wait 2>&1
+            
+            # Check for errors in output or exit code
+            if ($LASTEXITCODE -ne 0 -or $restoreOutput -match "ERROR:") {
+                $errorMessage = if ($restoreOutput -match "ERROR: (.+)") { $matches[1] } else { "Failed to initiate restore operation" }
+                return @{
+                    Database = $restoredDbName
+                    Status = "failed"
+                    Error = $errorMessage
+                    Phase = "initiation"
+                }
+            }
+            
+        } catch {
+            return @{
+                Database = $restoredDbName
+                Status = "failed"
+                Error = $_.Exception.Message
+                Phase = "initiation"
+            }
+        }
+        
+        # Wait for restore to complete
+        $startTime = Get-Date
+        $maxIterations = $MaxWaitMinutes * 2  # Check every 30 seconds
+        
+        for ($i = 1; $i -le $maxIterations; $i++) {
+            $elapsed = (Get-Date) - $startTime
+            $elapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1)
+            
+            # Check if we've exceeded the max wait time
+            if ($elapsedMinutes -ge $MaxWaitMinutes) {
+                return @{
+                    Database = $restoredDbName
+                    Status = "failed"
+                    Error = "Timeout waiting for restore to complete"
+                    Phase = "waiting"
+                    Elapsed = $MaxWaitMinutes
+                }
+            }
+            
+            # Check using Azure CLI
+            try {
+                $azResult = az sql db show `
+                    --name $restoredDbName `
+                    --resource-group $SourceResourceGroup `
+                    --server $SourceServer `
+                    --subscription $SourceSubscription `
+                    --query "status" `
+                    --output tsv 2>$null
+                
+                if ($azResult -eq "Online") {
+                    return @{
+                        Database = $restoredDbName
+                        Status = "success"
+                        Elapsed = $elapsedMinutes
+                    }
+                }
+            } catch {
+                # Continue waiting
+            }
+            
+            Start-Sleep -Seconds 30
+        }
+        
+        # Timeout reached
+        $finalElapsed = (Get-Date) - $startTime
+        $finalElapsedMinutes = [math]::Round($finalElapsed.TotalMinutes, 1)
+        return @{
+            Database = $restoredDbName
+            Status = "failed"
+            Error = "Timeout"
+            Phase = "waiting"
+            Elapsed = $finalElapsedMinutes
+        }
+    } -ArgumentList $db.name, $source_subscription, $source_rg, $source_server, $source_fqdn, $restore_point_utc, $restore_point_in_timezone, $Timezone, $MaxWaitMinutes
+    
+    $jobs += @{
+        Job = $job
+        DatabaseName = $db.name
+    }
+}
+
+# Wait for all jobs to complete and collect results
+Write-Host "`n⏳ Waiting for all restore operations to complete..." -ForegroundColor Yellow
+Write-Host ""
+
 $successCount = 0
 $failCount = 0
 
-foreach ($db in $databasesToRestore) {
-    $result = Restore-SingleDatabase `
-        -DatabaseName $db.name `
-        -SourceSubscription $source_subscription `
-        -SourceResourceGroup $source_rg `
-        -SourceServer $source_server `
-        -SourceServerFQDN $source_fqdn `
-        -RestorePointUtc $restore_point_utc `
-        -RestorePointInTimezone $restore_point_in_timezone `
-        -Timezone $Timezone `
-        -AccessToken $AccessToken `
-        -MaxWaitMinutes $MaxWaitMinutes
+foreach ($jobInfo in $jobs) {
+    $job = $jobInfo.Job
+    $dbName = $jobInfo.DatabaseName
+    
+    Write-Host "⏳ Waiting for: $dbName" -ForegroundColor Gray
+    $result = Wait-Job -Job $job | Receive-Job
+    Remove-Job -Job $job
     
     $results += $result
     
     if ($result.Status -eq "success") {
         $successCount++
+        Write-Host "  ✅ $($result.Database) completed (${result.Elapsed} min)" -ForegroundColor Green
     } else {
         $failCount++
-        Write-Host "`n❌ CRITICAL ERROR: Restore failed for $($result.Database)" -ForegroundColor Red
-        Write-Host "   Phase: $($result.Phase)" -ForegroundColor Red
-        Write-Host "   Error: $($result.Error)" -ForegroundColor Red
-        Write-Host "`n🛑 STOPPING EXECUTION - Fix the error and retry" -ForegroundColor Red
-        exit 1
+        Write-Host "  ❌ $($result.Database) failed" -ForegroundColor Red
+        Write-Host "     Phase: $($result.Phase)" -ForegroundColor Gray
+        Write-Host "     Error: $($result.Error)" -ForegroundColor Gray
     }
 }
 
@@ -493,7 +615,7 @@ if ($successCount -gt 0) {
     Write-Host "✅ SUCCESSFUL RESTORES: $successCount" -ForegroundColor Green
     Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
     $results | Where-Object { $_.Status -eq "success" } | ForEach-Object {
-        Write-Host "  ✅ $($_.Database) (${_($_.Elapsed)} min)" -ForegroundColor Green
+        Write-Host "  ✅ $($_.Database) ($($_.Elapsed) min)" -ForegroundColor Green
     }
     Write-Host ""
 }

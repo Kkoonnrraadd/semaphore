@@ -119,7 +119,7 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
-$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "40" }
+$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
 Write-Host "🔧 Semaphore Wrapper: Converting parameters for self_service.ps1" -ForegroundColor Cyan
@@ -144,22 +144,152 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $selfServiceScript = Join-Path $scriptDir "self_service.ps1"
 
 # Convert MaxWaitMinutes to integer
-$MaxWaitMinutesInt = 40  # Default value
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
     if ([int]::TryParse($MaxWaitMinutes, [ref]$MaxWaitMinutesInt)) {
         # Write-Host "🔧 Converted MaxWaitMinutes: '$MaxWaitMinutes' → $MaxWaitMinutesInt" -ForegroundColor Yellow
     } else {
-        Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 40" -ForegroundColor Yellow
-        $MaxWaitMinutesInt = 40
+        Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 60" -ForegroundColor Yellow
+        $MaxWaitMinutesInt = 60
     }
 }
 
 Write-Host "🚀 Calling self_service.ps1 with converted parameters..." -ForegroundColor Green
 
+# ============================================================================
+# DATETIME NORMALIZATION
+# ============================================================================
+
+function Normalize-DateTime {
+    param (
+        [string]$InputDateTime
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($InputDateTime)) {
+        return ""
+    }
+    
+    Write-Host "📅 Parsing datetime input: '$InputDateTime'" -ForegroundColor Gray
+    
+    # Define common datetime formats to try
+    $formats = @(
+        # Standard format
+        'yyyy-MM-dd HH:mm:ss',
+        
+        # ISO 8601 formats
+        'yyyy-MM-ddTHH:mm:ss',
+        'yyyy-MM-dd HH:mm',
+        'yyyy-MM-dd',
+        
+        # US formats
+        'M/d/yyyy h:mm:ss tt',    # 1/15/2025 2:30:00 PM
+        'M/d/yyyy H:mm:ss',       # 1/15/2025 14:30:00
+        'M/d/yyyy h:mm tt',       # 1/15/2025 2:30 PM
+        'M/d/yyyy H:mm',          # 1/15/2025 14:30
+        'M/d/yyyy',               # 1/15/2025
+        'MM/dd/yyyy HH:mm:ss',    # 01/15/2025 14:30:00
+        'MM/dd/yyyy',             # 01/15/2025
+        
+        # European formats
+        'dd/MM/yyyy HH:mm:ss',    # 15/01/2025 14:30:00
+        'dd/MM/yyyy',             # 15/01/2025
+        'd/M/yyyy H:mm:ss',       # 15/1/2025 14:30:00
+        'd/M/yyyy',               # 15/1/2025
+        
+        # Alternative separators
+        'yyyy.MM.dd HH:mm:ss',
+        'yyyy.MM.dd',
+        'dd.MM.yyyy HH:mm:ss',
+        'dd.MM.yyyy',
+        
+        # With dashes
+        'dd-MM-yyyy HH:mm:ss',
+        'dd-MM-yyyy',
+        'MM-dd-yyyy HH:mm:ss',
+        'MM-dd-yyyy'
+    )
+    
+    # Try to parse with each format
+    foreach ($format in $formats) {
+        try {
+            $parsedDate = [DateTime]::ParseExact($InputDateTime, $format, [System.Globalization.CultureInfo]::InvariantCulture)
+            $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
+            Write-Host "  ✅ Parsed successfully using format: $format" -ForegroundColor Green
+            Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
+            return $normalizedDate
+        } catch {
+            # Try next format
+        }
+    }
+    
+    # If all formats fail, try .NET's automatic parsing as last resort
+    try {
+        $parsedDate = [DateTime]::Parse($InputDateTime)
+        $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
+        Write-Host "  ✅ Parsed successfully using automatic parsing" -ForegroundColor Green
+        Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
+        return $normalizedDate
+    } catch {
+        # All parsing attempts failed
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: Could not parse datetime: '$InputDateTime'" -ForegroundColor Red
+        Write-Host "   Please use one of these formats:" -ForegroundColor Yellow
+        Write-Host "   • Standard: 2025-01-15 14:30:00 (recommended)" -ForegroundColor Gray
+        Write-Host "   • ISO 8601: 2025-01-15T14:30:00" -ForegroundColor Gray
+        Write-Host "   • US Format: 1/15/2025 2:30:00 PM" -ForegroundColor Gray
+        Write-Host "   • European: 15/01/2025 14:30:00" -ForegroundColor Gray
+        Write-Host "   • Date Only: 2025-01-15 (time defaults to 00:00:00)" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        Write-Host "Examples of valid inputs:" -ForegroundColor Cyan
+        Write-Host "  • 2025-10-11 14:30:00" -ForegroundColor Gray
+        Write-Host "  • 10/11/2025 2:30 PM" -ForegroundColor Gray
+        Write-Host "  • 11/10/2025 14:30:00" -ForegroundColor Gray
+        Write-Host "  • 2025-10-11" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Normalize RestoreDateTime if provided
+if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
+    $RestoreDateTime = Normalize-DateTime -InputDateTime $RestoreDateTime
+}
+
+# ============================================================================
+# TIMEZONE VALIDATION AND DEFAULTING
+# ============================================================================
+
+# Get effective timezone (user-provided or from environment)
+$effectiveTimezone = ""
+if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
+    # User provided timezone - use it (user override wins)
+    $effectiveTimezone = $Timezone
+    Write-Host "🕐 Using user-provided timezone: $effectiveTimezone" -ForegroundColor Yellow
+} else {
+    # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable
+    $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
+    if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
+        $effectiveTimezone = $envTimezone
+        Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $effectiveTimezone" -ForegroundColor Green
+    } else {
+        # Only fail if RestoreDateTime is provided (timezone is needed)
+        if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
+            Write-Host "" -ForegroundColor Red
+            Write-Host "❌ FATAL ERROR: Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set" -ForegroundColor Red
+            Write-Host "   Restore operations require a timezone to prevent incorrect restore points." -ForegroundColor Yellow
+            Write-Host "   Please either:" -ForegroundColor Yellow
+            Write-Host "   1. Set SEMAPHORE_SCHEDULE_TIMEZONE environment variable" -ForegroundColor Gray
+            Write-Host "   2. Provide Timezone parameter explicitly" -ForegroundColor Gray
+            Write-Host "" -ForegroundColor Red
+            exit 1
+        }
+        # If no RestoreDateTime, timezone not needed
+    }
+}
+
 # Build parameter hashtable - only include non-empty values
 $scriptParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $scriptParams['RestoreDateTime'] = $RestoreDateTime }
-if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $scriptParams['Timezone'] = $Timezone }
+if (-not [string]::IsNullOrWhiteSpace($effectiveTimezone)) { $scriptParams['Timezone'] = $effectiveTimezone }
 if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { $scriptParams['SourceNamespace'] = $SourceNamespace }
 
 # Special handling for Source - if not provided, try to get from ENVIRONMENT variable

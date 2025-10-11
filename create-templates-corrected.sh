@@ -6,7 +6,7 @@ set -e  # Exit on any error
 
 # Configuration
 SEMAPHORE_URL="http://localhost:3000"
-API_TOKEN="pwdjkq1cz3yea0apfjv-_nh-pdluwydeqdmmsxr1oxw="
+API_TOKEN=""
 CONFIG_FILE="/home/kgluza/Manufacturo/semaphore/scripts/self_service_defaults.json"
 
 # Colors for output

@@ -19,7 +19,7 @@
     Destination environment name (default: "qa2")
 
 .PARAMETER CustomerAlias
-    Customer alias for resource configuration
+    Customer alias for resource configuration (defaults to INSTANCE_ALIAS environment variable if not provided)
 
 .PARAMETER CustomerAliasToRemove
     Customer alias to remove from source environment during cleanup
@@ -84,19 +84,29 @@ if (-not (Test-Path $automationUtilitiesScript)) {
 
 Write-Host "🔧 Validating provided parameters..." -ForegroundColor Yellow
 
-# CustomerAlias and Source are REQUIRED parameters
-if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
-    Write-Host "❌ FATAL ERROR: CustomerAlias is required and must be provided by the user" -ForegroundColor Red
-    Write-Host "   Please provide CustomerAlias parameter when calling the script" -ForegroundColor Yellow
-    exit 1
-}
-
 # Store original user-provided values before any auto-detection
 $script:OriginalSource = $Source
 $script:OriginalDestination = $Destination
 $script:OriginalSourceNamespace = $SourceNamespace
 $script:OriginalDestinationNamespace = $DestinationNamespace
 $script:OriginalCloud = $Cloud
+$script:OriginalCustomerAlias = $CustomerAlias
+
+# Apply CustomerAlias with fallback to INSTANCE_ALIAS environment variable
+if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS)) {
+        $script:CustomerAlias = $env:INSTANCE_ALIAS
+        Write-Host "📋 CustomerAlias: '$($script:CustomerAlias)' ← From INSTANCE_ALIAS environment variable" -ForegroundColor Yellow
+    } else {
+        Write-Host "❌ FATAL ERROR: CustomerAlias is required" -ForegroundColor Red
+        Write-Host "   Please either:" -ForegroundColor Yellow
+        Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
+        Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
+        exit 1
+    }
+} else {
+    $script:CustomerAlias = $script:OriginalCustomerAlias
+}
 
 # Show what user provided (for debugging)
 Write-Host "📋 User-provided parameters:" -ForegroundColor Cyan
@@ -105,7 +115,7 @@ Write-Host "   Destination: $(if ([string]::IsNullOrWhiteSpace($Destination)) { 
 Write-Host "   SourceNamespace: $(if ([string]::IsNullOrWhiteSpace($SourceNamespace)) { '<empty - will auto-detect>' } else { $SourceNamespace + ' ✅' })" -ForegroundColor Gray
 Write-Host "   DestinationNamespace: $(if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) { '<empty - will auto-detect>' } else { $DestinationNamespace + ' ✅' })" -ForegroundColor Gray
 Write-Host "   Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<empty - will auto-detect>' } else { $Cloud + ' ✅' })" -ForegroundColor Gray
-Write-Host "   CustomerAlias: $CustomerAlias ✅" -ForegroundColor Gray
+Write-Host "   CustomerAlias: $(if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) { $script:CustomerAlias + ' (from INSTANCE_ALIAS env var) ✅' } else { $script:CustomerAlias + ' ✅' })" -ForegroundColor Gray
 
 Write-Host "✅ Basic parameter validation completed" -ForegroundColor Green
 
@@ -322,9 +332,9 @@ function Perform-Migration {
     # Calculate CustomerAliasToRemove based on CustomerAlias pattern
     if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
         # Pattern: mil-space-test -> mil-space, mil-space-dev -> mil-space
-        if ($CustomerAlias -match "^(.+)-(test|dev)$") {
+        if ($script:CustomerAlias -match "^(.+)-(test|dev)$") {
             $script:CustomerAliasToRemove = $matches[1]
-            Write-Host "✅ Extracted customer alias to remove: $($script:CustomerAliasToRemove) (from $CustomerAlias)" -ForegroundColor Green
+            Write-Host "✅ Extracted customer alias to remove: $($script:CustomerAliasToRemove) (from $($script:CustomerAlias))" -ForegroundColor Green
         } else {
             # Fallback: Customer alias to remove is same as source
             $script:CustomerAliasToRemove = $script:Source
@@ -339,7 +349,7 @@ function Perform-Migration {
     Write-Host "   Source: $($script:Source) / $($script:SourceNamespace)" -ForegroundColor Gray
     Write-Host "   Destination: $($script:Destination) / $($script:DestinationNamespace)" -ForegroundColor Gray
     Write-Host "   Cloud: $($script:Cloud)" -ForegroundColor Gray
-    Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
+    Write-Host "   Customer Alias: $($script:CustomerAlias)" -ForegroundColor Gray
     Write-Host "   Customer Alias to Remove: $($script:CustomerAliasToRemove)" -ForegroundColor Gray
     
     # Validate that destination namespace is NOT "manufacturo"
@@ -386,7 +396,7 @@ function Perform-Migration {
         -Cloud $script:Cloud `
         -Source $script:Source `
         -Destination $script:Destination `
-        -CustomerAlias $CustomerAlias `
+        -CustomerAlias $script:CustomerAlias `
         -CustomerAliasToRemove $script:CustomerAliasToRemove `
         -SourceNamespace $script:SourceNamespace `
         -DestinationNamespace $script:DestinationNamespace `

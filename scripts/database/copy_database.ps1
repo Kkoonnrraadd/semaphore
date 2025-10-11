@@ -4,7 +4,7 @@
     [Parameter(Mandatory)][string]$SourceNamespace, 
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [switch]$DryRun,
-    [switch]$Debug
+    [switch]$VerboseLogging
 )
 
 # ============================================================================
@@ -119,9 +119,9 @@ function Should-ProcessDatabase {
         return $false
     }
     
-    return $true
-}
-
+        return $true
+    }
+    
 function Get-DestinationDatabaseName {
     param (
         [string]$SourceDatabaseName,
@@ -188,7 +188,7 @@ function Save-DatabaseTags {
     )
     
     try {
-        if ($Debug) {
+        if ($VerboseLogging) {
             Write-Host "  🔍 Checking for existing tags on: $DatabaseName" -ForegroundColor Gray
         }
         
@@ -284,14 +284,14 @@ function Copy-SingleDatabase {
             Write-Host "  ✅ Deleted existing database" -ForegroundColor Green
         }
         Start-Sleep -Seconds 10
-    } catch {
+        } catch {
         Write-Host "  ⚠️  Warning during deletion: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
     # Build SQL copy command
     $sqlCommand = "CREATE DATABASE [$DestinationDatabaseName] AS COPY OF [$SourceServer].[$SourceDatabaseName] (SERVICE_OBJECTIVE = ELASTIC_POOL(name = [$DestElasticPool]));"
     
-    if ($Debug) {
+    if ($VerboseLogging) {
         Write-Host "  🔍 SQL Command: $sqlCommand" -ForegroundColor Magenta
     }
     
@@ -313,8 +313,8 @@ function Copy-SingleDatabase {
             $copyInitiated = $true
             Start-Sleep -Seconds 10
             break
-            
-        } catch {
+        
+    } catch {
             Write-Host "  ❌ Attempt $retry failed: $($_.Exception.Message)" -ForegroundColor Red
             
             if ($retry -eq $maxRetries) {
@@ -423,8 +423,8 @@ if ($DryRun) {
     Write-Host "No actual copy operations will be performed" -ForegroundColor Yellow
 } else {
     Write-Host "`n====================================" -ForegroundColor Cyan
-    Write-Host " Copy Database Script (RestorePoint)" -ForegroundColor Cyan
-    Write-Host "====================================`n" -ForegroundColor Cyan
+Write-Host " Copy Database Script (RestorePoint)" -ForegroundColor Cyan
+Write-Host "====================================`n" -ForegroundColor Cyan
 }
 
 $destination_lower = (Get-Culture).TextInfo.ToLower($destination)
@@ -451,9 +451,9 @@ $source_fqdn = $server[0].fqdn
 $source_server_fqdn = $server[0].fqdn
 
 if ($source_fqdn -match "database.windows.net") {
-    $resourceUrl = "https://database.windows.net"
+  $resourceUrl = "https://database.windows.net"
 } else {
-    $resourceUrl = "https://database.usgovcloudapi.net"
+  $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
 # Query for destination SQL server
@@ -563,22 +563,22 @@ Write-Host ""
 
 $databasesToProcess = @()
 
-foreach ($db in $dbs) {
+    foreach ($db in $dbs) {
     $service = Get-ServiceFromDatabase -Database $db -AllDatabases $dbs
     
     Write-Host "  📋 Analyzing: $($db.name) (Service: $service)" -ForegroundColor Gray
     
     if (-not (Should-ProcessDatabase -Database $db -Service $service)) {
-        if ($db.name.Contains("master")) {
+            if ($db.name.Contains("master")) {
             Write-Host "    ⏭️  Skipping: System database" -ForegroundColor Yellow
-        } elseif ($service -eq "landlord") {
+            } elseif ($service -eq "landlord") {
             Write-Host "    ⏭️  Skipping: Landlord service" -ForegroundColor Yellow
-        } else {
+            } else {
             Write-Host "    ⏭️  Skipping: Non-restored database" -ForegroundColor Yellow
+            }
+            continue
         }
-        continue
-    }
-    
+        
     $dest_dbName = Get-DestinationDatabaseName `
         -SourceDatabaseName $db.name `
         -Service $service `
@@ -607,7 +607,7 @@ foreach ($db in $dbs) {
             DestinationName = $dest_dbName
             SavedTags = $savedTags
         }
-    } else {
+            } else {
         Write-Host "    ⏭️  Skipping: Pattern mismatch" -ForegroundColor Yellow
     }
 }
@@ -630,10 +630,10 @@ if ($DryRun) {
     foreach ($dbInfo in $databasesToProcess) {
         Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
         if ($dbInfo.SavedTags) {
-            $tagList = @()
+                $tagList = @()
             foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
-                $tagList += "$($tag.Name)=$($tag.Value)"
-            }
+                    $tagList += "$($tag.Name)=$($tag.Value)"
+                }
             Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
         }
     }
@@ -672,7 +672,7 @@ foreach ($dbInfo in $databasesToProcess) {
     
     if ($result.Status -eq "success") {
         $successCount++
-    } else {
+        } else {
         $failCount++
         Write-Host "`n⚠️  WARNING: Copy failed for $($result.Database)" -ForegroundColor Red
         Write-Host "   Error: $($result.Error)" -ForegroundColor Red
@@ -696,7 +696,7 @@ if ($successCount -gt 0) {
     $results | Where-Object { $_.Status -eq "success" } | ForEach-Object {
         Write-Host "  ✅ $($_.Database) (${_($_.Elapsed)} min)" -ForegroundColor Green
     }
-    Write-Host ""
+Write-Host ""
 }
 
 if ($failCount -gt 0) {
@@ -709,7 +709,7 @@ if ($failCount -gt 0) {
     }
     Write-Host ""
     Write-Host "💡 Please investigate failed copies and retry if needed" -ForegroundColor Yellow
-    exit 1
+  exit 1
 }
 
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan

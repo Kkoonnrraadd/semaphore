@@ -5,7 +5,7 @@
     [Parameter(Mandatory)][string]$Timezone,  # Required - provided by wrapper or user
     [switch]$DryRun,
     [int]$MaxWaitMinutes = 60,
-    [switch]$Debug
+    [switch]$VerboseLogging
 )
 
 # ============================================================================

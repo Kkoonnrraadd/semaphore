@@ -186,8 +186,8 @@ Removed duplicate definitions of:
 # Dry run
 ./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test" -DryRun
 
-# With debug output
-./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test" -Debug
+# With verbose logging
+./copy_database.ps1 -source "dev" -destination "qa" -SourceNamespace "manufacturo" -DestinationNamespace "test" -VerboseLogging
 ```
 
 ### Restore Point in Time

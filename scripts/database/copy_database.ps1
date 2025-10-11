@@ -687,7 +687,7 @@ if ($successCount -gt 0) {
     Write-Host "✅ SUCCESSFUL COPIES: $successCount" -ForegroundColor Green
     Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
     $results | Where-Object { $_.Status -eq "success" } | ForEach-Object {
-        Write-Host "  ✅ $($_.Database) (${_($_.Elapsed)} min)" -ForegroundColor Green
+        Write-Host "  ✅ $($_.Database) ($($_.Elapsed) min)" -ForegroundColor Green
     }
 Write-Host ""
 }
@@ -703,6 +703,197 @@ if ($failCount -gt 0) {
     Write-Host ""
     Write-Host "💡 Please investigate failed copies and retry if needed" -ForegroundColor Yellow
   exit 1
+}
+
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+
+# ============================================================================
+# TAG VERIFICATION
+# ============================================================================
+
+Write-Host "🔍 VERIFYING DATABASE TAGS" -ForegroundColor Cyan
+Write-Host "===========================" -ForegroundColor Cyan
+Write-Host ""
+
+# Determine required tags based on namespace
+if ($DestinationNamespace -eq "manufacturo") {
+    $requiredTags = @("Environment", "Owner", "Service", "Type")
+    Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
+    Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
+} else {
+    $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
+    Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray
+}
+Write-Host ""
+
+$tagVerificationResults = @()
+$tagsComplete = 0
+$tagsIncomplete = 0
+$tagsError = 0
+
+foreach ($dbInfo in $databasesToProcess) {
+    $dbName = $dbInfo.DestinationName
+    
+    try {
+        $currentTags = az sql db show `
+            --subscription $dest_subscription `
+            --resource-group $dest_rg `
+            --server $dest_server `
+            --name $dbName `
+            --query "tags" `
+            -o json 2>$null | ConvertFrom-Json
+        
+        $missingTags = @()
+        foreach ($requiredTag in $requiredTags) {
+            if (-not $currentTags -or -not $currentTags.$requiredTag) {
+                $missingTags += $requiredTag
+            }
+        }
+        
+        # Special handling for ClientName when namespace is manufacturo
+        if ($DestinationNamespace -eq "manufacturo" -and $currentTags -and $currentTags.ClientName) {
+            Write-Host "  ⚠️  $dbName : Has ClientName tag but namespace is manufacturo (should be empty)" -ForegroundColor Yellow
+        }
+        
+        if ($missingTags.Count -eq 0) {
+            Write-Host "  ✅ $dbName : All required tags present" -ForegroundColor Green
+            $tagVerificationResults += @{ 
+                Database = $dbName
+                Status = "Complete"
+                MissingTags = @()
+                OriginalTags = $dbInfo.SavedTags
+            }
+            $tagsComplete++
+        } else {
+            Write-Host "  ❌ $dbName : Missing tags: $($missingTags -join ', ')" -ForegroundColor Red
+            $tagVerificationResults += @{ 
+                Database = $dbName
+                Status = "Incomplete"
+                MissingTags = $missingTags
+                OriginalTags = $dbInfo.SavedTags
+            }
+            $tagsIncomplete++
+        }
+    } catch {
+        Write-Host "  ⚠️  $dbName : Failed to verify tags - $($_.Exception.Message)" -ForegroundColor Yellow
+        $tagVerificationResults += @{ 
+            Database = $dbName
+            Status = "Error"
+            MissingTags = @("Verification failed")
+            OriginalTags = $dbInfo.SavedTags
+        }
+        $tagsError++
+    }
+}
+
+Write-Host ""
+Write-Host "📊 TAG VERIFICATION SUMMARY" -ForegroundColor Cyan
+Write-Host "===========================" -ForegroundColor Cyan
+Write-Host "✅ Complete: $tagsComplete databases" -ForegroundColor Green
+Write-Host "❌ Incomplete: $tagsIncomplete databases" -ForegroundColor Red
+Write-Host "⚠️  Errors: $tagsError databases" -ForegroundColor Yellow
+Write-Host ""
+
+# Re-apply tags if any are missing
+if ($tagsIncomplete -gt 0 -or $tagsError -gt 0) {
+    Write-Host "🔧 ATTEMPTING TO RE-APPLY MISSING TAGS" -ForegroundColor Yellow
+    Write-Host "=======================================" -ForegroundColor Yellow
+    Write-Host ""
+    
+    foreach ($result in $tagVerificationResults) {
+        if ($result.Status -eq "Incomplete" -or $result.Status -eq "Error") {
+            Write-Host "  🔄 Re-applying tags to $($result.Database)..." -ForegroundColor Gray
+            
+            if ($result.OriginalTags -and $result.OriginalTags.PSObject.Properties.Count -gt 0) {
+                $tagList = @()
+                $applySuccess = $true
+                
+                foreach ($tag in $result.OriginalTags.PSObject.Properties) {
+                    $tagList += "$($tag.Name)=$($tag.Value)"
+                    
+                    try {
+                        $null = az sql db update `
+                            --subscription $dest_subscription `
+                            --resource-group $dest_rg `
+                            --server $dest_server `
+                            --name $result.Database `
+                            --set "tags.$($tag.Name)=$($tag.Value)" `
+                            --output none 2>$null
+                    } catch {
+                        Write-Host "    ⚠️  Failed to apply tag $($tag.Name): $($_.Exception.Message)" -ForegroundColor Yellow
+                        $applySuccess = $false
+                    }
+                }
+                
+                if ($applySuccess) {
+                    Write-Host "    ✅ Successfully re-applied tags: $($tagList -join ', ')" -ForegroundColor Green
+                } else {
+                    Write-Host "    ⚠️  Partially applied tags: $($tagList -join ', ')" -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "    ⚠️  No original tags available for $($result.Database)" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "🔍 RE-VERIFYING TAGS AFTER RE-APPLICATION" -ForegroundColor Cyan
+    Write-Host "==========================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Re-verify tags after re-application
+    $reVerifyComplete = 0
+    $reVerifyIncomplete = 0
+    
+    foreach ($result in $tagVerificationResults) {
+        if ($result.Status -eq "Incomplete" -or $result.Status -eq "Error") {
+            try {
+                $currentTags = az sql db show `
+                    --subscription $dest_subscription `
+                    --resource-group $dest_rg `
+                    --server $dest_server `
+                    --name $result.Database `
+                    --query "tags" `
+                    -o json 2>$null | ConvertFrom-Json
+                
+                $missingTags = @()
+                foreach ($requiredTag in $requiredTags) {
+                    if (-not $currentTags -or -not $currentTags.$requiredTag) {
+                        $missingTags += $requiredTag
+                    }
+                }
+                
+                if ($missingTags.Count -eq 0) {
+                    Write-Host "  ✅ $($result.Database) : Tags now complete" -ForegroundColor Green
+                    $reVerifyComplete++
+                } else {
+                    Write-Host "  ❌ $($result.Database) : Still missing: $($missingTags -join ', ')" -ForegroundColor Red
+                    $reVerifyIncomplete++
+                }
+            } catch {
+                Write-Host "  ⚠️  $($result.Database) : Re-verification failed" -ForegroundColor Yellow
+                $reVerifyIncomplete++
+            }
+        }
+    }
+    
+    Write-Host ""
+    
+    if ($reVerifyIncomplete -gt 0) {
+        Write-Host "⚠️  WARNING: $reVerifyIncomplete databases still have incomplete tags" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "💡 This may cause issues with:" -ForegroundColor Yellow
+        Write-Host "   • Terraform state management" -ForegroundColor Gray
+        Write-Host "   • Resource identification and management" -ForegroundColor Gray
+        Write-Host "   • Environment-specific configurations" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "🔧 Please manually verify and fix tags for the affected databases" -ForegroundColor Yellow
+        Write-Host ""
+    } else {
+        Write-Host "✅ All tags successfully re-applied and verified" -ForegroundColor Green
+        Write-Host ""
+    }
 }
 
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan

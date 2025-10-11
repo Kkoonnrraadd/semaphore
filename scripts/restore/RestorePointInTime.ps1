@@ -151,7 +151,8 @@ function Restore-SingleDatabase {
     Write-Host "  🔄 Initiating restore operation..." -ForegroundColor Yellow
     
     try {
-        az sql db restore `
+        # Capture both stdout and stderr
+        $restoreOutput = az sql db restore `
             --dest-name $restoredDbName `
             --edition Standard `
             --name $DatabaseName `
@@ -160,14 +161,16 @@ function Restore-SingleDatabase {
             --subscription $SourceSubscription `
             --service-objective S3 `
             --time $($RestorePointUtc.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')) `
-            --no-wait
+            --no-wait 2>&1
         
-        if ($LASTEXITCODE -ne 0) {
+        # Check for errors in output or exit code
+        if ($LASTEXITCODE -ne 0 -or $restoreOutput -match "ERROR:") {
+            $errorMessage = if ($restoreOutput -match "ERROR: (.+)") { $matches[1] } else { "Failed to initiate restore operation" }
             Write-Host "  ❌ Failed to initiate restore" -ForegroundColor Red
             return @{
                 Database = $restoredDbName
                 Status = "failed"
-                Error = "Failed to initiate restore operation"
+                Error = $errorMessage
                 Phase = "initiation"
             }
         }

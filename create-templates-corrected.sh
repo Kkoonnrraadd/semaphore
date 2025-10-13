@@ -1,22 +1,45 @@
 #!/bin/bash
-# Corrected Semaphore Template Creation Script with proper PowerShell paths
-# This script creates templates with correct script paths and flags
+# Semaphore Template Creation Script for Self-Service Data Refresh
+# Creates project, views, and templates for both full workflow and individual steps
 
 set -e  # Exit on any error
 
-# Configuration
-SEMAPHORE_URL="http://localhost:3000"
-API_TOKEN=""
-CONFIG_FILE="/home/kgluza/Manufacturo/semaphore/scripts/self_service_defaults.json"
+# ═══════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
 
-# Colors for output
+SEMAPHORE_URL="http://localhost:3000"
+API_TOKEN="YOUR_API_TOKEN_HERE"
+
+# Script path within Semaphore execution environment
+SCRIPT_PATH="/tmp/semaphore/project_1/repository_3_template_2/scripts/main/semaphore_wrapper.ps1"
+
+# Repository configuration
+REPOSITORY_NAME="semaphore-scripts"
+REPOSITORY_URL="https://github.com/Kkoonnrraadd/semaphore.git"
+REPOSITORY_BRANCH="main"
+
+# Project and View names
+PROJECT_NAME="PROJEKT"
+VIEW_MAIN="REFRESH"
+VIEW_TASKS="TASKI"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COLORS FOR OUTPUT
+# ═══════════════════════════════════════════════════════════════════════════
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
-# Helper functions
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
 log_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
@@ -33,389 +56,461 @@ log_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
-# Function to get project resources
-get_project_resources() {
-    log_info "Getting project resources..."
+log_section() {
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}$1${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+}
+
+# Function to make API call with error handling
+api_call() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
     
-    # Get projects
-    PROJECTS_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" \
+    local response=$(curl -s -w "HTTP_CODE:%{http_code}" \
         -H "Authorization: Bearer $API_TOKEN" \
-        "$SEMAPHORE_URL/api/projects")
+        -H "Content-Type: application/json" \
+        -X "$method" \
+        ${data:+-d "$data"} \
+        "$SEMAPHORE_URL$endpoint")
     
-    HTTP_CODE=$(echo "$PROJECTS_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    PROJECTS_JSON=$(echo "$PROJECTS_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+    local http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+    local response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
     
-    if [ "$HTTP_CODE" != "200" ]; then
-        log_error "Failed to get projects (HTTP: $HTTP_CODE)"
-        echo "Response: $PROJECTS_JSON"
+    echo "$http_code|$response_body"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 1: CREATE OR GET PROJECT
+# ═══════════════════════════════════════════════════════════════════════════
+
+create_or_get_project() {
+    log_section "STEP 1: CREATE OR GET PROJECT"
+    
+    log_info "Checking for existing project '$PROJECT_NAME'..."
+    
+    # Get all projects
+    local result=$(api_call "GET" "/api/projects" "")
+    local http_code=$(echo "$result" | cut -d'|' -f1)
+    local response=$(echo "$result" | cut -d'|' -f2-)
+    
+    if [ "$http_code" != "200" ]; then
+        log_error "Failed to get projects (HTTP: $http_code)"
+        echo "Response: $response"
         exit 1
     fi
     
-    log_success "Projects retrieved successfully"
+    # Check if project exists
+    PROJECT_ID=$(echo "$response" | jq -r ".[] | select(.name == \"$PROJECT_NAME\") | .id" 2>/dev/null)
     
-    PROJECT_ID=$(echo "$PROJECTS_JSON" | jq -r '.[0].id')
-    if [ "$PROJECT_ID" = "null" ] || [ -z "$PROJECT_ID" ]; then
-        log_error "No projects found"
+    if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
+        log_info "Project '$PROJECT_NAME' not found, creating new project..."
+        
+        local project_data='{
+            "name": "'"$PROJECT_NAME"'",
+            "alert": false,
+            "max_parallel_tasks": 5
+        }'
+        
+        result=$(api_call "POST" "/api/projects" "$project_data")
+        http_code=$(echo "$result" | cut -d'|' -f1)
+        response=$(echo "$result" | cut -d'|' -f2-)
+        
+        if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+            PROJECT_ID=$(echo "$response" | jq -r '.id')
+            log_success "Project created with ID: $PROJECT_ID"
+        else
+            log_error "Failed to create project (HTTP: $http_code)"
+            echo "Response: $response"
         exit 1
+        fi
+    else
+        log_success "Project '$PROJECT_NAME' found with ID: $PROJECT_ID"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 2: GET OR CREATE PROJECT RESOURCES
+# ═══════════════════════════════════════════════════════════════════════════
+
+get_or_create_resources() {
+    log_section "STEP 2: GET OR CREATE PROJECT RESOURCES"
+    
+    # Get or create repository
+    log_info "Getting repositories for project $PROJECT_ID..."
+    local result=$(api_call "GET" "/api/project/$PROJECT_ID/repositories" "")
+    local http_code=$(echo "$result" | cut -d'|' -f1)
+    local response=$(echo "$result" | cut -d'|' -f2-)
+    
+    REPO_ID=$(echo "$response" | jq -r '.[0].id' 2>/dev/null || echo "")
+    
+    if [ -z "$REPO_ID" ] || [ "$REPO_ID" = "null" ]; then
+        log_info "No repository found, creating new repository..."
+        
+        # Get SSH key ID (usually "None" type key)
+        local key_result=$(api_call "GET" "/api/project/$PROJECT_ID/keys" "")
+        local key_id=$(echo "$key_result" | cut -d'|' -f2- | jq -r '[.[] | select(.type == "none")] | .[0].id' 2>/dev/null)
+        
+        if [ -z "$key_id" ] || [ "$key_id" = "null" ]; then
+            log_warning "No 'None' key found, using first available key"
+            key_id=$(echo "$key_result" | cut -d'|' -f2- | jq -r '.[0].id' 2>/dev/null || echo "1")
+        fi
+        
+        log_info "Using SSH key ID: $key_id"
+        
+        local repo_data='{
+            "name": "'"$REPOSITORY_NAME"'",
+            "project_id": '$PROJECT_ID',
+            "git_url": "'"$REPOSITORY_URL"'",
+            "git_branch": "'"$REPOSITORY_BRANCH"'",
+            "ssh_key_id": '$key_id'
+        }'
+        result=$(api_call "POST" "/api/project/$PROJECT_ID/repositories" "$repo_data")
+        http_code=$(echo "$result" | cut -d'|' -f1)
+        response=$(echo "$result" | cut -d'|' -f2-)
+        
+        if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+            REPO_ID=$(echo "$response" | jq -r '.id')
+            log_success "Repository created with ID: $REPO_ID"
+        else
+            log_error "Failed to create repository (HTTP: $http_code)"
+            echo "Response: $response"
+            exit 1
+        fi
+    else
+        log_success "Repository ID: $REPO_ID"
     fi
     
-    log_success "Using Project ID: $PROJECT_ID"
+    # Get or create inventory
+    log_info "Getting inventories for project $PROJECT_ID..."
+    result=$(api_call "GET" "/api/project/$PROJECT_ID/inventory" "")
+    http_code=$(echo "$result" | cut -d'|' -f1)
+    response=$(echo "$result" | cut -d'|' -f2-)
     
-    # Get repositories
-    REPOS_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/repositories")
+    INVENTORY_ID=$(echo "$response" | jq -r '.[0].id' 2>/dev/null || echo "")
     
-    HTTP_CODE=$(echo "$REPOS_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    REPOS_JSON=$(echo "$REPOS_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-    REPO_ID=$(echo "$REPOS_JSON" | jq -r '.[0].id' 2>/dev/null || echo "1")
+    if [ -z "$INVENTORY_ID" ] || [ "$INVENTORY_ID" = "null" ]; then
+        log_info "No inventory found, creating new inventory..."
+        local inventory_data='{
+            "name": "localhost",
+            "project_id": '$PROJECT_ID',
+            "inventory": "localhost ansible_connection=local",
+            "type": "static"
+        }'
+        result=$(api_call "POST" "/api/project/$PROJECT_ID/inventory" "$inventory_data")
+        http_code=$(echo "$result" | cut -d'|' -f1)
+        response=$(echo "$result" | cut -d'|' -f2-)
+        
+        if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+            INVENTORY_ID=$(echo "$response" | jq -r '.id')
+            log_success "Inventory created with ID: $INVENTORY_ID"
+        else
+            log_error "Failed to create inventory (HTTP: $http_code)"
+            exit 1
+        fi
+    else
+        log_success "Inventory ID: $INVENTORY_ID"
+    fi
     
-    # Get inventories
-    INVENTORY_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/inventory")
+    # Get or create environment
+    log_info "Getting environments for project $PROJECT_ID..."
+    result=$(api_call "GET" "/api/project/$PROJECT_ID/environment" "")
+    http_code=$(echo "$result" | cut -d'|' -f1)
+    response=$(echo "$result" | cut -d'|' -f2-)
     
-    HTTP_CODE=$(echo "$INVENTORY_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    INVENTORY_JSON=$(echo "$INVENTORY_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-    INVENTORY_ID=$(echo "$INVENTORY_JSON" | jq -r '.[0].id' 2>/dev/null || echo "1")
+    ENV_ID=$(echo "$response" | jq -r '.[0].id' 2>/dev/null || echo "")
     
-    # Get environments
-    ENV_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/environment")
+    if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+        log_info "No environment found, creating new environment..."
+        local env_data='{
+            "name": "Empty",
+            "project_id": '$PROJECT_ID',
+            "json": "{}"
+        }'
+        result=$(api_call "POST" "/api/project/$PROJECT_ID/environment" "$env_data")
+        http_code=$(echo "$result" | cut -d'|' -f1)
+        response=$(echo "$result" | cut -d'|' -f2-)
+        
+        if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+            ENV_ID=$(echo "$response" | jq -r '.id')
+            log_success "Environment created with ID: $ENV_ID"
+        else
+            log_error "Failed to create environment (HTTP: $http_code)"
+            exit 1
+        fi
+    else
+        log_success "Environment ID: $ENV_ID"
+    fi
     
-    HTTP_CODE=$(echo "$ENV_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    ENV_JSON=$(echo "$ENV_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-    ENV_ID=$(echo "$ENV_JSON" | jq -r '.[0].id' 2>/dev/null || echo "1")
-    
-    # Get views
-    VIEWS_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/views")
-    
-    HTTP_CODE=$(echo "$VIEWS_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    VIEWS_JSON=$(echo "$VIEWS_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
-    VIEW_ID=$(echo "$VIEWS_JSON" | jq -r '.[0].id' 2>/dev/null || echo "1")
-    
-    log_info "Resources found:"
+    log_info "Resources summary:"
     echo "  Repository ID: $REPO_ID"
     echo "  Inventory ID: $INVENTORY_ID"
     echo "  Environment ID: $ENV_ID"
-    echo "  View ID: $VIEW_ID"
 }
 
-# # Step 1: Create simple empty template
-# create_simple_template() {
-#     log_info "Step 1: Creating simple empty template..."
-    
-#     local simple_template='{
-#         "name": "Simple Test Template - Corrected",
-#         "description": "A simple test template with no parameters",
-#         "repository_id": '$REPO_ID',
-#         "inventory_id": '$INVENTORY_ID',
-#         "environment_id": '$ENV_ID',
-#         "view_id": '$VIEW_ID',
-#         "playbook": "echo \"Hello from Semaphore!\"",
-#         "survey_vars": [],
-#         "app": "bash"
-#     }'
-    
-#     local response=$(curl -s -w "HTTP_CODE:%{http_code}" \
-#         -H "Authorization: Bearer $API_TOKEN" \
-#         -H "Content-Type: application/json" \
-#         -X POST \
-#         -d "$simple_template" \
-#         "$SEMAPHORE_URL/api/project/$PROJECT_ID/templates")
-    
-#     local http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-#     local response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
-    
-#     if [ "$http_code" = "201" ]; then
-#         local template_id=$(echo "$response_body" | jq -r '.id')
-#         log_success "Simple template created! (ID: $template_id)"
-#         return 0
-#     else
-#         log_error "Failed to create simple template (HTTP: $http_code)"
-#         echo "Response: $response_body"
-#         return 1
-#     fi
-# }
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 3: CREATE VIEWS
+# ═══════════════════════════════════════════════════════════════════════════
 
-# # Step 2: Create template with parameters
-# create_parameter_template() {
-#     log_info "Step 2: Creating template with parameters..."
+create_views() {
+    log_section "STEP 3: CREATE VIEWS"
     
-#     local parameter_template='{
-#         "name": "Parameter Test Template - Corrected",
-#         "description": "A template with basic parameters",
-#         "repository_id": '$REPO_ID',
-#         "inventory_id": '$INVENTORY_ID',
-#         "environment_id": '$ENV_ID',
-#         "view_id": '$VIEW_ID',
-#         "playbook": "echo \"Source: {{ source_env }}\" && echo \"Destination: {{ dest_env }}\"",
-#         "survey_vars": [
-#             {
-#                 "name": "source_env",
-#                 "title": "Source Environment",
-#                 "description": "Environment to copy data FROM",
-#                 "default_value": "gov001",
-#                 "required": true
-#             },
-#             {
-#                 "name": "dest_env", 
-#                 "title": "Destination Environment",
-#                 "description": "Environment to copy data TO",
-#                 "default_value": "gov001",
-#                 "required": true
-#             }
-#         ],
-#         "app": "bash"
-#     }'
+    # Create main view (WIDOK)
+    log_info "Creating view '$VIEW_MAIN'..."
     
-#     local response=$(curl -s -w "HTTP_CODE:%{http_code}" \
-#         -H "Authorization: Bearer $API_TOKEN" \
-#         -H "Content-Type: application/json" \
-#         -X POST \
-#         -d "$parameter_template" \
-#         "$SEMAPHORE_URL/api/project/$PROJECT_ID/templates")
+    local view_main_data='{
+        "title": "'"$VIEW_MAIN"'",
+        "project_id": '$PROJECT_ID',
+        "position": 1
+    }'
     
-#     local http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-#     local response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
+    local result=$(api_call "POST" "/api/project/$PROJECT_ID/views" "$view_main_data")
+    local http_code=$(echo "$result" | cut -d'|' -f1)
+    local response=$(echo "$result" | cut -d'|' -f2-)
     
-#     if [ "$http_code" = "201" ]; then
-#         local template_id=$(echo "$response_body" | jq -r '.id')
-#         log_success "Parameter template created! (ID: $template_id)"
-#         return 0
-#     else
-#         log_error "Failed to create parameter template (HTTP: $http_code)"
-#         echo "Response: $response_body"
-#         return 1
-#     fi
-# }
-
-# Step 3: Create template using configuration file with CORRECTED PowerShell paths
-create_config_template() {
-    log_info "Step 3: Creating template using configuration file (CORRECTED PATHS)..."
-    
-    if [ ! -f "$CONFIG_FILE" ]; then
-        log_error "Configuration file not found: $CONFIG_FILE"
-        return 1
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        VIEW_MAIN_ID=$(echo "$response" | jq -r '.id')
+        log_success "View '$VIEW_MAIN' created with ID: $VIEW_MAIN_ID"
+    else
+        log_error "Failed to create view '$VIEW_MAIN' (HTTP: $http_code)"
+        echo "Response: $response"
+        exit 1
     fi
     
-    # Read configuration file
-    local config=$(cat "$CONFIG_FILE")
-    local defaults=$(echo "$config" | jq -r '.self_service_defaults')
+    # Create tasks view (TASKI)
+    log_info "Creating view '$VIEW_TASKS'..."
     
-    # Extract values from config
-    local source_env=$(echo "$defaults" | jq -r '.source')
-    local dest_env=$(echo "$defaults" | jq -r '.destination')
-    local source_ns=$(echo "$defaults" | jq -r '.source_namespace')
-    local dest_ns=$(echo "$defaults" | jq -r '.destination_namespace')
-    local customer=$(echo "$defaults" | jq -r '.customer_alias')
-    local customer_to_remove=$(echo "$defaults" | jq -r '.customer_alias_to_remove')
-    local restore_datetime=$(echo "$defaults" | jq -r '.restore_date_time')
-    local timezone=$(echo "$defaults" | jq -r '.timezone')
-    local cloud=$(echo "$defaults" | jq -r '.cloud')
-    local max_wait=$(echo "$defaults" | jq -r '.max_wait_minutes')
+    local view_tasks_data='{
+        "title": "'"$VIEW_TASKS"'",
+        "project_id": '$PROJECT_ID',
+        "position": 2
+    }'
     
+    result=$(api_call "POST" "/api/project/$PROJECT_ID/views" "$view_tasks_data")
+    http_code=$(echo "$result" | cut -d'|' -f1)
+    response=$(echo "$result" | cut -d'|' -f2-)
+    
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        VIEW_TASKS_ID=$(echo "$response" | jq -r '.id')
+        log_success "View '$VIEW_TASKS' created with ID: $VIEW_TASKS_ID"
+    else
+        log_error "Failed to create view '$VIEW_TASKS' (HTTP: $http_code)"
+        echo "Response: $response"
+        exit 1
+    fi
+}
 
-    # Create DRY RUN template with ALL parameters visible to users
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 4: CREATE MAIN TEMPLATES (DRY RUN & PRODUCTION)
+# ═══════════════════════════════════════════════════════════════════════════
+
+create_main_templates() {
+    log_section "STEP 4: CREATE MAIN WORKFLOW TEMPLATES"
+    
+    # Template 1: DRY RUN
+    log_info "Creating DRY RUN template..."
+    
     local dry_run_template='{
-        "name": "Self-Service Data Refresh - DRY RUN (PowerShell) - COMPLETE",
-        "description": "Preview what the data refresh would do (SAFE - no changes made)",
+        "name": "Self-Service Data Refresh - DRY RUN",
+        "description": "Preview what the data refresh would do (SAFE - no changes made). All parameters are OPTIONAL - the script auto-detects missing values from Azure. Defaults: Source=Destination, SourceNamespace='\''manufacturo'\'', DestinationNamespace='\''test'\''",
         "repository_id": '$REPO_ID',
         "inventory_id": '$INVENTORY_ID',
         "environment_id": '$ENV_ID',
-        "view_id": '$VIEW_ID',
-        "playbook": "/scripts/main/semaphore_wrapper.ps1",
+        "view_id": '$VIEW_MAIN_ID',
+        "playbook": "'"$SCRIPT_PATH"'",
         "survey_vars": [
             {
                 "name": "RestoreDateTime",
-                "title": "Restore Date/Time",
-                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss)",
-                "default_value": "'$restore_datetime'",
-                "required": true
+                "title": "Restore Date/Time (OPTIONAL)",
+                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 15 minutes ago. Script auto-detects if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Timezone",
-                "title": "Timezone",
-                "description": "Timezone for restore datetime",
-                "default_value": "'$timezone'",
-                "required": true
+                "title": "Timezone (OPTIONAL)",
+                "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "SourceNamespace",
-                "title": "Source Namespace",
-                "description": "Source namespace (e.g., manufacturo)",
-                "default_value": "'$source_ns'",
-                "required": true
+                "title": "Source Namespace (OPTIONAL)",
+                "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Source",
-                "title": "Source Environment",
-                "description": "Environment to copy data FROM (e.g., gov001)",
-                "default_value": "'$source_env'",
-                "required": true
+                "title": "Source Environment (OPTIONAL)",
+                "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "DestinationNamespace",
-                "title": "Destination Namespace",
-                "description": "Destination namespace (e.g., test)",
-                "default_value": "'$dest_ns'",
-                "required": true
+                "title": "Destination Namespace (OPTIONAL)",
+                "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Destination",
-                "title": "Destination Environment",
-                "description": "Environment to copy data TO (e.g., gov001)",
-                "default_value": "'$dest_env'",
-                "required": true
+                "title": "Destination Environment (OPTIONAL)",
+                "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "CustomerAlias",
-                "title": "Customer Alias",
-                "description": "Customer identifier for this refresh",
-                "default_value": "'$customer'",
-                "required": true
+                "title": "Customer Alias (OPTIONAL)",
+                "description": "Customer identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "CustomerAliasToRemove",
-                "title": "Customer Alias To Remove",
-                "description": "Customer alias to remove (optional)",
-                "default_value": "'$customer_to_remove'",
+                "title": "Customer Alias To Remove (OPTIONAL)",
+                "description": "Customer alias to remove during cleanup. Script auto-calculates from CustomerAlias if empty.",
+                "default_value": "",
                 "required": false
             },
             {
                 "name": "Cloud",
-                "title": "Azure Cloud",
-                "description": "Azure cloud environment",
-                "default_value": "'$cloud'",
-                "required": true
+                "title": "Azure Cloud (OPTIONAL)",
+                "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "DryRun",
                 "title": "Dry Run Mode",
-                "description": "Enable dry run mode (preview only, no changes)",
+                "description": "Enable dry run mode (preview only, no changes). FIXED to true for this template.",
                 "default_value": "true",
                 "required": true
             },
             {
+                "name": "Force",
+                "title": "Force Mode",
+                "description": "Enable force mode (auto-delete existing -restored databases). FIXED to true for this template.",
+                "default_value": "false",
+                "required": false
+            },
+            {
                 "name": "MaxWaitMinutes",
-                "title": "Max Wait Minutes",
-                "description": "Maximum minutes to wait for operations",
-                "default_value": "'$max_wait'",
-                "required": true
+                "title": "Max Wait Minutes (OPTIONAL)",
+                "description": "Maximum minutes to wait for operations. Default: 60",
+                "default_value": "",
+                "required": false
             }
         ],
         "app": "powershell"
     }'
     
-    local response=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -X POST \
-        -d "$dry_run_template" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/templates")
+    local result=$(api_call "POST" "/api/project/$PROJECT_ID/templates" "$dry_run_template")
+    local http_code=$(echo "$result" | cut -d'|' -f1)
+    local response=$(echo "$result" | cut -d'|' -f2-)
     
-    local http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    local response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
-    
-    if [ "$http_code" = "201" ]; then
-        local template_id=$(echo "$response_body" | jq -r '.id')
-        log_success "DRY RUN template created! (ID: $template_id) with 11 complete parameters"
-        log_info "Script path: /scripts/main/semaphore_wrapper.ps1 (All parameters visible to users)"
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        local template_id=$(echo "$response" | jq -r '.id')
+        log_success "DRY RUN template created! (ID: $template_id)"
     else
         log_error "Failed to create DRY RUN template (HTTP: $http_code)"
-        echo "Response: $response_body"
+        echo "Response: $response"
         return 1
     fi
     
-    # Create PRODUCTION template with ALL parameters visible to users
+    # Template 2: PRODUCTION
+    log_info "Creating PRODUCTION template..."
+    
     local production_template='{
-        "name": "Self-Service Data Refresh - PRODUCTION (PowerShell) - COMPLETE",
-        "description": "Execute actual data refresh operations (⚠️ PRODUCTION MODE)",
+        "name": "Self-Service Data Refresh - PRODUCTION",
+        "description": "⚠️ PRODUCTION MODE - Execute actual data refresh operations. All parameters are OPTIONAL - the script auto-detects missing values from Azure. Defaults: Source=Destination, SourceNamespace='\''manufacturo'\'', DestinationNamespace='\''test'\''",
         "repository_id": '$REPO_ID',
         "inventory_id": '$INVENTORY_ID',
         "environment_id": '$ENV_ID',
-        "view_id": '$VIEW_ID',
-        "playbook": "/scripts/main/semaphore_wrapper.ps1",
+        "view_id": '$VIEW_MAIN_ID',
+        "playbook": "'"$SCRIPT_PATH"'",
         "survey_vars": [
             {
                 "name": "RestoreDateTime",
-                "title": "Restore Date/Time",
-                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss)",
-                "default_value": "'$restore_datetime'",
-                "required": true
+                "title": "Restore Date/Time (OPTIONAL)",
+                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 15 minutes ago. Script auto-detects if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Timezone",
-                "title": "Timezone",
-                "description": "Timezone for restore datetime",
-                "default_value": "'$timezone'",
-                "required": true
+                "title": "Timezone (OPTIONAL)",
+                "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "SourceNamespace",
-                "title": "Source Namespace",
-                "description": "Source namespace (e.g., manufacturo)",
-                "default_value": "'$source_ns'",
-                "required": true
+                "title": "Source Namespace (OPTIONAL)",
+                "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Source",
-                "title": "Source Environment",
-                "description": "Environment to copy data FROM (e.g., gov001)",
-                "default_value": "'$source_env'",
-                "required": true
+                "title": "Source Environment (OPTIONAL)",
+                "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "DestinationNamespace",
-                "title": "Destination Namespace",
-                "description": "Destination namespace (e.g., test)",
-                "default_value": "'$dest_ns'",
-                "required": true
+                "title": "Destination Namespace (OPTIONAL)",
+                "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "Destination",
-                "title": "Destination Environment",
-                "description": "Environment to copy data TO (e.g., gov001)",
-                "default_value": "'$dest_env'",
-                "required": true
+                "title": "Destination Environment (OPTIONAL)",
+                "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "CustomerAlias",
-                "title": "Customer Alias",
-                "description": "Customer identifier for this refresh",
-                "default_value": "'$customer'",
-                "required": true
+                "title": "Customer Alias (OPTIONAL)",
+                "description": "Customer identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "CustomerAliasToRemove",
-                "title": "Customer Alias To Remove",
-                "description": "Customer alias to remove (optional)",
-                "default_value": "'$customer_to_remove'",
+                "title": "Customer Alias To Remove (OPTIONAL)",
+                "description": "Customer alias to remove during cleanup. Script auto-calculates from CustomerAlias if empty.",
+                "default_value": "",
                 "required": false
             },
             {
                 "name": "Cloud",
-                "title": "Azure Cloud",
-                "description": "Azure cloud environment",
-                "default_value": "'$cloud'",
-                "required": true
+                "title": "Azure Cloud (OPTIONAL)",
+                "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "DryRun",
                 "title": "Dry Run Mode",
-                "description": "Enable dry run mode (preview only, no changes)",
+                "description": "Enable dry run mode (preview only, no changes). Set to false for PRODUCTION execution.",
                 "default_value": "false",
                 "required": true
             },
             {
                 "name": "MaxWaitMinutes",
-                "title": "Max Wait Minutes",
-                "description": "Maximum minutes to wait for operations",
-                "default_value": "'$max_wait'",
-                "required": true
+                "title": "Max Wait Minutes (OPTIONAL)",
+                "description": "Maximum minutes to wait for operations. Default: 60",
+                "default_value": "",
+                "required": false
             },
             {
                 "name": "production_confirm",
@@ -428,142 +523,324 @@ create_config_template() {
         "app": "powershell"
     }'
     
-    local response=$(curl -s -w "HTTP_CODE:%{http_code}" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -X POST \
-        -d "$production_template" \
-        "$SEMAPHORE_URL/api/project/$PROJECT_ID/templates")
+    result=$(api_call "POST" "/api/project/$PROJECT_ID/templates" "$production_template")
+    http_code=$(echo "$result" | cut -d'|' -f1)
+    response=$(echo "$result" | cut -d'|' -f2-)
     
-    local http_code=$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-    local response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
-    
-    if [ "$http_code" = "201" ]; then
-        local template_id=$(echo "$response_body" | jq -r '.id')
-        log_success "PRODUCTION template created! (ID: $template_id) with 12 complete parameters"
-        log_info "Script path: /scripts/main/semaphore_wrapper.ps1 (All parameters visible to users)"
-        log_success "Both DRY RUN and PRODUCTION templates created successfully!"
-        return 0
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        local template_id=$(echo "$response" | jq -r '.id')
+        log_success "PRODUCTION template created! (ID: $template_id)"
     else
         log_error "Failed to create PRODUCTION template (HTTP: $http_code)"
-        echo "Response: $response_body"
+        echo "Response: $response"
         return 1
     fi
 }
 
-# Main execution
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 5: CREATE INDIVIDUAL TASK TEMPLATES
+# ═══════════════════════════════════════════════════════════════════════════
+
+create_task_templates() {
+    log_section "STEP 5: CREATE INDIVIDUAL TASK TEMPLATES"
+    
+    log_info "Creating Step 0 utility tasks (authentication and setup)..."
+    
+    # Step 0A: Connect to Azure
+    log_info "Creating Step 0A: Connect to Azure..."
+    create_template "Step 0A: Connect to Azure" \
+        "Authenticate to Azure using Service Principal (required before all operations)" \
+        "common/Connect-Azure.ps1" \
+        '[
+            {"name":"Cloud","title":"Azure Cloud (OPTIONAL)","description":"Azure cloud environment (AzureCloud or AzureUSGovernment). Auto-detected if empty","default_value":"","required":false}
+        ]'
+    
+    # Step 0B: Auto-Detect Parameters
+    log_info "Creating Step 0B: Auto-Detect Parameters..."
+    create_template "Step 0B: Auto-Detect Parameters" \
+        "Automatically detect missing parameters from Azure subscription" \
+        "common/Get-AzureParameters.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Will auto-detect from Azure if empty","default_value":"","required":false},
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Defaults to Source if empty","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false}
+        ]'
+    
+    # Step 0C: Grant Permissions
+    log_info "Creating Step 0C: Grant Permissions..."
+    create_template "Step 0C: Grant Permissions" \
+        "Grant Azure permissions to SelfServiceRefresh service account (required before operations)" \
+        "permissions/Invoke-AzureFunctionPermission.ps1" \
+        '[
+            {"name":"Action","title":"Action","description":"Permission action","default_value":"Grant","required":true},
+            {"name":"Environment","title":"Environment (OPTIONAL)","description":"Target environment. Auto-detected from Source or ENVIRONMENT env var","default_value":"","required":false},
+            {"name":"ServiceAccount","title":"Service Account","description":"Service account name","default_value":"SelfServiceRefresh","required":true},
+            {"name":"TimeoutSeconds","title":"Timeout Seconds","description":"API timeout in seconds","default_value":"60","required":false},
+            {"name":"WaitForPropagation","title":"Wait For Propagation","description":"Wait time for permissions to propagate (seconds)","default_value":"30","required":false}
+        ]'
+    
+    log_info "Creating main workflow tasks (Steps 1-12)..."
+    
+    # Task 1: Restore Point in Time
+    log_info "Creating Task 1: Restore Point in Time..."
+    create_template "Task 1: Restore Point in Time" \
+        "Restore databases to a specific point in time. Parameters: RestoreDateTime, Timezone, Source, SourceNamespace, MaxWaitMinutes (all OPTIONAL - script auto-detects)" \
+        "restore/RestorePointInTime.ps1" \
+        '[
+            {"name":"RestoreDateTime","title":"Restore Date/Time (OPTIONAL)","description":"Point in time to restore (yyyy-MM-dd HH:mm:ss). Auto: 15 min ago","default_value":"","required":false},
+            {"name":"Timezone","title":"Timezone (OPTIONAL)","description":"Timezone for restore. Auto: system timezone","default_value":"","required":false},
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected from Azure","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"MaxWaitMinutes","title":"Max Wait Minutes (OPTIONAL)","description":"Maximum wait time. Default: 60","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 2: Stop Environment
+    log_info "Creating Task 2: Stop Environment..."
+    create_template "Task 2: Stop Environment" \
+        "Stop the destination environment (AKS cluster, monitoring). Parameters: Destination, DestinationNamespace, Cloud (all OPTIONAL - script auto-detects)" \
+        "environment/StopEnvironment.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Environment to stop. Auto-detected from Azure","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"Cloud","title":"Azure Cloud (OPTIONAL)","description":"Azure cloud. Auto-detected","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 3: Copy Attachments
+    log_info "Creating Task 3: Copy Attachments..."
+    create_template "Task 3: Copy Attachments" \
+        "Copy attachments from source to destination storage. Parameters: Source, Destination, SourceNamespace, DestinationNamespace (all OPTIONAL)" \
+        "storage/CopyAttachments.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected","default_value":"","required":false},
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto: same as Source","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 4: Copy Database
+    log_info "Creating Task 4: Copy Database..."
+    create_template "Task 4: Copy Database" \
+        "Copy database from source to destination. Parameters: Source, Destination, SourceNamespace, DestinationNamespace (all OPTIONAL)" \
+        "database/copy_database.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected","default_value":"","required":false},
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto: same as Source","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 5: Cleanup Environment Configuration
+    log_info "Creating Task 5: Cleanup Environment Configuration..."
+    create_template "Task 5: Cleanup Environment Configuration" \
+        "Clean up source environment configurations (CORS, redirect URIs). Parameters: Destination, EnvironmentToClean, MultitenantToRemove, CustomerAliasToRemove, Domain, DestinationNamespace (OPTIONAL)" \
+        "configuration/cleanup_environment_config.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"EnvironmentToClean","title":"Environment To Clean (OPTIONAL)","description":"Source environment to clean. Auto: same as Source","default_value":"","required":false},
+            {"name":"MultitenantToRemove","title":"Multitenant To Remove (OPTIONAL)","description":"Namespace to remove. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"CustomerAliasToRemove","title":"Customer Alias To Remove (OPTIONAL)","description":"Customer alias to remove. Auto-calculated","default_value":"","required":false},
+            {"name":"Domain","title":"Domain (OPTIONAL)","description":"Domain (cloud/us). Auto-detected from Cloud","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 6: Revert SQL Users
+    log_info "Creating Task 6: Revert SQL Users..."
+    create_template "Task 6: Revert SQL Users" \
+        "Revert source environment SQL users and roles. Parameters: Destination, DestinationNamespace, EnvironmentToRevert, MultitenantToRevert (OPTIONAL)" \
+        "configuration/sql_configure_users.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"EnvironmentToRevert","title":"Environment To Revert (OPTIONAL)","description":"Source environment to revert. Auto: same as Source","default_value":"","required":false},
+            {"name":"MultitenantToRevert","title":"Multitenant To Revert (OPTIONAL)","description":"Namespace to revert. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"Revert","title":"Revert Mode","description":"Enable revert mode","default_value":"true","required":true},
+            {"name":"AutoApprove","title":"Auto Approve","description":"Auto approve changes","default_value":"true","required":true},
+            {"name":"StopOnFailure","title":"Stop On Failure","description":"Stop on first failure","default_value":"true","required":true},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 7: Adjust Resources
+    log_info "Creating Task 7: Adjust Resources..."
+    create_template "Task 7: Adjust Database Resources" \
+        "Adjust database resources and configurations. Parameters: Domain, CustomerAlias, Destination, DestinationNamespace (OPTIONAL)" \
+        "configuration/adjust_db.ps1" \
+        '[
+            {"name":"Domain","title":"Domain (OPTIONAL)","description":"Domain (cloud/us). Auto-detected from Cloud","default_value":"","required":false},
+            {"name":"CustomerAlias","title":"Customer Alias (OPTIONAL)","description":"Customer identifier. Auto: INSTANCE_ALIAS env var","default_value":"","required":false},
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 8: Delete Replicas
+    log_info "Creating Task 8: Delete Replicas..."
+    create_template "Task 8: Delete and Recreate Replicas" \
+        "Delete and recreate replica databases. Parameters: Destination, Source, SourceNamespace, DestinationNamespace (OPTIONAL)" \
+        "replicas/delete_replicas.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 9: Configure Users
+    log_info "Creating Task 9: Configure SQL Users..."
+    create_template "Task 9: Configure SQL Users" \
+        "Configure SQL users and permissions. Parameters: Destination, DestinationNamespace (OPTIONAL)" \
+        "configuration/sql_configure_users.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"AutoApprove","title":"Auto Approve","description":"Auto approve changes","default_value":"true","required":true},
+            {"name":"StopOnFailure","title":"Stop On Failure","description":"Stop on first failure","default_value":"true","required":true},
+            {"name":"BaselinesMode","title":"Baselines Mode","description":"Baselines mode (Off for production)","default_value":"Off","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 10: Start Environment
+    log_info "Creating Task 10: Start Environment..."
+    create_template "Task 10: Start Environment" \
+        "Start the destination environment (AKS cluster, monitoring). Parameters: Destination, DestinationNamespace (OPTIONAL)" \
+        "environment/StartEnvironment.ps1" \
+        '[
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 11: Cleanup
+    log_info "Creating Task 11: Cleanup Restored Databases..."
+    create_template "Task 11: Cleanup Restored Databases" \
+        "Delete temporary restored databases with '-restored' suffix. Parameters: Source (OPTIONAL)" \
+        "database/delete_restored_db.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected from Azure","default_value":"","required":false},
+            {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
+        ]'
+    
+    # Task 12: Remove Permissions
+    log_info "Creating Task 12: Remove Permissions..."
+    create_template "Task 12: Remove Permissions" \
+        "Remove permissions from SelfServiceRefresh service account. Parameters: Source (OPTIONAL)" \
+        "permissions/Invoke-AzureFunctionPermission.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected from Azure","default_value":"","required":false},
+            {"name":"Action","title":"Action","description":"Permission action (Remove)","default_value":"Remove","required":true},
+            {"name":"ServiceAccount","title":"Service Account","description":"Service account name","default_value":"SelfServiceRefresh","required":true},
+            {"name":"TimeoutSeconds","title":"Timeout Seconds","description":"API timeout in seconds","default_value":"60","required":false},
+            {"name":"WaitForPropagation","title":"Wait For Propagation","description":"Wait time for permissions to propagate","default_value":"30","required":false}
+        ]'
+}
+
+# Helper function to create a template
+create_template() {
+    local name=$1
+    local description=$2
+    local script_path=$3
+    local survey_vars=$4
+    
+    # Build full script path
+    local full_path="/tmp/semaphore/project_1/repository_3_template_2/scripts/${script_path}"
+    
+    local template_data=$(cat <<EOF
+{
+    "name": "$name",
+    "description": "$description",
+    "repository_id": $REPO_ID,
+    "inventory_id": $INVENTORY_ID,
+    "environment_id": $ENV_ID,
+    "view_id": $VIEW_TASKS_ID,
+    "playbook": "$full_path",
+    "survey_vars": $survey_vars,
+    "app": "powershell"
+}
+EOF
+)
+    
+    local result=$(api_call "POST" "/api/project/$PROJECT_ID/templates" "$template_data")
+    local http_code=$(echo "$result" | cut -d'|' -f1)
+    local response=$(echo "$result" | cut -d'|' -f2-)
+    
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        local template_id=$(echo "$response" | jq -r '.id')
+        log_success "Template created: $name (ID: $template_id)"
+        return 0
+    else
+        log_error "Failed to create template: $name (HTTP: $http_code)"
+        echo "Response: $response"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════
+
 main() {
-    echo "🚀 Corrected Semaphore Template Creation Script"
-    echo "==============================================="
+    echo ""
+    log_section "🚀 SEMAPHORE TEMPLATE CREATION SCRIPT"
+    
+    log_info "Configuration:"
+    echo "  Semaphore URL: $SEMAPHORE_URL"
+    echo "  Script Path: $SCRIPT_PATH"
+    echo "  Project Name: $PROJECT_NAME"
+    echo "  Main View: $VIEW_MAIN"
+    echo "  Tasks View: $VIEW_TASKS"
     echo ""
     
-    # Get project resources
-    get_project_resources
-    echo ""
+    # Execute all steps
+    create_or_get_project
+    get_or_create_resources
+    create_views
+    create_main_templates
+    create_task_templates
     
-    # # Step 1: Simple template
-    # if create_simple_template; then
-    #     log_success "Step 1 completed successfully!"
-    #     echo ""
-        
-    #     # Step 2: Parameter template
-    #     if create_parameter_template; then
-    #         log_success "Step 2 completed successfully!"
-    #         echo ""
-            
-    # Step 3: Config file template
-    if create_config_template; then
-        log_success "Step 3 completed successfully!"
+    # Final summary
+    log_section "🎉 SETUP COMPLETE"
+    
+    log_success "All templates created successfully!"
         echo ""
-        log_success "🎉 All templates created successfully with COMPLETE parameter set!"
+    log_info "Summary:"
+    echo "  📁 Project: $PROJECT_NAME (ID: $PROJECT_ID)"
+    echo "  📋 View '$VIEW_MAIN': Contains 2 main workflow templates"
+    echo "     • Self-Service Data Refresh - DRY RUN"
+    echo "     • Self-Service Data Refresh - PRODUCTION"
+    echo "  📋 View '$VIEW_TASKS': Contains 15 individual task templates"
+    echo "     🔧 Step 0: Utilities (authentication & setup)"
+    echo "        • Step 0A: Connect to Azure"
+    echo "        • Step 0B: Auto-Detect Parameters"
+    echo "        • Step 0C: Grant Permissions"
+    echo "     ⚙️  Steps 1-12: Main workflow"
+    echo "        • Task 1: Restore Point in Time"
+    echo "        • Task 2: Stop Environment"
+    echo "        • Task 3: Copy Attachments"
+    echo "        • Task 4: Copy Database"
+    echo "        • Task 5: Cleanup Environment Configuration"
+    echo "        • Task 6: Revert SQL Users"
+    echo "        • Task 7: Adjust Database Resources"
+    echo "        • Task 8: Delete and Recreate Replicas"
+    echo "        • Task 9: Configure SQL Users"
+    echo "        • Task 10: Start Environment"
+    echo "        • Task 11: Cleanup Restored Databases"
+    echo "        • Task 12: Remove Permissions"
         echo ""
         log_info "Key features:"
-        echo "  ✅ Script path: /scripts/main/semaphore_wrapper.ps1 (robust parameter handling)"
-        echo "  ✅ All parameters included: 11 for DRY RUN, 12 for PRODUCTION (includes confirmation)"
-        echo "  ✅ Full user control: All parameters visible and editable by users"
-        echo "  ✅ Default values: Loaded from configuration file for convenience"
-        echo "  ✅ Parameter mapping: Robust handling of any parameter order/format"
-        echo "  ✅ Type conversion: Proper boolean and integer parameter handling"
-    else
-        log_error "Step 3 failed - config file template creation failed"
-        exit 1
-    fi
-    #     else
-    #         log_error "Step 2 failed - parameter template creation failed"
-    #         exit 1
-    #     fi
-    # else
-    #     log_error "Step 1 failed - simple template creation failed"
-    #     exit 1
-    # fi
+    echo "  ✅ All parameters are OPTIONAL - script auto-detects from Azure"
+    echo "  ✅ Default values: Source=Destination, SourceNamespace='manufacturo', DestinationNamespace='test'"
+    echo "  ✅ Script path: $SCRIPT_PATH"
+    echo "  ✅ Robust parameter handling via semaphore_wrapper.ps1"
+    echo ""
+    log_success "You can now use these templates in Semaphore UI!"
+    echo ""
 }
 
 # Run main function
 main "$@"
-
-#             {
-#                 "name": "max_wait",
-#                 "title": "Max Wait Minutes",
-#                 "description": "Maximum minutes to wait for operations",
-#                 "default_value": "'$max_wait'",
-#                 "required": true
-#             }
-
-
-#             {
-#                 "name": "max_wait",
-#                 "title": "Max Wait Minutes",
-#                 "description": "Maximum minutes to wait for operations",
-#                 "default_value": "'$max_wait'",
-#                 "required": true
-#             },
-
-#                         {
-#                 "name": "source_ns",
-#                 "title": "Source Namespace",
-#                 "description": "Source namespace (e.g., manufacturo)",
-#                 "default_value": "'$source_ns'",
-#                 "required": true
-#             },
-#             {
-#                 "name": "source_env",
-#                 "title": "Source Environment",
-#                 "description": "Environment to copy data FROM (e.g., gov001)",
-#                 "default_value": "'$source_env'",
-#                 "required": true
-#             },
-#             {
-#                 "name": "dest_ns",
-#                 "title": "Destination Namespace",
-#                 "description": "Destination namespace (e.g., test)",
-#                 "default_value": "'$dest_ns'",
-#                 "required": true
-#             },
-#             {
-#                 "name": "dest_env",
-#                 "title": "Destination Environment",
-#                 "description": "Environment to copy data TO (e.g., gov001)",
-#                 "default_value": "'$dest_env'",
-#                 "required": true
-#             },
-#             {
-#                 "name": "customer",
-#                 "title": "Customer Alias",
-#                 "description": "Customer identifier for this refresh",
-#                 "default_value": "'$customer'",
-#                 "required": true
-#             },
-#             {
-#                 "name": "customer_to_remove",
-#                 "title": "Customer Alias To Remove",
-#                 "description": "Customer alias to remove (optional)",
-#                 "default_value": "'$customer_to_remove'",
-#                 "required": false
-#             },
-#             {
-#                 "name": "cloud",
-#                 "title": "Azure Cloud",
-#                 "description": "Azure cloud environment",
-#                 "default_value": "'$cloud'",
-#                 "required": true
-#             },

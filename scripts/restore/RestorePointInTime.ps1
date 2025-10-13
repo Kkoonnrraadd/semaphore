@@ -2,8 +2,9 @@
     [Parameter(Mandatory)][string]$source,
     [AllowEmptyString()][string]$SourceNamespace,
     [Parameter(Mandatory)][string]$RestoreDateTime,
-    [Parameter(Mandatory)][string]$Timezone,  # Required - provided by wrapper or user
+    [Parameter(Mandatory)][string]$Timezone,
     [switch]$DryRun,
+    [switch]$Force,  # If set, automatically delete conflicting databases before restore
     [int]$MaxWaitMinutes = 60,
     [int]$ThrottleLimit = 10  # Number of databases to restore in parallel
 )
@@ -123,6 +124,349 @@ function Test-DatabaseMatchesPattern {
     } else {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
         return $DatabaseName.Contains($expectedPattern)
+    }
+}
+
+function Test-ExistingRestoredDatabases {
+    param (
+        [array]$DatabasesToRestore,
+        [string]$SourceSubscription,
+        [string]$SourceResourceGroup,
+        [string]$SourceServer,
+        [bool]$ForceDelete = $false
+    )
+    
+    Write-Host "`n🔍 CHECKING FOR EXISTING RESTORED DATABASES" -ForegroundColor Cyan
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $conflicts = @()
+    $targetNames = @()
+    
+    # Build list of target database names (all end with -restored suffix)
+    foreach ($db in $DatabasesToRestore) {
+        $targetNames += "$($db.name)-restored"
+    }
+    
+    Write-Host "Checking for $($targetNames.Count) potential database conflicts..." -ForegroundColor Gray
+    
+    # Get all existing databases on the server
+    try {
+        $existingDatabases = az sql db list `
+            --subscription $SourceSubscription `
+            --resource-group $SourceResourceGroup `
+            --server $SourceServer `
+            --query "[].name" `
+            --output json | ConvertFrom-Json
+        
+        if (-not $existingDatabases) {
+            Write-Host "⚠️  Warning: Could not retrieve existing databases list" -ForegroundColor Yellow
+            return @{ HasConflicts = $false; Conflicts = @() }
+        }
+        
+        # Check each target name against existing databases
+        # SAFETY: Only flag conflicts for databases ending with -restored suffix
+        foreach ($targetName in $targetNames) {
+            if ($existingDatabases -contains $targetName) {
+                # Double-check that the conflicting database has -restored suffix (safety check)
+                if ($targetName.EndsWith("-restored")) {
+                    $conflicts += $targetName
+                    Write-Host "  ⚠️  Found existing: $targetName" -ForegroundColor Yellow
+                }
+            }
+        }
+        
+    } catch {
+        Write-Host "⚠️  Warning: Error checking existing databases: $($_.Exception.Message)" -ForegroundColor Yellow
+        return @{ HasConflicts = $false; Conflicts = @() }
+    }
+    
+    # Display results
+    Write-Host ""
+    if ($conflicts.Count -eq 0) {
+        Write-Host "✅ No conflicts detected - all target database names are available" -ForegroundColor Green
+        Write-Host ""
+        return @{ HasConflicts = $false; Conflicts = @() }
+    } else {
+        Write-Host "📋 FOUND $($conflicts.Count) EXISTING RESTORED DATABASE(S)" -ForegroundColor Yellow
+        Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
+        foreach ($conflict in $conflicts) {
+            Write-Host "  • $conflict" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        
+        # Handle Force mode - automatically delete previous restore attempts
+        if ($ForceDelete) {
+            Write-Host "🗑️  Force mode enabled: Deleting previous restore attempts..." -ForegroundColor Yellow
+            Write-Host "   Note: Only databases with '-restored' suffix will be deleted (safe)" -ForegroundColor Gray
+            Write-Host ""
+            
+            $deleteSucceeded = @()
+            $deleteFailed = @()
+            
+            foreach ($conflict in $conflicts) {
+                # SAFETY CHECK: Verify -restored suffix before deletion
+                if (-not $conflict.EndsWith("-restored")) {
+                    Write-Host "  ⚠️  SAFETY SKIP: $conflict (does not end with -restored suffix)" -ForegroundColor Red
+                    $deleteFailed += $conflict
+                    continue
+                }
+                
+                Write-Host "  🗑️  Deleting: $conflict" -ForegroundColor Yellow
+                try {
+                    $deleteOutput = az sql db delete `
+                        --subscription $SourceSubscription `
+                        --resource-group $SourceResourceGroup `
+                        --server $SourceServer `
+                        --name $conflict `
+                        --yes `
+                        --no-wait 2>&1
+                    
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Host "    ✅ Deletion initiated successfully" -ForegroundColor Green
+                        $deleteSucceeded += $conflict
+                    } else {
+                        Write-Host "    ❌ Failed to delete: $deleteOutput" -ForegroundColor Red
+                        $deleteFailed += $conflict
+                    }
+                } catch {
+                    Write-Host "    ❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+                    $deleteFailed += $conflict
+                }
+            }
+            
+            Write-Host ""
+            if ($deleteSucceeded.Count -gt 0) {
+                Write-Host "⏳ Waiting for database deletions to complete (15 seconds)..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 15  # Give Azure time to process deletions
+                Write-Host "✅ Successfully initiated deletion of $($deleteSucceeded.Count) database(s)" -ForegroundColor Green
+            }
+            
+            if ($deleteFailed.Count -gt 0) {
+                Write-Host "❌ Failed to delete $($deleteFailed.Count) database(s):" -ForegroundColor Red
+                Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
+                foreach ($failed in $deleteFailed) {
+                    Write-Host "  • $failed" -ForegroundColor Red
+                }
+                Write-Host ""
+                Write-Host "💡 These databases may be locked or require manual intervention" -ForegroundColor Yellow
+                Write-Host "   The restore process cannot continue with these conflicts" -ForegroundColor Yellow
+                return @{ HasConflicts = $true; Conflicts = $deleteFailed }
+            }
+            
+            Write-Host ""
+            return @{ HasConflicts = $false; Conflicts = @() }
+        } else {
+            # No Force mode - but since this runs via Semaphore UI, provide clear guidance
+            Write-Host "❌ Cannot proceed: Databases with target names already exist" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "These are previous restore attempts (all have '-restored' suffix)." -ForegroundColor Yellow
+            Write-Host "To automatically delete them and proceed, use the -Force flag:" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  -Force" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "This is safe because:" -ForegroundColor Gray
+            Write-Host "  • Only databases ending with '-restored' will be deleted" -ForegroundColor Gray
+            Write-Host "  • These are previous restore operations, not production data" -ForegroundColor Gray
+            Write-Host "  • The script validates the suffix before any deletion" -ForegroundColor Gray
+            Write-Host ""
+            
+            return @{ HasConflicts = $true; Conflicts = $conflicts }
+        }
+    }
+}
+
+function Test-RestorePointValidity {
+    param (
+        [array]$DatabasesToRestore,
+        [DateTime]$RestorePointUtc,
+        [DateTime]$RestorePointInTimezone,
+        [string]$Timezone,
+        [string]$SourceSubscription,
+        [string]$SourceResourceGroup,
+        [string]$SourceServer
+    )
+    
+    Write-Host "`n🕐 VALIDATING RESTORE POINT" -ForegroundColor Cyan
+    Write-Host "===========================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $currentTimeUtc = (Get-Date).ToUniversalTime()
+    $issues = @()
+    
+    # Check 1: Restore point is not in the future
+    if ($RestorePointUtc -gt $currentTimeUtc) {
+        Write-Host "❌ ERROR: Restore point is in the future!" -ForegroundColor Red
+        Write-Host "   Current time (UTC): $($currentTimeUtc.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Gray
+        Write-Host "   Restore point (UTC): $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Gray
+        $issues += "Restore point is in the future"
+        return @{ IsValid = $false; InvalidDatabases = @(); Issues = $issues; AdjustedRestorePoint = $null }
+    }
+    
+    # Check 2: Query for latest available restore point (if requested time is too recent)
+    # We'll check this during database validation and adjust if needed
+    
+    # Check 3: Validate each database's restore window
+    Write-Host "Checking restore point availability for each database..." -ForegroundColor Gray
+    Write-Host "Requested restore point: $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+    Write-Host ""
+    
+    $invalidDatabases = @()  # Databases that are too old (ERROR - will fail)
+    $databasesNeedingRecentAdjustment = @()  # Databases too recent (will auto-adjust)
+    $latestDates = @()
+    $validCount = 0
+    
+    foreach ($db in $DatabasesToRestore) {
+        Write-Host "  📋 $($db.name)" -ForegroundColor Gray
+        
+        try {
+            # Get the database details including earliest restore date
+            $dbDetails = az sql db show `
+                --subscription $SourceSubscription `
+                --resource-group $SourceResourceGroup `
+                --server $SourceServer `
+                --name $db.name `
+                --query "{earliestRestoreDate: earliestRestoreDate, status: status, edition: edition}" `
+                --output json | ConvertFrom-Json
+            
+            if ($dbDetails.earliestRestoreDate) {
+                $earliestRestore = [DateTime]::Parse($dbDetails.earliestRestoreDate)
+                
+                # Calculate latest available restore point (current time minus 10 minutes for safety)
+                # Azure SQL continuous backup is typically 5-10 minutes behind
+                $latestSafeRestore = $currentTimeUtc.AddMinutes(-10)
+                $latestDates += $latestSafeRestore
+                
+                if ($RestorePointUtc -lt $earliestRestore) {
+                    # Too old - FAIL (user error - requested point outside retention window)
+                    Write-Host "    ❌ ERROR: Requested time is outside retention window" -ForegroundColor Red
+                    Write-Host "       Earliest available:  $($earliestRestore.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+                    Write-Host "       Requested restore:   $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+                    $retentionDays = [math]::Round(($currentTimeUtc - $earliestRestore).TotalDays, 1)
+                    Write-Host "       Retention window:    $retentionDays days" -ForegroundColor Gray
+                    $invalidDatabases += @{
+                        Name = $db.name
+                        EarliestRestore = $earliestRestore
+                        RequestedRestore = $RestorePointUtc
+                        RetentionDays = $retentionDays
+                    }
+                } elseif ($RestorePointUtc -gt $latestSafeRestore) {
+                    # Too recent - AUTO-ADJUST (Azure backup propagation delay)
+                    Write-Host "    ⚠️  Requested time is too recent (will auto-adjust)" -ForegroundColor Yellow
+                    Write-Host "       Latest safe point:  $($latestSafeRestore.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+                    Write-Host "       Requested restore:  $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+                    $databasesNeedingRecentAdjustment += @{
+                        Name = $db.name
+                        LatestSafeRestore = $latestSafeRestore
+                        RequestedRestore = $RestorePointUtc
+                    }
+                } else {
+                    $retentionDays = [math]::Round(($currentTimeUtc - $earliestRestore).TotalDays, 1)
+                    Write-Host "    ✅ Valid (retention: $retentionDays days available)" -ForegroundColor Green
+                    $validCount++
+                }
+            } else {
+                Write-Host "    ⚠️  WARNING: Could not determine earliest restore date" -ForegroundColor Yellow
+                $validCount++  # Assume valid if we can't determine
+            }
+            
+        } catch {
+            Write-Host "    ⚠️  WARNING: Error checking restore availability: $($_.Exception.Message)" -ForegroundColor Yellow
+            $validCount++  # Assume valid if check fails
+        }
+    }
+    
+    Write-Host ""
+    
+    # Check for databases that are too old (ERROR - will fail)
+    if ($invalidDatabases.Count -gt 0) {
+        Write-Host "❌ RESTORE POINT VALIDATION FAILED" -ForegroundColor Red
+        Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
+        Write-Host "Requested restore point is outside retention window for $($invalidDatabases.Count) database(s)" -ForegroundColor Yellow
+        Write-Host ""
+        
+        foreach ($invalid in $invalidDatabases) {
+            Write-Host "  • $($invalid.Name)" -ForegroundColor Red
+            Write-Host "    Earliest available: $($invalid.EarliestRestore.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+            Write-Host "    Requested restore:  $($invalid.RequestedRestore.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+            Write-Host "    Retention window:   $($invalid.RetentionDays) days" -ForegroundColor Gray
+            Write-Host ""
+        }
+        
+        Write-Host "💡 Solutions:" -ForegroundColor Yellow
+        Write-Host "   1. Choose a more recent restore point within the retention window" -ForegroundColor Gray
+        Write-Host "   2. Check if long-term backup retention (LTR) is available" -ForegroundColor Gray
+        Write-Host "   3. Contact Azure support for backup recovery assistance" -ForegroundColor Gray
+        Write-Host ""
+        
+        return @{ 
+            IsValid = $false
+            NeedsAdjustment = $false
+            AdjustedRestorePointUtc = $null
+            AdjustedRestorePointInTimezone = $null
+            DatabasesAdjusted = @()
+            InvalidDatabases = $invalidDatabases
+            Issues = $issues
+        }
+    }
+    
+    # Check for databases that are too recent (will auto-adjust)
+    if ($databasesNeedingRecentAdjustment.Count -gt 0) {
+        Write-Host "⚠️  RESTORE POINT ADJUSTMENT (TOO RECENT)" -ForegroundColor Yellow
+        Write-Host "───────────────────────────────────────────────────" -ForegroundColor Gray
+        Write-Host "Requested restore point is too recent for $($databasesNeedingRecentAdjustment.Count) database(s)" -ForegroundColor Yellow
+        Write-Host "Azure backups typically have a 5-10 minute propagation delay" -ForegroundColor Gray
+        Write-Host ""
+        
+        # Use the EARLIEST of all latest safe dates (oldest common safe point)
+        # This ensures all databases have backups ready
+        $adjustedRestorePointUtc = ($latestDates | Measure-Object -Minimum).Minimum
+        
+        Write-Host "📊 Auto-Adjusting to Latest Safe Restore Point:" -ForegroundColor Cyan
+        Write-Host "   Original request: $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Gray
+        Write-Host "   Adjusted to:      $($adjustedRestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC" -ForegroundColor Green
+        Write-Host "   (Safe buffer for backup propagation)" -ForegroundColor Gray
+        Write-Host ""
+        
+        # Convert adjusted time to timezone
+        try {
+            $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($Timezone)
+            $adjustedRestorePointInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($adjustedRestorePointUtc, $timezoneInfo)
+            Write-Host "   In $($Timezone): $($adjustedRestorePointInTimezone.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Gray
+        } catch {
+            $adjustedRestorePointInTimezone = $adjustedRestorePointUtc
+        }
+        
+        Write-Host ""
+        Write-Host "✅ Will proceed with adjusted restore point" -ForegroundColor Green
+        Write-Host ""
+        
+        return @{ 
+            IsValid = $true
+            NeedsAdjustment = $true
+            AdjustedRestorePointUtc = $adjustedRestorePointUtc
+            AdjustedRestorePointInTimezone = $adjustedRestorePointInTimezone
+            DatabasesAdjusted = $databasesNeedingRecentAdjustment
+            InvalidDatabases = @()
+            Issues = @()
+        }
+    }
+    
+    # All databases are valid for the requested restore point
+    Write-Host "📊 Validation Summary:" -ForegroundColor Cyan
+    Write-Host "   All $($DatabasesToRestore.Count) databases can be restored to requested point" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "✅ Restore point validation passed" -ForegroundColor Green
+    Write-Host ""
+    
+    return @{ 
+        IsValid = $true
+        NeedsAdjustment = $false
+        AdjustedRestorePointUtc = $null
+        AdjustedRestorePointInTimezone = $null
+        DatabasesAdjusted = @()
+        InvalidDatabases = @()
+        Issues = @()
     }
 }
 
@@ -419,6 +763,49 @@ Write-Host ""
 if ($databasesToRestore.Count -eq 0) {
     Write-Host "⚠️  No databases to restore" -ForegroundColor Yellow
     exit 0
+}
+
+# ============================================================================
+# VALIDATE AND ADJUST RESTORE POINT IF NEEDED
+# ============================================================================
+
+$validationResult = Test-RestorePointValidity `
+    -DatabasesToRestore $databasesToRestore `
+    -RestorePointUtc $restore_point_utc `
+    -RestorePointInTimezone $restore_point_in_timezone `
+    -Timezone $Timezone `
+    -SourceSubscription $source_subscription `
+    -SourceResourceGroup $source_rg `
+    -SourceServer $source_server
+
+if (-not $validationResult.IsValid) {
+    Write-Host "❌ Cannot proceed: Restore point validation failed" -ForegroundColor Red
+    Write-Host "   The requested restore point is invalid (too recent or in the future)" -ForegroundColor Yellow
+    exit 1
+}
+
+# If the restore point was adjusted (too old), use the adjusted value
+if ($validationResult.NeedsAdjustment) {
+    Write-Host "📝 Using adjusted restore point for all operations" -ForegroundColor Cyan
+    $restore_point_utc = $validationResult.AdjustedRestorePointUtc
+    $restore_point_in_timezone = $validationResult.AdjustedRestorePointInTimezone
+}
+
+# ============================================================================
+# CHECK FOR EXISTING DATABASES
+# ============================================================================
+
+$conflictCheck = Test-ExistingRestoredDatabases `
+    -DatabasesToRestore $databasesToRestore `
+    -SourceSubscription $source_subscription `
+    -SourceResourceGroup $source_rg `
+    -SourceServer $source_server `
+    -ForceDelete $Force
+
+if ($conflictCheck.HasConflicts) {
+    Write-Host "❌ Cannot proceed: Conflicts detected with existing databases" -ForegroundColor Red
+    Write-Host "Please resolve conflicts before running restore operation" -ForegroundColor Yellow
+    exit 1
 }
 
 # ============================================================================

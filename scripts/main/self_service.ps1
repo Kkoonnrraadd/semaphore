@@ -60,7 +60,8 @@ param (
     [AllowEmptyString()][string]$CustomerAliasToRemove,
     [AllowEmptyString()][string]$Cloud,
     [switch]$DryRun=$true,
-    [int]$MaxWaitMinutes = 40,
+    [switch]$Force=$false,  # Automatically delete existing -restored databases before restore
+    [int]$MaxWaitMinutes = 60,
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
     [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
@@ -402,6 +403,7 @@ function Perform-Migration {
         -DestinationNamespace $script:DestinationNamespace `
         -Domain $Domain `
         -DryRun:($DryRun -eq $true) `
+        -Force:($Force -eq $true) `
         -MaxWaitMinutes $MaxWaitMinutes `
         -RestoreDateTime $script:RestoreDateTime `
         -Timezone $script:Timezone
@@ -418,6 +420,7 @@ function Invoke-Migration {
         [string]$DestinationNamespace,
         [string]$Domain,
         [switch]$DryRun,
+        [switch]$Force,
         [int]$MaxWaitMinutes,
         [string]$RestoreDateTime,
         [string]$Timezone
@@ -433,9 +436,13 @@ function Invoke-Migration {
     Write-Host "🗑️ Customer Alias to Remove: $CustomerAliasToRemove" -ForegroundColor Gray
     Write-Host "📅 Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "⏱️ Max Wait Time: $MaxWaitMinutes minutes" -ForegroundColor Gray
+    Write-Host "🔧 Force Mode: $Force" -ForegroundColor Gray
     
     if ($DryRun) {
         Write-Host "🔍 DRY RUN MODE ENABLED - No actual changes will be made" -ForegroundColor Yellow
+    }
+    if ($Force) {
+        Write-Host "⚠️  FORCE MODE ENABLED - Will auto-delete existing -restored databases" -ForegroundColor Yellow
     }
     Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
     
@@ -446,13 +453,14 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Timezone: $Timezone" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Source: $Source / $SourceNamespace" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Force: $Force" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
-        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -Force:$Force -MaxWaitMinutes $MaxWaitMinutes
     } else {
         $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
-        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+        & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -Force:$Force -MaxWaitMinutes $MaxWaitMinutes
     }
     
     # Step 2: Stop Environment

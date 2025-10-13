@@ -38,7 +38,7 @@ services:
       SEMAPHORE_COOKIE_HASH: JEHwcfbBrxlBWMm9lxJavoo3wpAJqa0YgsBxYzZ5t8c= # <--- ADD THIS LINE: openssl rand 32 | base64
       SEMAPHORE_COOKIE_ENCRYPTION: MLLgZzsam4xgQGe7GePJTU1oP3YGi0vW+RszWw88ym8= # <--- ADD THIS LINE: openssl rand 32 | base64
       # Change to your organization's timezone or leave as UTC
-      SEMAPHORE_SCHEDULE_TIMEZONE: 'America/Los_Angeles'
+      # SEMAPHORE_SCHEDULE_TIMEZONE: 'America/Los_Angeles'
     depends_on:
       - db
     networks:

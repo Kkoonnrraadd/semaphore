@@ -155,15 +155,18 @@ if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
 }
 
 # Calculate default restore time in the configured timezone
+# Use backup propagation delay (10 minutes) to ensure backups are ready
 try {
     $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($DefaultTimezone)
     # Get current UTC time
     $utcNow = [DateTime]::UtcNow
     # Convert to the configured timezone
     $currentTimeInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $timezoneInfo)
-    # Subtract 5 minutes
-    $DefaultRestoreDateTime = $currentTimeInTimezone.AddMinutes(-5).ToString("yyyy-MM-dd HH:mm:ss")
-    Write-Host "🕐 Set default restore time: $DefaultRestoreDateTime (5 minutes ago in $DefaultTimezone)" -ForegroundColor Green
+    # Subtract 10 minutes (Azure SQL backup propagation delay)
+    $BackupPropagationDelayMinutes = 10
+    $DefaultRestoreDateTime = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+    Write-Host "🕐 Set default restore time: $DefaultRestoreDateTime ($BackupPropagationDelayMinutes minutes ago in $DefaultTimezone)" -ForegroundColor Green
+    Write-Host "   (Safe buffer for Azure SQL backup propagation)" -ForegroundColor Gray
 } catch {
     Write-Host "" -ForegroundColor Red
     Write-Host "❌ FATAL ERROR: Invalid timezone '$DefaultTimezone'" -ForegroundColor Red

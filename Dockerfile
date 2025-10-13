@@ -87,13 +87,14 @@ RUN mkdir -p /var/lib/semaphore /etc/semaphore /opt/semaphore
 RUN chown -R semaphore:semaphore /var/lib/semaphore /etc/semaphore /opt/semaphore
 
 RUN mkdir -p /home/semaphore/.azure && chown -R semaphore:semaphore /home/semaphore/.azure
-RUN mkdir -p /scripts && chown -R semaphore:semaphore /scripts
+# RUN mkdir -p /scripts && chown -R semaphore:semaphore /scripts
 RUN mkdir -p /config && chown -R semaphore:semaphore /config
 
 # Copy scripts and configuration files into the image
-COPY --chown=semaphore:semaphore ./scripts /scripts
+# COPY --chown=semaphore:semaphore ./scripts /scripts
 COPY --chown=semaphore:semaphore ./config /config
 COPY config.json /etc/semaphore/config.json
+COPY --chown=semaphore:semaphore create-templates-corrected.sh /opt/semaphore/create-templates-corrected.sh
 
 # Install PowerShell modules as root before switching to semaphore user
 RUN pwsh -Command "Install-Module -Name SqlServer -Scope AllUsers -Force -AllowClobber"

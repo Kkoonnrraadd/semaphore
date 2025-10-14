@@ -255,7 +255,11 @@ function Copy-SingleDatabase {
         [string]$DestSubscriptionId,
         [string]$DestElasticPool,
         [string]$AccessToken,
-        [object]$SavedTags
+        [object]$SavedTags,
+        [object]$ServerSecondary = $null,
+        [string]$DestServerSecondary = $null,
+        [string]$DestResourceGroupSecondary = $null,
+        [string]$DestSubscriptionIdSecondary = $null
     )
     
     Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
@@ -263,8 +267,29 @@ function Copy-SingleDatabase {
     Write-Host "   Target: $DestinationDatabaseName" -ForegroundColor Cyan
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
     
-    # Delete existing destination database
-    Write-Host "  🗑️  Deleting existing database: $DestinationDatabaseName" -ForegroundColor Yellow
+    # Delete existing destination database (secondary first, then primary)
+    if ($ServerSecondary -and $DestServerSecondary) {
+        Write-Host "  🗑️  Deleting existing database from secondary server: $DestinationDatabaseName" -ForegroundColor Yellow
+        try {
+            $deleteResultSecondary = az sql db delete `
+                --name $DestinationDatabaseName `
+                --resource-group $DestResourceGroupSecondary `
+                --server $DestServerSecondary `
+                --subscription $DestSubscriptionIdSecondary `
+                --yes --only-show-errors 2>&1
+            
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  ⚠️  Database may not exist on secondary (this is OK): $deleteResultSecondary" -ForegroundColor Gray
+            } else {
+                Write-Host "  ✅ Deleted existing database from secondary server" -ForegroundColor Green
+            }
+            Start-Sleep -Seconds 10
+        } catch {
+            Write-Host "  ⚠️  Warning during secondary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+    
+    Write-Host "  🗑️  Deleting existing database from primary server: $DestinationDatabaseName" -ForegroundColor Yellow
     try {
         $deleteResult = az sql db delete `
             --name $DestinationDatabaseName `
@@ -274,13 +299,13 @@ function Copy-SingleDatabase {
             --yes --only-show-errors 2>&1
         
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "  ⚠️  Database may not exist (this is OK): $deleteResult" -ForegroundColor Gray
+            Write-Host "  ⚠️  Database may not exist on primary (this is OK): $deleteResult" -ForegroundColor Gray
         } else {
-            Write-Host "  ✅ Deleted existing database" -ForegroundColor Green
+            Write-Host "  ✅ Deleted existing database from primary server" -ForegroundColor Green
         }
         Start-Sleep -Seconds 10
         } catch {
-        Write-Host "  ⚠️  Warning during deletion: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  ⚠️  Warning during primary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
     # Build SQL copy command
@@ -472,6 +497,43 @@ if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
     exit 1
 }
 
+# Query for secondary SQL server (for failover group support)
+Write-Host "🔍 Checking for failover group configuration..." -ForegroundColor Cyan
+$graph_query_secondary = "
+  resources
+  | where type =~ 'microsoft.sql/servers'
+  | where tags.Environment == '$destination_lower' and tags.Type == 'Secondary'
+  | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
+"
+$server_secondary = az graph query -q $graph_query_secondary --query "data" --first 1000 | ConvertFrom-Json
+
+$dest_subscription_secondary = $null
+$dest_server_secondary = $null
+$dest_rg_secondary = $null
+$dest_server_fqdn_secondary = $null
+$failover_group = $null
+
+if ($server_secondary -and $server_secondary.Count -gt 0) {
+    $dest_subscription_secondary = $server_secondary[0].subscriptionId
+    $dest_server_secondary = $server_secondary[0].name
+    $dest_rg_secondary = $server_secondary[0].resourceGroup
+    $dest_server_fqdn_secondary = $server_secondary[0].fqdn
+    
+    Write-Host "  ✅ Secondary server found: $dest_server_secondary" -ForegroundColor Green
+    
+    # Check for failover group
+    $failover_group = az sql failover-group list --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "[0].name" -o tsv 2>$null
+    
+    if ($failover_group -and -not [string]::IsNullOrWhiteSpace($failover_group)) {
+        Write-Host "  ✅ Failover group found: $failover_group" -ForegroundColor Green
+    } else {
+        Write-Host "  ⚠️  No failover group found on primary server" -ForegroundColor Yellow
+        $server_secondary = $null
+    }
+} else {
+    Write-Host "  ℹ️  No secondary server found (single server configuration)" -ForegroundColor Gray
+}
+
 # Display summary
 Write-Host "📋 COPY SUMMARY" -ForegroundColor Cyan
 Write-Host "===============" -ForegroundColor Cyan
@@ -480,6 +542,10 @@ Write-Host "Destination: $dest_server_fqdn" -ForegroundColor Yellow
 Write-Host "Elastic Pool: $dest_elasticpool" -ForegroundColor Yellow
 Write-Host "Source Namespace: $SourceNamespace" -ForegroundColor Yellow
 Write-Host "Destination Namespace: $DestinationNamespace" -ForegroundColor Yellow
+if ($server_secondary) {
+    Write-Host "Secondary Server: $dest_server_fqdn_secondary" -ForegroundColor Yellow
+    Write-Host "Failover Group: $failover_group" -ForegroundColor Yellow
+}
 Write-Host ""
 
 # Parse server name components
@@ -657,7 +723,11 @@ foreach ($dbInfo in $databasesToProcess) {
         -DestSubscriptionId $dest_subscription `
         -DestElasticPool $dest_elasticpool `
         -AccessToken $AccessToken `
-        -SavedTags $dbInfo.SavedTags
+        -SavedTags $dbInfo.SavedTags `
+        -ServerSecondary $server_secondary `
+        -DestServerSecondary $dest_server_secondary `
+        -DestResourceGroupSecondary $dest_rg_secondary `
+        -DestSubscriptionIdSecondary $dest_subscription_secondary
     
     $results += $result
     
@@ -894,6 +964,75 @@ if ($tagsIncomplete -gt 0 -or $tagsError -gt 0) {
         Write-Host "✅ All tags successfully re-applied and verified" -ForegroundColor Green
         Write-Host ""
     }
+}
+
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+
+# ============================================================================
+# ADD DATABASES TO FAILOVER GROUP
+# ============================================================================
+
+if ($failover_group) {
+    Write-Host "🔄 ADDING DATABASES TO FAILOVER GROUP" -ForegroundColor Cyan
+    Write-Host "======================================" -ForegroundColor Cyan
+    Write-Host "Failover Group: $failover_group" -ForegroundColor Gray
+    Write-Host ""
+    
+    $dest_dbs = $databasesToProcess | ForEach-Object { $_.DestinationName }
+    $addedCount = 0
+    $skippedCount = 0
+    $failedCount = 0
+    
+    foreach ($dbName in $dest_dbs) {
+        if (-not [string]::IsNullOrWhiteSpace($dbName)) {
+            if (!$dbName.Contains("restored") -and !$dbName.Contains("landlord") -and !$dbName.Contains("master")) {
+                Write-Host "  🔄 Adding $dbName to failover group..." -ForegroundColor Gray
+                
+                try {
+                    $addResult = az sql failover-group update `
+                        -g $dest_rg `
+                        -s $dest_server `
+                        --name $failover_group `
+                        --add-db $dbName `
+                        --subscription $dest_subscription `
+                        --only-show-errors 2>&1
+                    
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Host "    ✅ Successfully added to failover group" -ForegroundColor Green
+                        $addedCount++
+                    } else {
+                        Write-Host "    ❌ Failed to add to failover group: $addResult" -ForegroundColor Red
+                        $failedCount++
+                    }
+                } catch {
+                    Write-Host "    ❌ Error adding to failover group: $($_.Exception.Message)" -ForegroundColor Red
+                    $failedCount++
+                }
+            } else {
+                Write-Host "  ⏭️  Skipping $dbName (restored or master database)" -ForegroundColor Yellow
+                $skippedCount++
+            }
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "📊 FAILOVER GROUP SUMMARY" -ForegroundColor Cyan
+    Write-Host "=========================" -ForegroundColor Cyan
+    Write-Host "✅ Added: $addedCount databases" -ForegroundColor Green
+    Write-Host "⏭️  Skipped: $skippedCount databases" -ForegroundColor Yellow
+    
+    if ($failedCount -gt 0) {
+        Write-Host "❌ Failed: $failedCount databases" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "⚠️  WARNING: Some databases failed to be added to the failover group" -ForegroundColor Yellow
+        Write-Host "   Please manually verify the failover group configuration" -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host "✅ All databases successfully added to failover group: $failover_group" -ForegroundColor Green
+    }
+    
+    Write-Host ""
 }
 
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan

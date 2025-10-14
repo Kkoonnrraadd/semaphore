@@ -25,15 +25,32 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
     Write-Host "🔑 Authenticating with Service Principal..." -ForegroundColor Yellow
     
     try {
-        # Authenticate - cloud context will be determined automatically by the tenant
+        Write-Host "🔐 Attempting login..." -ForegroundColor Gray
+        Write-Host "   Tenant ID: $env:AZURE_TENANT_ID" -ForegroundColor DarkGray
+        Write-Host "   Client ID: $env:AZURE_CLIENT_ID" -ForegroundColor DarkGray
+        
+        # Determine which cloud to try first
+        $firstCloud = if (-not [string]::IsNullOrWhiteSpace($Cloud)) { $Cloud } else { "AzureUSGovernment" }
+        $secondCloud = if ($firstCloud -eq "AzureUSGovernment") { "AzureCloud" } else { "AzureUSGovernment" }
+        
+        # Try first cloud
+        Write-Host "🌐 Trying $firstCloud cloud..." -ForegroundColor Gray
+        az cloud set --name $firstCloud 2>$null
         $result = az login --service-principal --username $env:AZURE_CLIENT_ID --password $env:AZURE_CLIENT_SECRET --tenant $env:AZURE_TENANT_ID --output json 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            # Failed - try second cloud
+            Write-Host "⚠️  $firstCloud failed - trying $secondCloud..." -ForegroundColor Yellow
+            az cloud set --name $secondCloud 2>$null
+            $result = az login --service-principal --username $env:AZURE_CLIENT_ID --password $env:AZURE_CLIENT_SECRET --tenant $env:AZURE_TENANT_ID --output json 2>&1
+        }
             
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
             
             # Get cloud context from authenticated session
             $detectedCloud = az cloud show --query "name" -o tsv 2>$null
-            Write-Host "🌐 Detected cloud: $detectedCloud" -ForegroundColor Gray
+            Write-Host "🌐 Active cloud: $detectedCloud" -ForegroundColor Gray
             
             # Validate cloud if explicitly provided
             if (-not [string]::IsNullOrWhiteSpace($Cloud) -and $detectedCloud -ne $Cloud) {
@@ -42,7 +59,7 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
             
             # Show available subscriptions
             $subscriptions = az account list --query "[].{name:name, id:id, state:state}" -o json 2>$null | ConvertFrom-Json
-            if ($subscriptions) {
+            if ($subscriptions -and $subscriptions.Count -gt 0) {
                 Write-Host "📋 Available subscriptions: $($subscriptions.Count)" -ForegroundColor Gray
                 foreach ($sub in $subscriptions) {
                     $marker = if ($sub.state -eq "Enabled") { "✓" } else { "○" }

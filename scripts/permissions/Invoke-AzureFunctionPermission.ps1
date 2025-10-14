@@ -181,7 +181,7 @@ try {
             Write-Progress -Activity "Permission Propagation Wait" -Status "$i / $WaitForPropagation seconds" -PercentComplete $percent
             Start-Sleep -Seconds 1
         }
-        Write-Progress -Activity "Permission Propagation Wait" -Completed
+        Write-Progress -Activity "Azure RBAC Propagation Wait" -Completed
         
         Write-StatusMessage "✅ Permission propagation wait completed" "Success"
         Write-Host ""

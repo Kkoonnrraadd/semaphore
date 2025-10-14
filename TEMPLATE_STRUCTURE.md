@@ -299,16 +299,16 @@ Time →
 │       │ • Validates provided parameters
 │       │ • Stores original values
 │
-├─ 0:04 ┤ STEP 0B: Azure Authentication
-│       │ • Authenticates using Service Principal
-│       │ • Connects to Azure cloud
-│
-├─ 0:05 ┤ STEP 0C: Grant Permissions
+├─ 0:04 ┤ STEP 0A: Grant Permissions
 │       │ • Calls Azure Function to grant permissions
 │       │ • Waits for propagation (30 seconds)
 │
-├─ 0:35 ┤ STEP 0D: Auto-Detect Parameters
-│       │ • Queries Azure for missing values
+├─ 0:35 ┤ STEP 0B: Azure Authentication
+│       │ • Authenticates using Service Principal
+│       │ • Connects to Azure cloud
+│
+├─ 0:35 ┤ STEP 0C: Auto-Detect Parameters
+│       │ • Queries Azure for missing values (requires authentication)
 │       │ • Applies defaults where needed
 │       │ • Validates final parameter set
 │

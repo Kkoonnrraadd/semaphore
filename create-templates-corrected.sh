@@ -544,33 +544,12 @@ create_main_templates() {
 create_task_templates() {
     log_section "STEP 5: CREATE INDIVIDUAL TASK TEMPLATES"
     
-    log_info "Creating Step 0 utility tasks (authentication and setup)..."
+    log_info "Creating Step 0 utility tasks (permissions and authentication)..."
     
-    # Step 0A: Connect to Azure
-    log_info "Creating Step 0A: Connect to Azure..."
-    create_template "Step 0A: Connect to Azure" \
-        "Authenticate to Azure using Service Principal (required before all operations)" \
-        "common/Connect-Azure.ps1" \
-        '[
-            {"name":"Cloud","title":"Azure Cloud (OPTIONAL)","description":"Azure cloud environment (AzureCloud or AzureUSGovernment). Auto-detected if empty","default_value":"","required":false}
-        ]'
-    
-    # Step 0B: Auto-Detect Parameters
-    log_info "Creating Step 0B: Auto-Detect Parameters..."
-    create_template "Step 0B: Auto-Detect Parameters" \
-        "Automatically detect missing parameters from Azure subscription" \
-        "common/Get-AzureParameters.ps1" \
-        '[
-            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Will auto-detect from Azure if empty","default_value":"","required":false},
-            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Defaults to Source if empty","default_value":"","required":false},
-            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
-            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false}
-        ]'
-    
-    # Step 0C: Grant Permissions
-    log_info "Creating Step 0C: Grant Permissions..."
-    create_template "Step 0C: Grant Permissions" \
-        "Grant Azure permissions to SelfServiceRefresh service account (required before operations)" \
+    # Step 0A: Grant Permissions (FIRST - before authentication)
+    log_info "Creating Step 0A: Grant Permissions..."
+    create_template "Step 0A: Grant Permissions" \
+        "Grant Azure permissions to SelfServiceRefresh service account (required before authentication)" \
         "permissions/Invoke-AzureFunctionPermission.ps1" \
         '[
             {"name":"Action","title":"Action","description":"Permission action","default_value":"Grant","required":true},
@@ -578,6 +557,27 @@ create_task_templates() {
             {"name":"ServiceAccount","title":"Service Account","description":"Service account name","default_value":"SelfServiceRefresh","required":true},
             {"name":"TimeoutSeconds","title":"Timeout Seconds","description":"API timeout in seconds","default_value":"60","required":false},
             {"name":"WaitForPropagation","title":"Wait For Propagation","description":"Wait time for permissions to propagate (seconds)","default_value":"30","required":false}
+        ]'
+    
+    # Step 0B: Connect to Azure (AFTER permissions)
+    log_info "Creating Step 0B: Connect to Azure..."
+    create_template "Step 0B: Connect to Azure" \
+        "Authenticate to Azure using Service Principal (after permissions are granted)" \
+        "common/Connect-Azure.ps1" \
+        '[
+            {"name":"Cloud","title":"Azure Cloud (OPTIONAL)","description":"Azure cloud environment (AzureCloud or AzureUSGovernment). Auto-detected if empty","default_value":"","required":false}
+        ]'
+    
+    # Step 0C: Auto-Detect Parameters (AFTER authentication)
+    log_info "Creating Step 0C: Auto-Detect Parameters..."
+    create_template "Step 0C: Auto-Detect Parameters" \
+        "Automatically detect missing parameters from Azure subscription (requires authentication)" \
+        "common/Get-AzureParameters.ps1" \
+        '[
+            {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Will auto-detect from Azure if empty","default_value":"","required":false},
+            {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Defaults to Source if empty","default_value":"","required":false},
+            {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
+            {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false}
         ]'
     
     log_info "Creating main workflow tasks (Steps 1-12)..."
@@ -814,10 +814,10 @@ main() {
     echo "     • Self-Service Data Refresh - DRY RUN"
     echo "     • Self-Service Data Refresh - PRODUCTION"
     echo "  📋 View '$VIEW_TASKS': Contains 15 individual task templates"
-    echo "     🔧 Step 0: Utilities (authentication & setup)"
-    echo "        • Step 0A: Connect to Azure"
-    echo "        • Step 0B: Auto-Detect Parameters"
-    echo "        • Step 0C: Grant Permissions"
+    echo "     🔧 Step 0: Utilities (permissions & authentication)"
+    echo "        • Step 0A: Grant Permissions"
+    echo "        • Step 0B: Connect to Azure"
+    echo "        • Step 0C: Auto-Detect Parameters"
     echo "     ⚙️  Steps 1-12: Main workflow"
     echo "        • Task 1: Restore Point in Time"
     echo "        • Task 2: Stop Environment"

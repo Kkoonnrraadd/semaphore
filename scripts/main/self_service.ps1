@@ -140,7 +140,7 @@ function Get-ScriptPath {
 function Perform-Migration {
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0A: SETUP BASE DIRECTORIES
+    # STEP 0A: GRANT PERMISSIONS (Using ENVIRONMENT variable)
     # ═══════════════════════════════════════════════════════════════════════════
     
     # Get the current script's directory for all script paths
@@ -159,51 +159,7 @@ function Perform-Migration {
         Write-Host "🔍 Using fallback paths - Base: $global:ScriptBaseDir" -ForegroundColor Gray
     }
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0B: AZURE AUTHENTICATION (FIRST - using Service Principal)
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    Write-Host "`n🔐 STEP 0B: AUTHENTICATE TO AZURE (Service Principal)" -ForegroundColor Cyan
-    Write-AutomationLog "🔐 Authenticating using Service Principal from environment variables" "INFO"
-    
-    # Authenticate using Service Principal (from env vars: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
-    # This works WITHOUT needing to know the Cloud first - the Connect-Azure script will handle it
-    $commonDir = Join-Path $global:ScriptBaseDir "common"
-    $authScript = Join-Path $commonDir "Connect-Azure.ps1"
-    
-    if (Test-Path $authScript) {
-        Write-Host "📝 Using authentication script: $authScript" -ForegroundColor Gray
-        Write-Host "🔑 Authenticating with Service Principal (AZURE_CLIENT_ID from env)" -ForegroundColor Gray
-        
-        # Pass user-provided Cloud parameter if available, otherwise Connect-Azure will auto-detect
-        if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
-            Write-Host "🌐 Using user-provided cloud: $($script:OriginalCloud)" -ForegroundColor Gray
-            $authResult = & $authScript -Cloud $script:OriginalCloud
-        } else {
-            Write-Host "🌐 Cloud not provided, will auto-detect" -ForegroundColor Gray
-            $authResult = & $authScript
-        }
-        if (-not $authResult) {
-            Write-AutomationLog "❌ FATAL ERROR: Failed to authenticate to Azure" "ERROR"
-            Write-Host "❌ Azure authentication failed. Cannot proceed." -ForegroundColor Red
-            Write-Host "   Make sure these environment variables are set:" -ForegroundColor Yellow
-            Write-Host "   - AZURE_CLIENT_ID" -ForegroundColor Gray
-            Write-Host "   - AZURE_CLIENT_SECRET" -ForegroundColor Gray
-            Write-Host "   - AZURE_TENANT_ID" -ForegroundColor Gray
-            exit 1
-        }
-        Write-Host "✅ Azure authentication successful" -ForegroundColor Green
-    } else {
-        Write-AutomationLog "❌ FATAL ERROR: Authentication script not found at $authScript" "ERROR"
-        Write-Host "❌ Cannot authenticate without Connect-Azure.ps1" -ForegroundColor Red
-        exit 1
-    }
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0C: GRANT PERMISSIONS (Using ENVIRONMENT variable)
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    Write-Host "`n🔐 STEP 0C: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-Host "`n🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-AutomationLog "🔐 Granting permissions for Service Principal" "INFO"
     
     # Determine target environment with correct priority:
@@ -259,10 +215,50 @@ function Perform-Migration {
     }
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0D: AUTO-DETECT PARAMETERS FROM AZURE (Now that we have permissions)
+    # STEP 0B: AZURE AUTHENTICATION (AFTER PERMISSIONS - using Service Principal)
     # ═══════════════════════════════════════════════════════════════════════════
     
-    Write-Host "`n🔧 STEP 0D: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
+    Write-Host "`n🔐 STEP 0B: AUTHENTICATE TO AZURE (Service Principal)" -ForegroundColor Cyan
+    Write-AutomationLog "🔐 Authenticating using Service Principal from environment variables" "INFO"
+    
+    # Authenticate using Service Principal (from env vars: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
+    # This works WITHOUT needing to know the Cloud first - the Connect-Azure script will handle it
+    $commonDir = Join-Path $global:ScriptBaseDir "common"
+    $authScript = Join-Path $commonDir "Connect-Azure.ps1"
+    
+    if (Test-Path $authScript) {
+        Write-Host "📝 Using authentication script: $authScript" -ForegroundColor Gray
+        Write-Host "🔑 Authenticating with Service Principal (AZURE_CLIENT_ID from env)" -ForegroundColor Gray
+        
+        # Pass user-provided Cloud parameter if available, otherwise Connect-Azure will auto-detect
+        if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
+            Write-Host "🌐 Using user-provided cloud: $($script:OriginalCloud)" -ForegroundColor Gray
+            $authResult = & $authScript -Cloud $script:OriginalCloud
+        } else {
+            Write-Host "🌐 Cloud not provided, will auto-detect" -ForegroundColor Gray
+            $authResult = & $authScript
+        }
+        if (-not $authResult) {
+            Write-AutomationLog "❌ FATAL ERROR: Failed to authenticate to Azure" "ERROR"
+            Write-Host "❌ Azure authentication failed. Cannot proceed." -ForegroundColor Red
+            Write-Host "   Make sure these environment variables are set:" -ForegroundColor Yellow
+            Write-Host "   - AZURE_CLIENT_ID" -ForegroundColor Gray
+            Write-Host "   - AZURE_CLIENT_SECRET" -ForegroundColor Gray
+            Write-Host "   - AZURE_TENANT_ID" -ForegroundColor Gray
+            exit 1
+        }
+        Write-Host "✅ Azure authentication successful" -ForegroundColor Green
+    } else {
+        Write-AutomationLog "❌ FATAL ERROR: Authentication script not found at $authScript" "ERROR"
+        Write-Host "❌ Cannot authenticate without Connect-Azure.ps1" -ForegroundColor Red
+        exit 1
+    }
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0C: AUTO-DETECT PARAMETERS FROM AZURE (Now that we're authenticated)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-Host "`n🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
     
     # Load the Azure parameter detection function
     $azureParamsScript = Join-Path $global:ScriptBaseDir "common/Get-AzureParameters.ps1"

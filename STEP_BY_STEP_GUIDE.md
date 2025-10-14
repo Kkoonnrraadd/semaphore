@@ -37,7 +37,7 @@ Everything else is **optional** and will be auto-detected from your Azure enviro
 │ - Provides datetime handling                                    │
 │ - NO Azure connection needed yet                                │
 └─────────────────────────────────────────────────────────────────┘
-                             ↓
+                            ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ STEP 4: Azure Authentication                                    │
 │ Uses environment variables from your pod:                       │

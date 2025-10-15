@@ -6,13 +6,13 @@
 )
 
 if ($DryRun) {
-    Write-Host "`n🔍 DRY RUN MODE - Azure Environment Start" -ForegroundColor Yellow
-    Write-Host "=========================================" -ForegroundColor Yellow
-    Write-Host "No actual environment startup operations will be performed" -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN MODE - Azure Environment Start"
+    Write-Host "========================================="
+    Write-Host "No actual environment startup operations will be performed"
 } else {
-    Write-Host "`n=========================" -ForegroundColor Cyan
-    Write-Host " Azure Environment Start " -ForegroundColor Cyan
-    Write-Host "===========================`n" -ForegroundColor Cyan
+    Write-Host "`n🚀 STARTING ENVIRONMENT"
+    Write-Host "========================="
+    Write-Host "Azure Environment Start Operations`n"
 }
 
 # Function to get the list of all pods in the cluster (in a specific namespace)
@@ -32,7 +32,7 @@ function Upscale-BlackboxMonitoring {
         [string]$Namespace
     )
 
-    Write-Host "Upscaling blackbox monitoring deployments..." -ForegroundColor Cyan
+    Write-Host "🔄 UPSCALING: Blackbox monitoring deployments..."
     
     # Get list of all deployments in the namespace
     $deployments = Get-PodsInCluster -Namespace $Namespace
@@ -43,17 +43,17 @@ function Upscale-BlackboxMonitoring {
     }
     
     if ($blackboxDeployments.Count -eq 0) {
-        Write-Host "No blackbox monitoring deployments found in namespace: $Namespace" -ForegroundColor Yellow
+        Write-Host "⚠️  WARNING: No blackbox monitoring deployments found in namespace: $Namespace"
         return
     }
     
     foreach ($deployment in $blackboxDeployments) {
         $deploymentName = $deployment.metadata.name
-        Write-Host "Upscaling blackbox monitoring deployment: $deploymentName" -ForegroundColor Green
+        Write-Host "✅ SUCCESS: Upscaled blackbox monitoring deployment: $deploymentName"
         kubectl scale deployment/$deploymentName --replicas=1 -n $Namespace
     }
     
-    Write-Host "Blackbox monitoring deployments upscaled successfully." -ForegroundColor Green
+    Write-Host "✅ SUCCESS: Blackbox monitoring deployments upscaled"
 }
 
 # Function to restart pods in Kubernetes based on labels
@@ -73,7 +73,7 @@ function Downscale-Deployments {
             $count = 3
         }
 
-        Write-Host "Scaling deployment $deployment to $count replicas" -ForegroundColor Green
+        Write-Host "✅ SCALING: Deployment $deployment to $count replicas"
         kubectl scale deployment/$deployment --replicas=$count -n $Namespace
     } 
 }
@@ -99,37 +99,68 @@ $graph_query = "
 "
 $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
+# ═══════════════════════════════════════════════════════════════
+# CRITICAL CHECK: Verify AKS cluster was found
+# ═══════════════════════════════════════════════════════════════
+if (-not $recources -or $recources.Count -eq 0) {
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host ""
+    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$destination'"
+    Write-Host "   └─ Query returned no results for tags.Environment='$destination_lower' and tags.Type='Primary'"
+    Write-Host ""
+    Write-Host "💡 SOLUTIONS:"
+    Write-Host "   1. Verify environment name is correct (provided: '$destination')"
+    Write-Host "   2. Check if AKS cluster exists in Azure Portal"
+    Write-Host "   3. Verify cluster has required tags:"
+    Write-Host "      • Environment = '$destination_lower'"
+    Write-Host "      • Type = 'Primary'"
+    Write-Host ""
+    
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host ""
+        exit 1
+    } else {
+        Write-Host "🛑 ABORTING: Cannot start environment without cluster information"
+        Write-Host ""
+        exit 1
+    }
+}
+
 $destination_subscription = $recources[0].subscriptionId
 $destination_aks = $recources[0].name
 $destination_rg = $recources[0].resourceGroup
 
 if ($DryRun) {
-    Write-Host "`n🔍 DRY RUN: DISCOVERING ENVIRONMENT STARTUP OPERATIONS" -ForegroundColor Yellow
-    Write-Host "==================================================" -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: DISCOVERING ENVIRONMENT STARTUP OPERATIONS"
+    Write-Host "=================================================="
     
-    Write-Host "🔍 DRY RUN: Environment: $destination" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: AKS Cluster: $destination_aks" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Resource Group: $destination_rg" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Subscription: $destination_subscription" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Environment: $destination"
+    Write-Host "   └─ AKS Cluster: $destination_aks"
+    Write-Host "   └─ Resource Group: $destination_rg"
+    Write-Host "   └─ Subscription: $destination_subscription"
     
-    Write-Host "🔍 DRY RUN: Would set cluster context to: $destination_aks" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would upscale blackbox monitoring in 'monitoring' namespace" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would scale up deployments in '$destinationNamespace' namespace" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would set cluster context to: $destination_aks"
+    Write-Host "🔍 DRY RUN: Would upscale blackbox monitoring in 'monitoring' namespace"
+    Write-Host "🔍 DRY RUN: Would scale up deployments in '$destinationNamespace' namespace"
     
     # Discover what deployments would be scaled
     try {
-        Write-Host "🔍 DRY RUN: Would scale these deployments to 1 replica:" -ForegroundColor Yellow
-        Write-Host "  • All deployments in namespace '$destinationNamespace'" -ForegroundColor Gray
-        Write-Host "  • Special case: eworkin-plus-nonconformance-backend (3 replicas)" -ForegroundColor Gray
-        Write-Host "  • Special case: eworkin-plus-backend (3 replicas)" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would scale these deployments to 1 replica:"
+        Write-Host "   • All deployments in namespace '$destinationNamespace'"
+        Write-Host "   • Special case: eworkin-plus-nonconformance-backend (3 replicas)"
+        Write-Host "   • Special case: eworkin-plus-backend (3 replicas)"
     }
     catch {
-        Write-Host "  • Could not discover deployments (cluster may be stopped)" -ForegroundColor Gray
+        Write-Host "   • Could not discover deployments (cluster may be stopped)"
     }
 
     
     # Discover web tests that would be enabled
-    Write-Host "`n🔍 DRY RUN: Would enable Application Insights web tests:" -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: Would enable Application Insights web tests:"
     if ($Cloud -eq "AzureCloud") {
         $webtests = az monitor app-insights web-test list `
             --subscription $destination_subscription `
@@ -137,12 +168,12 @@ if ($DryRun) {
             --output json | ConvertFrom-Json
         
         if ($webtests.Count -gt 0) {
-            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:" -ForegroundColor Yellow
+            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
             $webtests | ForEach-Object {
-                Write-Host "  • $($_.name)" -ForegroundColor Gray
+                Write-Host "  • $($_.name)"
             }
         } else {
-            Write-Host "🔍 DRY RUN: No web tests found to enable" -ForegroundColor Gray
+            Write-Host "🔍 DRY RUN: No web tests found to enable"
         }
     } else {
         $webtests = az resource list `
@@ -153,17 +184,17 @@ if ($DryRun) {
             --only-show-errors | ConvertFrom-Json
         
         if ($webtests.Count -gt 0) {
-            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:" -ForegroundColor Yellow
+            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
             $webtests | ForEach-Object {
-                Write-Host "  • $($_.name)" -ForegroundColor Gray
+                Write-Host "  • $($_.name)"
             }
         } else {
-            Write-Host "🔍 DRY RUN: No web tests found to enable" -ForegroundColor Gray
+            Write-Host "🔍 DRY RUN: No web tests found to enable"
         }
     }
     
     # Discover alerts that would be enabled
-    Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:" -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:"
     if ($destinationNamespace -eq "manufacturo") {
         $backend_health_alert = "${destination_lower}_backend_health"
     } else {
@@ -180,16 +211,16 @@ if ($DryRun) {
     $hubs_alerts = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
     
     if ($hubs_alerts.Count -gt 0) {
-        Write-Host "🔍 DRY RUN: Would enable $($hubs_alerts.Count) alerts:" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would enable $($hubs_alerts.Count) alerts:"
         foreach ($hub in $hubs_alerts) {
             $alert_name = $hub[0].name
-            Write-Host "  • $alert_name" -ForegroundColor Gray
+            Write-Host "  • $alert_name"
         }
     } else {
-        Write-Host "🔍 DRY RUN: No alerts found to enable" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: No alerts found to enable"
     }
     
-    Write-Host "`n🔍 DRY RUN: Environment startup preview completed." -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: Environment startup preview completed."
     exit 0
 }
 
@@ -202,10 +233,10 @@ Downscale-Deployments -Namespace $destinationNamespace
 
 Write-Host "`nEnabling Application Insights web tests..."
 
-Write-Host "Using Azure cloud: $Cloud" -ForegroundColor Gray
+Write-Host "Using Azure cloud: $Cloud"
 
 if ($Cloud -eq "AzureCloud") {
-    Write-Host "Using classic Azure CLI web test commands for Commercial cloud..." -ForegroundColor Cyan
+    Write-Host "Using classic Azure CLI web test commands for Commercial cloud..."
     
     # Fetch all web tests once using classic method
     $webtests = az monitor app-insights web-test list `
@@ -214,7 +245,7 @@ if ($Cloud -eq "AzureCloud") {
         --output json | ConvertFrom-Json
 
     if ($webtests.Count -eq 0) {
-        Write-Host "No web tests found." -ForegroundColor Yellow
+        Write-Host "No web tests found."
         return
     }
 
@@ -228,11 +259,11 @@ if ($Cloud -eq "AzureCloud") {
             --output none `
             --only-show-errors | Out-Null
 
-        Write-Host "Enabled web test: $($_.name)" -ForegroundColor Green
+        Write-Host "✅ ENABLED: Web test $($_.name)"
     } -ThrottleLimit 10
 }
 else {
-    Write-Host "Using generic Azure resource commands for Government/Other clouds..." -ForegroundColor Cyan
+    Write-Host "Using generic Azure resource commands for Government/Other clouds..."
     
     # Use az resource list for government cloud compatibility
     $webtests = az resource list `
@@ -243,11 +274,11 @@ else {
         --only-show-errors | ConvertFrom-Json
 
     if ($webtests.Count -eq 0) {
-        Write-Host "No web tests found." -ForegroundColor Yellow
+        Write-Host "No web tests found."
         return
     }
 
-    Write-Host "Found $($webtests.Count) web tests to enable" -ForegroundColor Yellow
+    Write-Host "Found $($webtests.Count) web tests to enable"
 
     # Enable using az resource update for government cloud compatibility
     $webtests | ForEach-Object -Parallel {
@@ -262,9 +293,9 @@ else {
             --only-show-errors | Out-Null
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "Enabled web test: $webtestName" -ForegroundColor Green
+            Write-Host "Enabled web test: $webtestName"
         } else {
-            Write-Host "Failed to enable web test: $webtestName" -ForegroundColor Red
+            Write-Host "❌ FAILED: Could not enable web test $webtestName"
         }
     } -ThrottleLimit 10
 }
@@ -299,10 +330,10 @@ foreach ($hub in $hubs_alerts) {
             --resource-group $destination_hub_rg `
             --subscription $shared_source_subscription `
             --only-show-errors
-        Write-Host "Enabled alert: $alert_name" -ForegroundColor Green
+        Write-Host "✅ ENABLED: Alert $alert_name"
     } else {
-        Write-Host "No matching alert found in Shared subscription." -ForegroundColor Yellow
+        Write-Host "⚠️  WARNING: No matching alert found in Shared subscription"
     }
 } 
 
-Write-Host "`nEnvironment startup complete." -ForegroundColor Cyan
+Write-Host "`n✅ SUCCESS: Environment startup complete"

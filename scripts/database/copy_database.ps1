@@ -244,6 +244,222 @@ function Apply-DatabaseTags {
     }
 }
 
+function Get-DatabaseSizeGB {
+    param (
+        [string]$ServerFQDN,
+        [string]$DatabaseName,
+        [string]$AccessToken
+    )
+    
+    try {
+        $sizeQuery = @"
+SELECT 
+    SUM(CAST(FILEPROPERTY(name, 'SpaceUsed') AS bigint) * 8192.0) / (1024.0 * 1024.0 * 1024.0) as size_gb
+FROM sys.database_files
+WHERE type_desc = 'ROWS'
+"@
+        
+        $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Database $DatabaseName -Query $sizeQuery -ConnectionTimeout 15 -QueryTimeout 60
+        
+        if ($result -and $result.size_gb) {
+            return [math]::Round($result.size_gb, 2)
+        }
+        return 0
+    }
+    catch {
+        Write-Host "    ⚠️  Warning: Could not get size for $DatabaseName : $($_.Exception.Message)" -ForegroundColor Yellow
+        return 0
+    }
+}
+
+function Test-ElasticPoolCapacity {
+    param (
+        [string]$Server,
+        [string]$ResourceGroup,
+        [string]$SubscriptionId,
+        [string]$ElasticPoolName,
+        [string]$ServerFQDN,
+        [string]$AccessToken,
+        [array]$SourceDatabases,
+        [array]$DestinationDatabases,
+        [bool]$IsDryRun
+    )
+    
+    Write-Host "🔍 ELASTIC POOL STORAGE VALIDATION" -ForegroundColor Cyan
+    Write-Host "===================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Get elastic pool information
+    try {
+        $poolInfo = az sql elastic-pool show `
+            --subscription $SubscriptionId `
+            --resource-group $ResourceGroup `
+            --server $Server `
+            --name $ElasticPoolName `
+            --query "{maxSizeBytes: maxSizeBytes, currentStorageGB: storageGB}" `
+            -o json | ConvertFrom-Json
+        
+        $maxStorageGB = [math]::Round($poolInfo.maxSizeBytes / (1024.0 * 1024.0 * 1024.0), 2)
+        
+        Write-Host "  📊 Elastic Pool: $ElasticPoolName" -ForegroundColor Gray
+        Write-Host "     Maximum Storage: $maxStorageGB GB" -ForegroundColor Gray
+        Write-Host ""
+        
+    }
+    catch {
+        Write-Host "  ❌ Failed to get elastic pool information: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+    
+    # Calculate total size of source databases (the ones we're copying FROM)
+    Write-Host "  📊 Calculating source database sizes..." -ForegroundColor Gray
+    $totalSourceSizeGB = 0
+    
+    foreach ($dbName in $SourceDatabases) {
+        $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
+        if ($size -gt 0) {
+            Write-Host "     • $dbName : $size GB" -ForegroundColor Gray
+            $totalSourceSizeGB += $size
+        }
+    }
+    
+    Write-Host "     ═══════════════════════════════" -ForegroundColor Gray
+    Write-Host "     Total Source Size: $([math]::Round($totalSourceSizeGB, 2)) GB" -ForegroundColor White
+    Write-Host ""
+    
+    # Calculate total size of destination databases (the ones we're REMOVING)
+    Write-Host "  📊 Calculating destination database sizes (to be removed)..." -ForegroundColor Gray
+    $totalDestSizeGB = 0
+    
+    foreach ($dbName in $DestinationDatabases) {
+        # Check if database exists first
+        $checkQuery = "SELECT name FROM sys.databases WHERE name = '$dbName'"
+        try {
+            $exists = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Query $checkQuery -ConnectionTimeout 15 -QueryTimeout 30
+            if ($exists) {
+                $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
+                if ($size -gt 0) {
+                    Write-Host "     • $dbName : $size GB (will be freed)" -ForegroundColor Gray
+                    $totalDestSizeGB += $size
+                }
+            }
+            else {
+                Write-Host "     • $dbName : Does not exist yet (0 GB)" -ForegroundColor Gray
+            }
+        }
+        catch {
+            Write-Host "     • $dbName : Does not exist yet (0 GB)" -ForegroundColor Gray
+        }
+    }
+    
+    Write-Host "     ═══════════════════════════════" -ForegroundColor Gray
+    Write-Host "     Total Dest Size to Free: $([math]::Round($totalDestSizeGB, 2)) GB" -ForegroundColor White
+    Write-Host ""
+    
+    # Get current elastic pool usage
+    Write-Host "  📊 Calculating current elastic pool usage..." -ForegroundColor Gray
+    
+    try {
+        # Get all databases in the elastic pool
+        $poolDbs = az sql db list `
+            --subscription $SubscriptionId `
+            --resource-group $ResourceGroup `
+            --server $Server `
+            --query "[?elasticPoolName=='$ElasticPoolName'].name" `
+            -o json | ConvertFrom-Json
+        
+        $currentUsageGB = 0
+        foreach ($dbName in $poolDbs) {
+            $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
+            $currentUsageGB += $size
+        }
+        
+        Write-Host "     Current Pool Usage: $([math]::Round($currentUsageGB, 2)) GB" -ForegroundColor Gray
+        Write-Host "     Available Space: $([math]::Round($maxStorageGB - $currentUsageGB, 2)) GB" -ForegroundColor Gray
+        Write-Host ""
+        
+    }
+    catch {
+        Write-Host "  ⚠️  Warning: Could not calculate current pool usage accurately" -ForegroundColor Yellow
+        $currentUsageGB = 0
+    }
+    
+    # Calculate what will happen after the operation
+    Write-Host "  📊 STORAGE IMPACT ANALYSIS" -ForegroundColor Cyan
+    Write-Host "     ═══════════════════════════════" -ForegroundColor Gray
+    
+    $spaceToFree = [math]::Round($totalDestSizeGB, 2)
+    $spaceToAdd = [math]::Round($totalSourceSizeGB, 2)
+    $netChange = [math]::Round($spaceToAdd - $spaceToFree, 2)
+    $projectedUsage = [math]::Round($currentUsageGB + $netChange, 2)
+    $projectedAvailable = [math]::Round($maxStorageGB - $projectedUsage, 2)
+    
+    Write-Host "     Current Usage:        $([math]::Round($currentUsageGB, 2)) GB" -ForegroundColor White
+    Write-Host "     Space to Free:       -$spaceToFree GB" -ForegroundColor Green
+    Write-Host "     Space to Add:        +$spaceToAdd GB" -ForegroundColor Yellow
+    Write-Host "     ───────────────────────────────" -ForegroundColor Gray
+    Write-Host "     Net Change:           $netChange GB" -ForegroundColor $(if ($netChange -gt 0) { "Yellow" } else { "Green" })
+    Write-Host "     ═══════════════════════════════" -ForegroundColor Gray
+    Write-Host "     Projected Usage:      $projectedUsage GB" -ForegroundColor White
+    Write-Host "     Pool Maximum:         $maxStorageGB GB" -ForegroundColor White
+    Write-Host "     Projected Available:  $projectedAvailable GB" -ForegroundColor $(if ($projectedAvailable -lt 0) { "Red" } else { "Green" })
+    Write-Host ""
+    
+    # Safety check: ensure we have enough space with 10% buffer
+    $safetyBufferGB = [math]::Round($maxStorageGB * 0.10, 2)
+    $requiredFreeSpace = [math]::Round($safetyBufferGB, 2)
+    
+    Write-Host "  🛡️  SAFETY VALIDATION (10% buffer required)" -ForegroundColor Cyan
+    Write-Host "     Required Free Space: $requiredFreeSpace GB" -ForegroundColor Gray
+    Write-Host "     Projected Free Space: $projectedAvailable GB" -ForegroundColor Gray
+    Write-Host ""
+    
+    if ($projectedAvailable -lt 0) {
+        if ($IsDryRun) {
+            Write-Host "  🔴 CRITICAL ERROR: Insufficient storage capacity!" -ForegroundColor Red
+            Write-Host "     The operation would EXCEED the elastic pool capacity by $([math]::Abs($projectedAvailable)) GB" -ForegroundColor Red
+            Write-Host "     🔴 This would cause the operation to FAIL" -ForegroundColor Red
+        }
+        else {
+            Write-Host "  🔴 CRITICAL ERROR: Insufficient storage capacity!" -ForegroundColor Red
+            Write-Host "     The operation would EXCEED the elastic pool capacity by $([math]::Abs($projectedAvailable)) GB" -ForegroundColor Red
+            Write-Host "     🛑 ABORTING to prevent failure" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "  💡 Recommendations:" -ForegroundColor Yellow
+        Write-Host "     1. Increase elastic pool storage capacity" -ForegroundColor Gray
+        Write-Host "     2. Remove unused databases from the pool" -ForegroundColor Gray
+        Write-Host "     3. Reduce the number of databases to copy" -ForegroundColor Gray
+        Write-Host ""
+        return $false
+    }
+    elseif ($projectedAvailable -lt $requiredFreeSpace) {
+        if ($IsDryRun) {
+            Write-Host "  🔴 WARNING: Storage capacity is too tight!" -ForegroundColor Red
+            Write-Host "     Projected free space ($projectedAvailable GB) is below the 10% safety buffer ($requiredFreeSpace GB)" -ForegroundColor Red
+            Write-Host "     🔴 This is RISKY and may cause issues" -ForegroundColor Red
+        }
+        else {
+            Write-Host "  🔴 CRITICAL WARNING: Storage capacity is too tight!" -ForegroundColor Red
+            Write-Host "     Projected free space ($projectedAvailable GB) is below the 10% safety buffer ($requiredFreeSpace GB)" -ForegroundColor Red
+            Write-Host "     🛑 ABORTING to prevent potential failure" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "  💡 Recommendations:" -ForegroundColor Yellow
+        Write-Host "     1. Increase elastic pool storage capacity to have at least 10% free space" -ForegroundColor Gray
+        Write-Host "     2. Remove unused databases from the pool" -ForegroundColor Gray
+        Write-Host ""
+        return $false
+    }
+    else {
+        Write-Host "  ✅ Storage validation PASSED" -ForegroundColor Green
+        Write-Host "     Sufficient storage capacity available for the operation" -ForegroundColor Green
+        Write-Host "     Projected free space: $projectedAvailable GB (above $requiredFreeSpace GB safety threshold)" -ForegroundColor Green
+        Write-Host ""
+        return $true
+    }
+}
+
 function Copy-SingleDatabase {
     param (
         [string]$SourceDatabaseName,
@@ -676,6 +892,72 @@ Write-Host "Total databases found: $($dbs.Count)" -ForegroundColor White
 Write-Host "Databases to copy: $($databasesToProcess.Count)" -ForegroundColor Green
 Write-Host "Databases skipped: $($dbs.Count - $databasesToProcess.Count)" -ForegroundColor Yellow
 Write-Host ""
+
+# ============================================================================
+# ELASTIC POOL STORAGE VALIDATION
+# ============================================================================
+
+if ($databasesToProcess.Count -gt 0) {
+    Write-Host ""
+    
+    # Prepare arrays of source and destination database names
+    $sourceDatabaseNames = @()
+    $destinationDatabaseNames = @()
+    
+    foreach ($dbInfo in $databasesToProcess) {
+        $sourceDatabaseNames += $dbInfo.SourceName
+        $destinationDatabaseNames += $dbInfo.DestinationName
+    }
+    
+    # Determine which server to check (source for same-server copy, destination for cross-server copy)
+    $sameServer = ($source_server -eq $dest_server)
+    if ($sameServer) {
+        # Same server copy - check source server (which is also the destination)
+        $storageCheckPassed = Test-ElasticPoolCapacity `
+            -Server $source_server `
+            -ResourceGroup $source_rg `
+            -SubscriptionId $source_subscription `
+            -ElasticPoolName $dest_elasticpool `
+            -ServerFQDN $source_server_fqdn `
+            -AccessToken $AccessToken `
+            -SourceDatabases $sourceDatabaseNames `
+            -DestinationDatabases $destinationDatabaseNames `
+            -IsDryRun $DryRun
+    }
+    else {
+        # Cross-server copy - check destination server
+        $storageCheckPassed = Test-ElasticPoolCapacity `
+            -Server $dest_server `
+            -ResourceGroup $dest_rg `
+            -SubscriptionId $dest_subscription `
+            -ElasticPoolName $dest_elasticpool `
+            -ServerFQDN $dest_server_fqdn `
+            -AccessToken $AccessToken `
+            -SourceDatabases $sourceDatabaseNames `
+            -DestinationDatabases $destinationDatabaseNames `
+            -IsDryRun $DryRun
+    }
+    
+    if (-not $storageCheckPassed) {
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "❌ STORAGE VALIDATION FAILED" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        
+        if ($DryRun) {
+            Write-Host "🔍 DRY RUN: The production run would be aborted at this point" -ForegroundColor Yellow
+            Write-Host ""
+            exit 1
+        }
+        else {
+            Write-Host "🛑 ABORTING: Cannot proceed due to insufficient storage capacity" -ForegroundColor Red
+            Write-Host ""
+            exit 1
+        }
+    }
+    
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+}
 
 # ============================================================================
 # DRY RUN MODE

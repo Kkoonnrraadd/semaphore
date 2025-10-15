@@ -15,11 +15,43 @@ $graph_query = "
   | project name, resourceGroup, subscriptionId
 "
 $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+# ═══════════════════════════════════════════════════════════════
+# CRITICAL CHECK: Verify AKS cluster was found
+# ═══════════════════════════════════════════════════════════════
+if (-not $recources -or $recources.Count -eq 0) {
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host ""
+    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$source'"
+    Write-Host "   └─ Query returned no results for tags.Environment='$source_lower' and tags.Type='Primary'"
+    Write-Host ""
+    Write-Host "💡 SOLUTIONS:"
+    Write-Host "   1. Verify environment name is correct (provided: '$source')"
+    Write-Host "   2. Check if AKS cluster exists in Azure Portal"
+    Write-Host "   3. Verify cluster has required tags:"
+    Write-Host "      • Environment = '$source_lower'"
+    Write-Host "      • Type = 'Primary'"
+    Write-Host ""
+    
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host ""
+        exit 1
+    } else {
+        Write-Host "🛑 ABORTING: Cannot stop environment without cluster information"
+        Write-Host ""
+        exit 1
+    }
+}
+
 $source_subscription = $recources[0].subscriptionId
 $source_aks = $recources[0].name
 $source_rg = $recources[0].resourceGroup
 
-Write-Host "🔧 Setting up Azure AKS credentials..." -ForegroundColor Cyan
+Write-Host "🔧 SETUP: Configuring Azure AKS credentials..."
 Write-Host "   Cluster: $source_aks" -ForegroundColor Gray
 Write-Host "   Resource Group: $source_rg" -ForegroundColor Gray
 Write-Host "   Subscription: $source_subscription" -ForegroundColor Gray
@@ -39,13 +71,37 @@ try {
     # Verify the context was set successfully
     $current_context = kubectl config current-context 2>$null
     if ($current_context -eq $source_aks) {
-        Write-Host "✅ Kubernetes context set to: $current_context" -ForegroundColor Green
+        Write-Host "✅ SUCCESS: Kubernetes context set to $current_context"
     } else {
-        Write-Host "⚠️  Warning: Kubernetes context may not be set correctly. Current context: $current_context" -ForegroundColor Yellow
+        Write-Host "⚠️  WARNING: Kubernetes context may not match (Expected: $source_aks, Got: $current_context)"
     }
 } catch {
-    Write-Host "❌ Error setting up AKS credentials: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "   Continuing with environment shutdown operations..." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host "❌ FATAL ERROR: AKS Credentials Setup Failed"
+    Write-Host "═══════════════════════════════════════════════"
+    Write-Host ""
+    Write-Host "🔴 PROBLEM: Cannot authenticate to Kubernetes cluster"
+    Write-Host "   └─ Error: $($_.Exception.Message)"
+    Write-Host ""
+    Write-Host "💡 SOLUTIONS:"
+    Write-Host "   1. Verify Azure CLI is authenticated (run 'az account show')"
+    Write-Host "   2. Check if kubectl is installed and accessible"
+    Write-Host "   3. Check if kubelogin is installed and accessible"
+    Write-Host "   4. Verify permissions on cluster: $source_aks"
+    Write-Host "   5. Try running manually:"
+    Write-Host "      az aks get-credentials --resource-group $source_rg --name $source_aks"
+    Write-Host ""
+    
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host ""
+        exit 1
+    } else {
+        Write-Host "🛑 ABORTING: Cannot proceed without Kubernetes cluster access"
+        Write-Host ""
+        exit 1
+    }
 }
 
 if ($DryRun) {

@@ -3,6 +3,13 @@ param (
     [switch]$DryRun
 )
 
+# ============================================================================
+# DRY RUN FAILURE TRACKING
+# ============================================================================
+# Track validation failures in dry run mode to fail at the end
+$script:DryRunHasFailures = $false
+$script:DryRunFailureReasons = @()
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Delete Restored Databases Script"
     Write-Host "================================================="
@@ -44,10 +51,15 @@ if (-not $recources -or $recources.Count -eq 0) {
     Write-Host ""
     
     if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host "⚠️  DRY RUN WARNING: No SQL server found for destination environment" -ForegroundColor Yellow
+        Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+        Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
         Write-Host ""
-        $global:LASTEXITCODE = 1
-        throw "DRY RUN: No SQL server found for destination environment"
+        # Track this failure for final dry run summary
+        $script:DryRunHasFailures = $true
+        $script:DryRunFailureReasons += "No SQL server found for destination environment '$source'"
+        # Skip to end for dry run summary
+        return
     } else {
         Write-Host "🛑 ABORTING: Cannot cleanup databases without server information"
         Write-Host ""
@@ -97,6 +109,30 @@ if ($DryRun) {
         }
     } else {
         Write-Host "No restored databases found to delete."
+    }
+}
+
+if ($DryRun) {
+    Write-Host ""
+    # Check if there were any validation failures during dry run
+    if ($script:DryRunHasFailures) {
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "❌ DRY RUN COMPLETED WITH WARNINGS" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "⚠️  The following issues would cause production run to FAIL:" -ForegroundColor Yellow
+        Write-Host ""
+        foreach ($reason in $script:DryRunFailureReasons) {
+            Write-Host "   • $reason" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
+        Write-Host ""
+        $global:LASTEXITCODE = 1
+        exit 1
+    } else {
+        Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
+        exit 0
     }
 }
 

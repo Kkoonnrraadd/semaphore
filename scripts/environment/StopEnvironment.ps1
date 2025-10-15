@@ -5,6 +5,13 @@
     [switch]$DryRun
 )
 
+# ============================================================================
+# DRY RUN FAILURE TRACKING
+# ============================================================================
+# Track validation failures in dry run mode to fail at the end
+$script:DryRunHasFailures = $false
+$script:DryRunFailureReasons = @()
+
 # Setup Azure AKS credentials using discovered cluster information
 $source_lower = (Get-Culture).TextInfo.ToLower($source)
 
@@ -37,10 +44,15 @@ if (-not $recources -or $recources.Count -eq 0) {
     Write-Host ""
     
     if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host "⚠️  DRY RUN WARNING: No AKS cluster found for environment" -ForegroundColor Yellow
+        Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+        Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
         Write-Host ""
-        $global:LASTEXITCODE = 1
-        throw "DRY RUN: No AKS cluster found for environment"
+        # Track this failure for final dry run summary
+        $script:DryRunHasFailures = $true
+        $script:DryRunFailureReasons += "No AKS cluster found for environment '$source'"
+        # Skip to end of script for dry run summary
+        return
     } else {
         Write-Host "🛑 ABORTING: Cannot stop environment without cluster information"
         Write-Host ""
@@ -96,10 +108,15 @@ try {
     Write-Host ""
     
     if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Production run would abort here"
+        Write-Host "⚠️  DRY RUN WARNING: Failed to get AKS credentials" -ForegroundColor Yellow
+        Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+        Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
         Write-Host ""
-        $global:LASTEXITCODE = 1
-        throw "DRY RUN: Failed to get AKS credentials - cannot access Kubernetes cluster"
+        # Track this failure for final dry run summary
+        $script:DryRunHasFailures = $true
+        $script:DryRunFailureReasons += "Failed to get AKS credentials for cluster '$source_aks'"
+        # Skip to end of script for dry run summary
+        return
     } else {
         Write-Host "🛑 ABORTING: Cannot proceed without Kubernetes cluster access"
         Write-Host ""
@@ -350,6 +367,28 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would set cluster context to: $source_aks" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Would downscale blackbox monitoring in 'monitoring' namespace" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Would downscale deployments in '$sourceNamespace' namespace" -ForegroundColor Gray
+    Write-Host ""
+    
+    # Check if there were any validation failures during dry run
+    if ($script:DryRunHasFailures) {
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "❌ DRY RUN COMPLETED WITH WARNINGS" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "⚠️  The following issues would cause production run to FAIL:" -ForegroundColor Yellow
+        Write-Host ""
+        foreach ($reason in $script:DryRunFailureReasons) {
+            Write-Host "   • $reason" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
+        Write-Host ""
+        $global:LASTEXITCODE = 1
+        exit 1
+    } else {
+        Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
+        exit 0
+    }
 } else {
     Set-ClusterContext -ClusterContext $source_aks
     Downscale-BlackboxMonitoring -Namespace "monitoring"

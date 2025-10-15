@@ -10,6 +10,13 @@
 )
 
 # ============================================================================
+# DRY RUN FAILURE TRACKING
+# ============================================================================
+# Track validation failures in dry run mode to fail at the end
+$script:DryRunHasFailures = $false
+$script:DryRunFailureReasons = @()
+
+# ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
@@ -816,10 +823,20 @@ $conflictCheck = Test-ExistingRestoredDatabases `
     -ForceDelete $Force
 
 if ($conflictCheck.HasConflicts) {
-    Write-Host "❌ Cannot proceed: Conflicts detected with existing databases"
-    Write-Host "⚠️  Please resolve conflicts before running restore operation"
-    $global:LASTEXITCODE = 1
-    throw "Conflicts detected with existing databases - please resolve conflicts before running restore operation"
+    if ($DryRun) {
+        Write-Host "⚠️  DRY RUN WARNING: Conflicts detected with existing databases" -ForegroundColor Yellow
+        Write-Host "⚠️  In production, this would fail unless -Force is used" -ForegroundColor Yellow
+        Write-Host "⚠️  Continuing dry run to show what would happen..." -ForegroundColor Yellow
+        Write-Host ""
+        # Track this failure for final dry run summary
+        $script:DryRunHasFailures = $true
+        $script:DryRunFailureReasons += "Conflicts detected with existing databases (use -Force to override)"
+    } else {
+        Write-Host "❌ Cannot proceed: Conflicts detected with existing databases"
+        Write-Host "⚠️  Please resolve conflicts before running restore operation"
+        $global:LASTEXITCODE = 1
+        throw "Conflicts detected with existing databases - please resolve conflicts before running restore operation"
+    }
 }
 
 # ============================================================================
@@ -837,7 +854,28 @@ if ($DryRun) {
     Write-Host "   UTC Time: $($restore_point_utc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
     Write-Host ""
     Write-Host "🔍 DRY RUN: No actual operations performed"
-    exit 0
+    Write-Host ""
+    
+    # Check if there were any validation failures during dry run
+    if ($script:DryRunHasFailures) {
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "❌ DRY RUN COMPLETED WITH WARNINGS" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "⚠️  The following issues would cause production run to FAIL:" -ForegroundColor Yellow
+        Write-Host ""
+        foreach ($reason in $script:DryRunFailureReasons) {
+            Write-Host "   • $reason" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
+        Write-Host ""
+        $global:LASTEXITCODE = 1
+        exit 1
+    } else {
+        Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
+        exit 0
+    }
 }
 
 # ============================================================================

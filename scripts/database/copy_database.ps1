@@ -7,6 +7,13 @@
 )
 
 # ============================================================================
+# DRY RUN FAILURE TRACKING
+# ============================================================================
+# Track validation failures in dry run mode to fail at the end
+$script:DryRunHasFailures = $false
+$script:DryRunFailureReasons = @()
+
+# ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
@@ -1022,10 +1029,13 @@ if ($databasesToProcess.Count -gt 0) {
         Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
         
         if ($DryRun) {
-            Write-Host "🔍 DRY RUN: The production run would be aborted at this point" -ForegroundColor Yellow
+            Write-Host "⚠️  DRY RUN WARNING: Storage validation failed" -ForegroundColor Yellow
+            Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+            Write-Host "⚠️  Continuing dry run to show remaining steps..." -ForegroundColor Yellow
             Write-Host ""
-            $global:LASTEXITCODE = 1
-            throw "DRY RUN: Storage validation failed - production run would be aborted"
+            # Track this failure for final dry run summary
+            $script:DryRunHasFailures = $true
+            $script:DryRunFailureReasons += "Insufficient storage capacity on destination elastic pool"
         }
         else {
             Write-Host "🛑 ABORTING: Cannot proceed due to insufficient storage capacity" -ForegroundColor Red
@@ -1058,7 +1068,28 @@ if ($DryRun) {
     }
     Write-Host ""
     Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
-    exit 0
+    Write-Host ""
+    
+    # Check if there were any validation failures during dry run
+    if ($script:DryRunHasFailures) {
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "❌ DRY RUN COMPLETED WITH WARNINGS" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "⚠️  The following issues would cause production run to FAIL:" -ForegroundColor Yellow
+        Write-Host ""
+        foreach ($reason in $script:DryRunFailureReasons) {
+            Write-Host "   • $reason" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
+        Write-Host ""
+        $global:LASTEXITCODE = 1
+        exit 1
+    } else {
+        Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
+        exit 0
+    }
 }
 
 # ============================================================================

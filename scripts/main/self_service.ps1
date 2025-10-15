@@ -75,7 +75,8 @@ $automationUtilitiesScript = Join-Path $PSScriptRoot "../common/AutomationUtilit
 if (-not (Test-Path $automationUtilitiesScript)) {
     Write-Host "❌ FATAL ERROR: Automation utilities script not found at: $automationUtilitiesScript" -ForegroundColor Red
     Write-Host "   This file is required for logging and automation functions." -ForegroundColor Yellow
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "Automation utilities script not found at: $automationUtilitiesScript"
 }
 . $automationUtilitiesScript
 
@@ -103,7 +104,8 @@ if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
         Write-Host "   Please either:" -ForegroundColor Yellow
         Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
         Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
     }
 } else {
     $script:CustomerAlias = $script:OriginalCustomerAlias
@@ -245,13 +247,15 @@ function Perform-Migration {
             Write-Host "   - AZURE_CLIENT_ID" -ForegroundColor Gray
             Write-Host "   - AZURE_CLIENT_SECRET" -ForegroundColor Gray
             Write-Host "   - AZURE_TENANT_ID" -ForegroundColor Gray
-            exit 1
+            $global:LASTEXITCODE = 1
+            throw "Azure authentication failed - ensure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set"
         }
         Write-Host "✅ Azure authentication successful" -ForegroundColor Green
     } else {
         Write-AutomationLog "❌ FATAL ERROR: Authentication script not found at $authScript" "ERROR"
         Write-Host "❌ Cannot authenticate without Connect-Azure.ps1" -ForegroundColor Red
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Authentication script not found at: $authScript"
     }
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -264,7 +268,8 @@ function Perform-Migration {
     $azureParamsScript = Join-Path $global:ScriptBaseDir "common/Get-AzureParameters.ps1"
     if (-not (Test-Path $azureParamsScript)) {
         Write-Host "❌ FATAL ERROR: Azure parameter detection script not found at: $azureParamsScript" -ForegroundColor Red
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Azure parameter detection script not found at: $azureParamsScript"
     }
     
     # Auto-detect parameters from Azure environment
@@ -357,7 +362,8 @@ function Perform-Migration {
         Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
         Write-Host "" -ForegroundColor Red
         Write-AutomationLog "❌ FATAL ERROR: Destination namespace 'manufacturo' is not allowed" "ERROR"
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Destination namespace 'manufacturo' is not allowed - this is a protected namespace"
     }
     
     # Log final parameters
@@ -690,5 +696,6 @@ try {
     }
     
     # Standard exit code for errors
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw
 }

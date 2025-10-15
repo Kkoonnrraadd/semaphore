@@ -150,9 +150,31 @@ if ($production_confirm) {
     Write-Host "  production_confirm: $production_confirm" -ForegroundColor Gray
 }
 
-# Get the directory of this script
+# Get the directory of this script using dynamic path detection
+# This ensures we always use the latest repository folder (repository_1_template_N)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Dynamically detect the latest repository path
+$baseDir = "/tmp/semaphore/project_1"
+Write-Host "🔍 Detecting latest repository path in $baseDir..." -ForegroundColor Cyan
+
+$repositories = Get-ChildItem -Path $baseDir -Directory -ErrorAction SilentlyContinue | 
+    Where-Object { $_.Name -match '^repository_\d+_template_\d+$' } |
+    Sort-Object LastWriteTime -Descending
+
+if ($repositories -and $repositories.Count -gt 0) {
+    $latestRepo = $repositories[0]
+    $latestRepoPath = $latestRepo.FullName
+    Write-Host "✅ Using latest repository: $($latestRepo.Name) (modified: $($latestRepo.LastWriteTime))" -ForegroundColor Green
+    
+    # Update script directory to point to latest repository
+    $scriptDir = Join-Path $latestRepoPath "scripts/main"
+} else {
+    Write-Host "⚠️ Could not detect repository folders, using current script directory" -ForegroundColor Yellow
+}
+
 $selfServiceScript = Join-Path $scriptDir "self_service.ps1"
+Write-Host "📂 Self-service script path: $selfServiceScript" -ForegroundColor Gray
 
 # Convert MaxWaitMinutes to integer
 $MaxWaitMinutesInt = 60  # Default value
@@ -257,7 +279,8 @@ function Normalize-DateTime {
         Write-Host "  • 11/10/2025 14:30:00" -ForegroundColor Gray
         Write-Host "  • 2025-10-11" -ForegroundColor Gray
         Write-Host "" -ForegroundColor Red
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Could not parse datetime: '$InputDateTime' - please use a valid datetime format"
     }
 }
 
@@ -292,7 +315,8 @@ if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
             Write-Host "   1. Set SEMAPHORE_SCHEDULE_TIMEZONE environment variable" -ForegroundColor Gray
             Write-Host "   2. Provide Timezone parameter explicitly" -ForegroundColor Gray
             Write-Host "" -ForegroundColor Red
-            exit 1
+            $global:LASTEXITCODE = 1
+            throw "Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set - restore operations require a timezone"
         }
         # If no RestoreDateTime, timezone not needed
     }

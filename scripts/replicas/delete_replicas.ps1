@@ -25,11 +25,13 @@ try {
         Write-Host "  ✅ Azure CLI found and working" -ForegroundColor Green
     } else {
         Write-Host "  ❌ Azure CLI not found. Please install it first." -ForegroundColor Red
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Azure CLI not found - please install it first"
     }
 } catch {
     Write-Host "  ❌ Azure CLI not found. Please install it first." -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "Azure CLI not found - please install it first"
 }
 
 $destination_lower = (Get-Culture).TextInfo.ToLower($destination)

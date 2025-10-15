@@ -122,11 +122,13 @@ if (-not $recources -or $recources.Count -eq 0) {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Production run would abort here"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "DRY RUN: No AKS cluster found for destination environment"
     } else {
         Write-Host "🛑 ABORTING: Cannot start environment without cluster information"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "No AKS cluster found for destination environment - cannot start environment without cluster information"
     }
 }
 

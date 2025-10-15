@@ -46,11 +46,13 @@ if (-not $recources -or $recources.Count -eq 0) {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Production run would abort here"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "DRY RUN: No SQL server found for destination environment"
     } else {
         Write-Host "🛑 ABORTING: Cannot cleanup databases without server information"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "No SQL server found for destination environment - cannot cleanup databases without server information"
     }
 }
 

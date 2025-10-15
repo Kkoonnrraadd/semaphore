@@ -100,7 +100,9 @@ function Get-ServiceFromDatabase {
 function Should-ProcessDatabase {
     param (
         [object]$Database,
-        [string]$Service
+        [string]$Service,
+        [bool]$IsDryRun = $false,
+        [bool]$HasRestoredDatabases = $false
     )
     
     # Skip system databases
@@ -113,13 +115,32 @@ function Should-ProcessDatabase {
         return $false
     }
     
-    # Skip non-restored databases
-    if (-not $Database.name.Contains("restored")) {
-        return $false
-    }
-    
+    # Production mode: Only process restored databases
+    if (-not $IsDryRun) {
+        if (-not $Database.name.Contains("restored")) {
+            return $false
+        }
         return $true
     }
+    
+    # Dry Run mode logic
+    if ($IsDryRun) {
+        # If restored databases exist, only show those
+        if ($HasRestoredDatabases) {
+            if (-not $Database.name.Contains("restored")) {
+                return $false
+            }
+        } else {
+            # No restored databases exist, check regular databases
+            if ($Database.name.Contains("restored")) {
+                return $false
+            }
+        }
+        return $true
+    }
+    
+    return $true
+}
     
 function Get-DestinationDatabaseName {
     param (
@@ -673,7 +694,8 @@ $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 
 if (-not $server -or $server.Count -eq 0) {
     Write-Host "❌ No source SQL server found for environment: $source_lower" -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No source SQL server found for environment: $source_lower"
 }
 
 $source_subscription = $server[0].subscriptionId
@@ -699,7 +721,8 @@ $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 
 if (-not $server -or $server.Count -eq 0) {
     Write-Host "❌ No destination SQL server found for environment: $destination_lower" -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No destination SQL server found for environment: $destination_lower"
 }
 
 $dest_subscription = $server[0].subscriptionId
@@ -710,13 +733,12 @@ $dest_elasticpool = az sql elastic-pool list --subscription $dest_subscription -
 
 if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
     Write-Host "❌ No elastic pool found on destination server: $dest_server" -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No elastic pool found on destination server: $dest_server"
 }
 
 # Query for secondary SQL server (for failover group support)
 Write-Host "🔍 Checking for failover group configuration..." -ForegroundColor Cyan
-Write-Host "  🐛 DEBUG: Destination environment (lowercase): $destination_lower" -ForegroundColor Magenta
-Write-Host "  🐛 DEBUG: Searching for servers with tags.Environment='$destination_lower' and tags.Type='Secondary'" -ForegroundColor Magenta
 
 $graph_query_secondary = "
   resources
@@ -724,35 +746,9 @@ $graph_query_secondary = "
   | where tags.Environment == '$destination_lower' and tags.Type == 'Secondary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-Write-Host "  🐛 DEBUG: Azure Graph Query:" -ForegroundColor Magenta
-Write-Host "  $graph_query_secondary" -ForegroundColor Gray
 
-Write-Host "  🐛 DEBUG: Executing graph query..." -ForegroundColor Magenta
 $server_secondary = az graph query -q $graph_query_secondary --query "data" --first 1000 2>&1 | ConvertFrom-Json
 
-Write-Host "  🐛 DEBUG: Graph query result type: $($server_secondary.GetType().Name)" -ForegroundColor Magenta
-Write-Host "  🐛 DEBUG: Graph query result count: $($server_secondary.Count)" -ForegroundColor Magenta
-if ($server_secondary) {
-    Write-Host "  🐛 DEBUG: Full graph query result:" -ForegroundColor Magenta
-    $server_secondary | ConvertTo-Json -Depth 3 | Write-Host -ForegroundColor Gray
-}
-
-# Also try listing ALL SQL servers to see what's available
-Write-Host "  🐛 DEBUG: Querying ALL SQL servers with Environment='$destination_lower' to see what's available..." -ForegroundColor Magenta
-$graph_query_all = "
-  resources
-  | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$destination_lower'
-  | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName, tags
-"
-$all_servers = az graph query -q $graph_query_all --query "data" --first 1000 2>&1 | ConvertFrom-Json
-Write-Host "  🐛 DEBUG: Found $($all_servers.Count) total servers for environment '$destination_lower':" -ForegroundColor Magenta
-if ($all_servers) {
-    $all_servers | ForEach-Object {
-        Write-Host "    • Server: $($_.name)" -ForegroundColor Gray
-        Write-Host "      Tags: $($_.tags | ConvertTo-Json -Compress)" -ForegroundColor Gray
-    }
-}
 
 $dest_subscription_secondary = $null
 $dest_server_secondary = $null
@@ -767,58 +763,21 @@ if ($server_secondary -and $server_secondary.Count -gt 0) {
     $dest_server_fqdn_secondary = $server_secondary[0].fqdn
     
     Write-Host "  ✅ Secondary server found: $dest_server_secondary" -ForegroundColor Green
-    Write-Host "  🐛 DEBUG: Secondary server details:" -ForegroundColor Magenta
     Write-Host "    • Name: $dest_server_secondary" -ForegroundColor Gray
     Write-Host "    • FQDN: $dest_server_fqdn_secondary" -ForegroundColor Gray
     Write-Host "    • Resource Group: $dest_rg_secondary" -ForegroundColor Gray
     Write-Host "    • Subscription: $dest_subscription_secondary" -ForegroundColor Gray
     
-    # Check for failover group
-    Write-Host "  🐛 DEBUG: Checking for failover groups on primary server..." -ForegroundColor Magenta
-    Write-Host "  🐛 DEBUG: Primary server: $dest_server" -ForegroundColor Magenta
-    Write-Host "  🐛 DEBUG: Resource group: $dest_rg" -ForegroundColor Magenta
-    Write-Host "  🐛 DEBUG: Subscription: $dest_subscription" -ForegroundColor Magenta
-    
-    $failover_group_raw = az sql failover-group list --resource-group $dest_rg --server $dest_server --subscription $dest_subscription 2>&1
-    Write-Host "  🐛 DEBUG: Raw failover group list output:" -ForegroundColor Magenta
-    Write-Host "  $failover_group_raw" -ForegroundColor Gray
-    
     $failover_group = az sql failover-group list --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "[0].name" -o tsv 2>$null
-    Write-Host "  🐛 DEBUG: Parsed failover group name: '$failover_group'" -ForegroundColor Magenta
-    Write-Host "  🐛 DEBUG: Is null or whitespace: $([string]::IsNullOrWhiteSpace($failover_group))" -ForegroundColor Magenta
     
     if ($failover_group -and -not [string]::IsNullOrWhiteSpace($failover_group)) {
         Write-Host "  ✅ Failover group found: $failover_group" -ForegroundColor Green
-        
-        # Get detailed failover group info
-        Write-Host "  🐛 DEBUG: Getting detailed failover group information..." -ForegroundColor Magenta
-        $fg_details = az sql failover-group show `
-            --resource-group $dest_rg `
-            --server $dest_server `
-            --name $failover_group `
-            --subscription $dest_subscription 2>&1 | ConvertFrom-Json
-        
-        if ($fg_details) {
-            Write-Host "  🐛 DEBUG: Failover group details:" -ForegroundColor Magenta
-            Write-Host "    • Name: $($fg_details.name)" -ForegroundColor Gray
-            Write-Host "    • Replication Role: $($fg_details.replicationRole)" -ForegroundColor Gray
-            Write-Host "    • Replication State: $($fg_details.replicationState)" -ForegroundColor Gray
-            Write-Host "    • Partner Servers: $($fg_details.partnerServers.Count)" -ForegroundColor Gray
-            if ($fg_details.partnerServers) {
-                $fg_details.partnerServers | ForEach-Object {
-                    Write-Host "      - $($_.id)" -ForegroundColor Gray
-                }
-            }
-            Write-Host "    • Databases in group: $($fg_details.databases.Count)" -ForegroundColor Gray
-        }
     } else {
         Write-Host "  ⚠️  No failover group found on primary server" -ForegroundColor Yellow
-        Write-Host "  🐛 DEBUG: Setting server_secondary to null due to missing failover group" -ForegroundColor Magenta
         $server_secondary = $null
     }
 } else {
     Write-Host "  ℹ️  No secondary server found (single server configuration)" -ForegroundColor Gray
-    Write-Host "  🐛 DEBUG: server_secondary is null or empty" -ForegroundColor Magenta
 }
 
 # Display summary
@@ -854,7 +813,8 @@ $dbs = az sql db list --subscription $source_subscription --resource-group $sour
 
 if (-not $dbs) {
     Write-Host "❌ No databases found on source server." -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No databases found on source server"
 }
 
 # Pre-flight permission validation
@@ -873,7 +833,8 @@ if ($sameServer) {
     if (-not $serverPermissionsOK) {
         Write-Host "❌ Server permission validation failed" -ForegroundColor Red
         Write-Host "💡 Please ensure you have sufficient permissions on server: $source_server_fqdn" -ForegroundColor Yellow
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Server permission validation failed for: $source_server_fqdn"
     }
 } else {
     Write-Host "🔍 Testing source server permissions..." -ForegroundColor Gray
@@ -881,7 +842,8 @@ if ($sameServer) {
     if (-not $sourcePermissionsOK) {
         Write-Host "❌ Source server permission validation failed" -ForegroundColor Red
         Write-Host "💡 Please ensure you have sufficient permissions on source server: $source_server_fqdn" -ForegroundColor Yellow
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Source server permission validation failed for: $source_server_fqdn"
     }
 
     Write-Host "🔍 Testing destination server permissions..." -ForegroundColor Gray
@@ -889,12 +851,51 @@ if ($sameServer) {
     if (-not $destPermissionsOK) {
         Write-Host "❌ Destination server permission validation failed" -ForegroundColor Red
         Write-Host "💡 Please ensure you have sufficient permissions on destination server: $dest_server_fqdn" -ForegroundColor Yellow
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Destination server permission validation failed for: $dest_server_fqdn"
     }
 }
 
 Write-Host "✅ All pre-flight permission validations passed" -ForegroundColor Green
 Write-Host ""
+
+# ============================================================================
+# PRE-ANALYSIS: Check for restored databases (Dry Run)
+# ============================================================================
+
+# Initialize variable for restored database check
+$hasRestoredDatabases = $false
+
+if ($DryRun) {
+    Write-Host "🔍 PRE-ANALYSIS: Checking database restoration status..." -ForegroundColor Cyan
+    Write-Host "========================================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $restoredDatabases = $dbs | Where-Object { $_.name.Contains("restored") -and -not $_.name.Contains("master") }
+    $hasRestoredDatabases = ($restoredDatabases.Count -gt 0)
+    
+    if ($hasRestoredDatabases) {
+        Write-Host "  ✅ Found $($restoredDatabases.Count) RESTORED databases" -ForegroundColor Green
+        Write-Host "  📋 Dry run will evaluate: RESTORED databases (-restored suffix)" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "  Restored databases found:" -ForegroundColor Gray
+        foreach ($db in $restoredDatabases) {
+            $service = Get-ServiceFromDatabase -Database $db -AllDatabases $dbs
+            Write-Host "    • $($db.name) (Service: $service)" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  ⚠️  NO RESTORED databases found (-restored suffix)" -ForegroundColor Yellow
+        Write-Host "  📋 Dry run will evaluate: REGULAR (non-restored) databases" -ForegroundColor Yellow
+        Write-Host "  ℹ️  Note: Production run will NOT process these databases" -ForegroundColor Yellow
+        Write-Host "           Production requires databases with '-restored' suffix" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+} else {
+    # Production mode always expects restored databases
+    $hasRestoredDatabases = $true
+}
 
 # ============================================================================
 # ANALYZE DATABASES
@@ -912,13 +913,19 @@ $databasesToProcess = @()
     
     Write-Host "  📋 Analyzing: $($db.name) (Service: $service)" -ForegroundColor Gray
     
-    if (-not (Should-ProcessDatabase -Database $db -Service $service)) {
+    if (-not (Should-ProcessDatabase -Database $db -Service $service -IsDryRun $DryRun -HasRestoredDatabases $hasRestoredDatabases)) {
             if ($db.name.Contains("master")) {
             Write-Host "    ⏭️  Skipping: System database" -ForegroundColor Yellow
             } elseif ($service -eq "landlord") {
             Write-Host "    ⏭️  Skipping: Landlord service" -ForegroundColor Yellow
             } else {
-            Write-Host "    ⏭️  Skipping: Non-restored database" -ForegroundColor Yellow
+                if ($DryRun -and $hasRestoredDatabases) {
+                    Write-Host "    ⏭️  Skipping: Non-restored database (restored versions available)" -ForegroundColor Yellow
+                } elseif ($DryRun -and -not $hasRestoredDatabases) {
+                    Write-Host "    ⏭️  Skipping: Restored database (evaluating regular databases)" -ForegroundColor Yellow
+                } else {
+                    Write-Host "    ⏭️  Skipping: Non-restored database" -ForegroundColor Yellow
+                }
             }
             continue
         }
@@ -1017,12 +1024,14 @@ if ($databasesToProcess.Count -gt 0) {
         if ($DryRun) {
             Write-Host "🔍 DRY RUN: The production run would be aborted at this point" -ForegroundColor Yellow
             Write-Host ""
-            exit 1
+            $global:LASTEXITCODE = 1
+            throw "DRY RUN: Storage validation failed - production run would be aborted"
         }
         else {
             Write-Host "🛑 ABORTING: Cannot proceed due to insufficient storage capacity" -ForegroundColor Red
             Write-Host ""
-            exit 1
+            $global:LASTEXITCODE = 1
+            throw "Storage validation failed: Insufficient storage capacity on destination elastic pool"
         }
     }
     
@@ -1092,7 +1101,8 @@ foreach ($dbInfo in $databasesToProcess) {
         Write-Host "   Phase: $($result.Phase)" -ForegroundColor Red
         Write-Host "   Error: $($result.Error)" -ForegroundColor Red
         Write-Host "`n🛑 STOPPING EXECUTION - Fix the error and retry" -ForegroundColor Red
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Database copy failed for $($result.Database) at phase $($result.Phase): $($result.Error)"
     }
 }
 
@@ -1125,7 +1135,8 @@ if ($failCount -gt 0) {
     }
     Write-Host ""
     Write-Host "💡 Please investigate failed copies and retry if needed" -ForegroundColor Yellow
-  exit 1
+    $global:LASTEXITCODE = 1
+    throw "Database copy workflow failed: $failCount out of $($results.Count) databases failed"
 }
 
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
@@ -1174,13 +1185,7 @@ foreach ($dbInfo in $databasesToProcess) {
             }
         }
         
-        # Special handling for ClientName when namespace is manufacturo
-        if ($DestinationNamespace -eq "manufacturo" -and $currentTags -and $currentTags.ClientName) {
-            Write-Host "  ⚠️  $dbName : Has ClientName tag but namespace is manufacturo (should be empty)" -ForegroundColor Yellow
-        }
-        
         if ($missingTags.Count -eq 0) {
-            Write-Host "  ✅ $dbName : All required tags present" -ForegroundColor Green
             $tagVerificationResults += @{ 
                 Database = $dbName
                 Status = "Complete"
@@ -1189,7 +1194,6 @@ foreach ($dbInfo in $databasesToProcess) {
             }
             $tagsComplete++
         } else {
-            Write-Host "  ❌ $dbName : Missing tags: $($missingTags -join ', ')" -ForegroundColor Red
             $tagVerificationResults += @{ 
                 Database = $dbName
                 Status = "Incomplete"
@@ -1313,7 +1317,8 @@ if ($tagsIncomplete -gt 0 -or $tagsError -gt 0) {
         Write-Host ""
         Write-Host "🔧 Please manually verify and fix tags for the affected databases" -ForegroundColor Red
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Database tag verification failed: $reVerifyIncomplete databases still have incomplete tags"
     } else {
         Write-Host "✅ All tags successfully re-applied and verified" -ForegroundColor Green
         Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan

@@ -66,7 +66,8 @@ $dbs = az sql db list `
 
 if (-not $dbs) {
     Write-Host "No databases found on server '$dest_server'" -ForegroundColor Red
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No databases found on server '$dest_server'"
 }
 
 if ($DestinationNamespace -eq "manufacturo") {

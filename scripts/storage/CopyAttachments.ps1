@@ -44,7 +44,8 @@ $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 if (-not $src_sa -or $src_sa.Count -eq 0) {
     Write-Host "❌ Error: No storage accounts found for source environment '$source' with multitenant '$SourceNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No storage accounts found for source environment '$source' with multitenant '$SourceNamespace'"
 }
 
 $source_subscription = $src_sa[0].subscriptionId
@@ -76,7 +77,8 @@ $dst_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 if (-not $dst_sa -or $dst_sa.Count -eq 0) {
     Write-Host "❌ Error: No storage accounts found for destination environment '$destination' with multitenant '$DestinationNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
-    exit 1
+    $global:LASTEXITCODE = 1
+    throw "No storage accounts found for destination environment '$destination' with multitenant '$DestinationNamespace'"
 }
 
 $dest_subscription = $dst_sa[0].subscriptionId

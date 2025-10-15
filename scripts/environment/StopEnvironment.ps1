@@ -39,11 +39,13 @@ if (-not $recources -or $recources.Count -eq 0) {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Production run would abort here"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "DRY RUN: No AKS cluster found for environment"
     } else {
         Write-Host "🛑 ABORTING: Cannot stop environment without cluster information"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "No AKS cluster found for environment - cannot stop environment without cluster information"
     }
 }
 
@@ -96,11 +98,13 @@ try {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Production run would abort here"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "DRY RUN: Failed to get AKS credentials - cannot access Kubernetes cluster"
     } else {
         Write-Host "🛑 ABORTING: Cannot proceed without Kubernetes cluster access"
         Write-Host ""
-        exit 1
+        $global:LASTEXITCODE = 1
+        throw "Failed to get AKS credentials - cannot proceed without Kubernetes cluster access"
     }
 }
 

@@ -12,6 +12,8 @@ SEMAPHORE_URL="http://localhost:3000"
 API_TOKEN="YOUR_API_TOKEN_HERE"
 
 # Script path within Semaphore execution environment
+# Note: The actual wrapper scripts now dynamically detect the latest repository folder
+# This path is just for template registration - the wrapper handles the dynamic resolution
 SCRIPT_PATH="/tmp/semaphore/project_1/repository_1_template_1/scripts/main/semaphore_wrapper.ps1"
 
 # Repository configuration

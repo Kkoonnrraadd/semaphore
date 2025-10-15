@@ -31,21 +31,23 @@ function Convert-ToUTCRestorePoint {
         $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($Timezone)
         Write-Host "✅ Using timezone: $Timezone ($($timezoneInfo.DisplayName))"
         
-        # Parse the datetime
-        $restorePoint = [DateTime]::Parse($RestoreDateTime)
+        # Parse the datetime as Unspecified (not tied to any timezone)
+        # This prevents PowerShell from interpreting it based on the system's local timezone
+        $restorePoint = [DateTime]::ParseExact($RestoreDateTime, 'yyyy-MM-dd HH:mm:ss', $null, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+        $restorePoint = [DateTime]::SpecifyKind($restorePoint, [DateTimeKind]::Unspecified)
         
         # If timezone is UTC, treat input as already UTC
         if ($Timezone -eq "UTC") {
             $restorePointInTimezone = $restorePoint
-            $restorePointUtc = $restorePoint
+            $restorePointUtc = [DateTime]::SpecifyKind($restorePoint, [DateTimeKind]::Utc)
             Write-Host "   📅 Input datetime: $($restorePoint.ToString('yyyy-MM-dd HH:mm:ss'))"
             Write-Host "   🌍 In UTC: $($restorePointInTimezone.ToString('yyyy-MM-dd HH:mm:ss'))"
             Write-Host "   ⏰ UTC restore point: $($restorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
         } else {
             # Convert from specified timezone to UTC
-            # Treat the parsed datetime as being in the specified timezone (not local system time)
-            $restorePointInTimezone = [DateTime]::SpecifyKind($restorePoint, [DateTimeKind]::Unspecified)
-            $restorePointUtc = [System.TimeZoneInfo]::ConvertTimeToUtc($restorePointInTimezone, $timezoneInfo)
+            # The datetime is now truly Unspecified, treat it as being in the target timezone
+            $restorePointInTimezone = $restorePoint
+            $restorePointUtc = [System.TimeZoneInfo]::ConvertTimeToUtc($restorePoint, $timezoneInfo)
             
             Write-Host "   📅 Input datetime: $($restorePoint.ToString('yyyy-MM-dd HH:mm:ss'))"
             Write-Host "   🌍 In $($Timezone): $($restorePointInTimezone.ToString('yyyy-MM-dd HH:mm:ss'))"
@@ -245,9 +247,58 @@ function Test-ExistingRestoredDatabases {
             
             Write-Host ""
             if ($deleteSucceeded.Count -gt 0) {
-                Write-Host "⏳ Waiting for database deletions to complete (15 seconds)..."
-                Start-Sleep -Seconds 15  # Give Azure time to process deletions
-                Write-Host "✅ Successfully initiated deletion of $($deleteSucceeded.Count) database(s)"
+                Write-Host "⏳ Waiting for database deletions to complete..."
+                Write-Host "   ℹ️  Verifying each database is fully deleted before proceeding"
+                Write-Host ""
+                
+                # Verify each database is actually deleted (not just deletion initiated)
+                $maxWaitSeconds = 120  # Maximum 2 minutes total wait
+                $checkIntervalSeconds = 10
+                $maxChecks = $maxWaitSeconds / $checkIntervalSeconds
+                $allDeleted = $false
+                
+                for ($checkNum = 1; $checkNum -le $maxChecks; $checkNum++) {
+                    Start-Sleep -Seconds $checkIntervalSeconds
+                    $elapsedSeconds = $checkNum * $checkIntervalSeconds
+                    
+                    # Check if all databases are actually gone
+                    $stillExist = @()
+                    foreach ($dbName in $deleteSucceeded) {
+                        try {
+                            $dbCheck = az sql db show `
+                                --subscription $SourceSubscription `
+                                --resource-group $SourceResourceGroup `
+                                --server $SourceServer `
+                                --name $dbName `
+                                --query "name" `
+                                --output tsv 2>&1
+                            
+                            if ($LASTEXITCODE -eq 0 -and $dbCheck -and $dbCheck -notmatch "ERROR" -and $dbCheck -notmatch "not found") {
+                                $stillExist += $dbName
+                            }
+                        } catch {
+                            # Database not found - good!
+                        }
+                    }
+                    
+                    if ($stillExist.Count -eq 0) {
+                        Write-Host "  ✅ All databases confirmed deleted (${elapsedSeconds}s)"
+                        $allDeleted = $true
+                        break
+                    } else {
+                        Write-Host "  ⏳ Still waiting for $($stillExist.Count) database(s) to be deleted... (${elapsedSeconds}s)"
+                    }
+                }
+                
+                if (-not $allDeleted) {
+                    Write-Host ""
+                    Write-Host "  ⚠️  WARNING: Some databases may not be fully deleted yet" -ForegroundColor Yellow
+                    Write-Host "     Adding additional 30 second buffer..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 30
+                }
+                
+                Write-Host "✅ Database deletion process completed"
+                Write-Host ""
             }
             
             if ($deleteFailed.Count -gt 0) {

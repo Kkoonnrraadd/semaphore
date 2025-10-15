@@ -43,8 +43,9 @@ function Convert-ToUTCRestorePoint {
             Write-Host "   ⏰ UTC restore point: $($restorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
         } else {
             # Convert from specified timezone to UTC
-            $restorePointInTimezone = [System.TimeZoneInfo]::ConvertTime($restorePoint, $timezoneInfo)
-            $restorePointUtc = $restorePointInTimezone.ToUniversalTime()
+            # Treat the parsed datetime as being in the specified timezone (not local system time)
+            $restorePointInTimezone = [DateTime]::SpecifyKind($restorePoint, [DateTimeKind]::Unspecified)
+            $restorePointUtc = [System.TimeZoneInfo]::ConvertTimeToUtc($restorePointInTimezone, $timezoneInfo)
             
             Write-Host "   📅 Input datetime: $($restorePoint.ToString('yyyy-MM-dd HH:mm:ss'))"
             Write-Host "   🌍 In $($Timezone): $($restorePointInTimezone.ToString('yyyy-MM-dd HH:mm:ss'))"

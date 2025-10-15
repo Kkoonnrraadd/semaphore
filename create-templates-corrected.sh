@@ -12,7 +12,7 @@ SEMAPHORE_URL="http://localhost:3000"
 API_TOKEN="YOUR_API_TOKEN_HERE"
 
 # Script path within Semaphore execution environment
-SCRIPT_PATH="/tmp/semaphore/project_1/repository_3_template_2/scripts/main/semaphore_wrapper.ps1"
+SCRIPT_PATH="/tmp/semaphore/project_1/repository_1_template_1/scripts/main/semaphore_wrapper.ps1"
 
 # Repository configuration
 REPOSITORY_NAME="semaphore-scripts"
@@ -747,8 +747,11 @@ create_template() {
     local script_path=$3
     local survey_vars=$4
     
-    # Build full script path
-    local full_path="/tmp/semaphore/project_1/repository_3_template_2/scripts/${script_path}"
+    # Use universal step wrapper path
+    local full_path="/tmp/semaphore/project_1/repository_1_template_1/scripts/step_wrappers/invoke_step.ps1"
+    
+    # Add ScriptPath as first survey variable (hidden from user, pre-filled)
+    local wrapper_survey_vars=$(echo "$survey_vars" | jq --arg path "$script_path" '. = [{"name":"ScriptPath","title":"📁 Script (auto-configured)","description":"✓ Pre-configured script path - no need to modify","default_value":$path,"required":true,"type":"string"}] + .')
     
     local template_data=$(cat <<EOF
 {
@@ -759,7 +762,7 @@ create_template() {
     "environment_id": $ENV_ID,
     "view_id": $VIEW_TASKS_ID,
     "playbook": "$full_path",
-    "survey_vars": $survey_vars,
+    "survey_vars": $wrapper_survey_vars,
     "app": "powershell"
 }
 EOF

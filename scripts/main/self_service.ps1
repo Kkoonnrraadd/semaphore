@@ -459,27 +459,27 @@ function Invoke-Migration {
         & $scriptPath -source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -Force:$Force -MaxWaitMinutes $MaxWaitMinutes
     }
     
-    # Step 2: Stop Environment
-    Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
-    }
+    # # Step 2: Stop Environment
+    # Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+    #     & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+    #     & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
+    # }
     
-    # Step 3: Copy Attachments
-    Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
-    }
+    # # Step 3: Copy Attachments
+    # Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
+    #     & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
+    #     & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+    # }
     
     # Step 4: Copy Database
     Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan

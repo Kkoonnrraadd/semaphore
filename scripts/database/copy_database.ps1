@@ -715,13 +715,44 @@ if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
 
 # Query for secondary SQL server (for failover group support)
 Write-Host "🔍 Checking for failover group configuration..." -ForegroundColor Cyan
+Write-Host "  🐛 DEBUG: Destination environment (lowercase): $destination_lower" -ForegroundColor Magenta
+Write-Host "  🐛 DEBUG: Searching for servers with tags.Environment='$destination_lower' and tags.Type='Secondary'" -ForegroundColor Magenta
+
 $graph_query_secondary = "
   resources
   | where type =~ 'microsoft.sql/servers'
   | where tags.Environment == '$destination_lower' and tags.Type == 'Secondary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-$server_secondary = az graph query -q $graph_query_secondary --query "data" --first 1000 | ConvertFrom-Json
+Write-Host "  🐛 DEBUG: Azure Graph Query:" -ForegroundColor Magenta
+Write-Host "  $graph_query_secondary" -ForegroundColor Gray
+
+Write-Host "  🐛 DEBUG: Executing graph query..." -ForegroundColor Magenta
+$server_secondary = az graph query -q $graph_query_secondary --query "data" --first 1000 2>&1 | ConvertFrom-Json
+
+Write-Host "  🐛 DEBUG: Graph query result type: $($server_secondary.GetType().Name)" -ForegroundColor Magenta
+Write-Host "  🐛 DEBUG: Graph query result count: $($server_secondary.Count)" -ForegroundColor Magenta
+if ($server_secondary) {
+    Write-Host "  🐛 DEBUG: Full graph query result:" -ForegroundColor Magenta
+    $server_secondary | ConvertTo-Json -Depth 3 | Write-Host -ForegroundColor Gray
+}
+
+# Also try listing ALL SQL servers to see what's available
+Write-Host "  🐛 DEBUG: Querying ALL SQL servers with Environment='$destination_lower' to see what's available..." -ForegroundColor Magenta
+$graph_query_all = "
+  resources
+  | where type =~ 'microsoft.sql/servers'
+  | where tags.Environment == '$destination_lower'
+  | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName, tags
+"
+$all_servers = az graph query -q $graph_query_all --query "data" --first 1000 2>&1 | ConvertFrom-Json
+Write-Host "  🐛 DEBUG: Found $($all_servers.Count) total servers for environment '$destination_lower':" -ForegroundColor Magenta
+if ($all_servers) {
+    $all_servers | ForEach-Object {
+        Write-Host "    • Server: $($_.name)" -ForegroundColor Gray
+        Write-Host "      Tags: $($_.tags | ConvertTo-Json -Compress)" -ForegroundColor Gray
+    }
+}
 
 $dest_subscription_secondary = $null
 $dest_server_secondary = $null
@@ -736,18 +767,58 @@ if ($server_secondary -and $server_secondary.Count -gt 0) {
     $dest_server_fqdn_secondary = $server_secondary[0].fqdn
     
     Write-Host "  ✅ Secondary server found: $dest_server_secondary" -ForegroundColor Green
+    Write-Host "  🐛 DEBUG: Secondary server details:" -ForegroundColor Magenta
+    Write-Host "    • Name: $dest_server_secondary" -ForegroundColor Gray
+    Write-Host "    • FQDN: $dest_server_fqdn_secondary" -ForegroundColor Gray
+    Write-Host "    • Resource Group: $dest_rg_secondary" -ForegroundColor Gray
+    Write-Host "    • Subscription: $dest_subscription_secondary" -ForegroundColor Gray
     
     # Check for failover group
+    Write-Host "  🐛 DEBUG: Checking for failover groups on primary server..." -ForegroundColor Magenta
+    Write-Host "  🐛 DEBUG: Primary server: $dest_server" -ForegroundColor Magenta
+    Write-Host "  🐛 DEBUG: Resource group: $dest_rg" -ForegroundColor Magenta
+    Write-Host "  🐛 DEBUG: Subscription: $dest_subscription" -ForegroundColor Magenta
+    
+    $failover_group_raw = az sql failover-group list --resource-group $dest_rg --server $dest_server --subscription $dest_subscription 2>&1
+    Write-Host "  🐛 DEBUG: Raw failover group list output:" -ForegroundColor Magenta
+    Write-Host "  $failover_group_raw" -ForegroundColor Gray
+    
     $failover_group = az sql failover-group list --resource-group $dest_rg --server $dest_server --subscription $dest_subscription --query "[0].name" -o tsv 2>$null
+    Write-Host "  🐛 DEBUG: Parsed failover group name: '$failover_group'" -ForegroundColor Magenta
+    Write-Host "  🐛 DEBUG: Is null or whitespace: $([string]::IsNullOrWhiteSpace($failover_group))" -ForegroundColor Magenta
     
     if ($failover_group -and -not [string]::IsNullOrWhiteSpace($failover_group)) {
         Write-Host "  ✅ Failover group found: $failover_group" -ForegroundColor Green
+        
+        # Get detailed failover group info
+        Write-Host "  🐛 DEBUG: Getting detailed failover group information..." -ForegroundColor Magenta
+        $fg_details = az sql failover-group show `
+            --resource-group $dest_rg `
+            --server $dest_server `
+            --name $failover_group `
+            --subscription $dest_subscription 2>&1 | ConvertFrom-Json
+        
+        if ($fg_details) {
+            Write-Host "  🐛 DEBUG: Failover group details:" -ForegroundColor Magenta
+            Write-Host "    • Name: $($fg_details.name)" -ForegroundColor Gray
+            Write-Host "    • Replication Role: $($fg_details.replicationRole)" -ForegroundColor Gray
+            Write-Host "    • Replication State: $($fg_details.replicationState)" -ForegroundColor Gray
+            Write-Host "    • Partner Servers: $($fg_details.partnerServers.Count)" -ForegroundColor Gray
+            if ($fg_details.partnerServers) {
+                $fg_details.partnerServers | ForEach-Object {
+                    Write-Host "      - $($_.id)" -ForegroundColor Gray
+                }
+            }
+            Write-Host "    • Databases in group: $($fg_details.databases.Count)" -ForegroundColor Gray
+        }
     } else {
         Write-Host "  ⚠️  No failover group found on primary server" -ForegroundColor Yellow
+        Write-Host "  🐛 DEBUG: Setting server_secondary to null due to missing failover group" -ForegroundColor Magenta
         $server_secondary = $null
     }
 } else {
     Write-Host "  ℹ️  No secondary server found (single server configuration)" -ForegroundColor Gray
+    Write-Host "  🐛 DEBUG: server_secondary is null or empty" -ForegroundColor Magenta
 }
 
 # Display summary

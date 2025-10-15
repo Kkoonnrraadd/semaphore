@@ -389,37 +389,45 @@ if (Test-Path $azureParamsScript) {
         
         $detectedParams = & $azureParamsScript @detectionParams
         
-        # Fill in missing parameters with detected values
+        # Get target script parameters to validate what we can pass
+        $targetScriptInfo = Get-Command $fullScriptPath -ErrorAction SilentlyContinue
+        $acceptedParams = @()
+        if ($targetScriptInfo -and $targetScriptInfo.Parameters) {
+            $acceptedParams = $targetScriptInfo.Parameters.Keys
+            Write-Host "   📋 Target script accepts: $($acceptedParams -join ', ')" -ForegroundColor Gray
+        }
+        
+        # Fill in missing parameters with detected values (only if target script accepts them)
         if (-not $scriptParams.ContainsKey("Source") -or [string]::IsNullOrWhiteSpace($scriptParams["Source"])) {
-            if ($detectedParams.Source) {
+            if ($detectedParams.Source -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "Source")) {
                 $scriptParams["Source"] = $detectedParams.Source
                 Write-Host "   ✅ Auto-detected Source: $($detectedParams.Source)" -ForegroundColor Green
             }
         }
         
         if (-not $scriptParams.ContainsKey("Destination") -or [string]::IsNullOrWhiteSpace($scriptParams["Destination"])) {
-            if ($detectedParams.Destination) {
+            if ($detectedParams.Destination -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "Destination")) {
                 $scriptParams["Destination"] = $detectedParams.Destination
                 Write-Host "   ✅ Auto-detected Destination: $($detectedParams.Destination)" -ForegroundColor Green
             }
         }
         
         if (-not $scriptParams.ContainsKey("SourceNamespace") -or [string]::IsNullOrWhiteSpace($scriptParams["SourceNamespace"])) {
-            if ($detectedParams.SourceNamespace) {
+            if ($detectedParams.SourceNamespace -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "SourceNamespace")) {
                 $scriptParams["SourceNamespace"] = $detectedParams.SourceNamespace
                 Write-Host "   ✅ Auto-detected SourceNamespace: $($detectedParams.SourceNamespace)" -ForegroundColor Green
             }
         }
         
         if (-not $scriptParams.ContainsKey("DestinationNamespace") -or [string]::IsNullOrWhiteSpace($scriptParams["DestinationNamespace"])) {
-            if ($detectedParams.DestinationNamespace) {
+            if ($detectedParams.DestinationNamespace -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "DestinationNamespace")) {
                 $scriptParams["DestinationNamespace"] = $detectedParams.DestinationNamespace
                 Write-Host "   ✅ Auto-detected DestinationNamespace: $($detectedParams.DestinationNamespace)" -ForegroundColor Green
             }
         }
         
         if (-not $scriptParams.ContainsKey("Cloud") -or [string]::IsNullOrWhiteSpace($scriptParams["Cloud"])) {
-            if ($detectedParams.Cloud) {
+            if ($detectedParams.Cloud -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "Cloud")) {
                 $scriptParams["Cloud"] = $detectedParams.Cloud
                 Write-Host "   ✅ Auto-detected Cloud: $($detectedParams.Cloud)" -ForegroundColor Green
             }
@@ -427,14 +435,14 @@ if (Test-Path $azureParamsScript) {
         
         # Auto-detect time parameters if not provided
         if (-not $scriptParams.ContainsKey("RestoreDateTime") -or [string]::IsNullOrWhiteSpace($scriptParams["RestoreDateTime"])) {
-            if ($detectedParams.DefaultRestoreDateTime) {
+            if ($detectedParams.DefaultRestoreDateTime -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "RestoreDateTime")) {
                 $scriptParams["RestoreDateTime"] = $detectedParams.DefaultRestoreDateTime
                 Write-Host "   ✅ Auto-detected RestoreDateTime: $($detectedParams.DefaultRestoreDateTime)" -ForegroundColor Green
             }
         }
         
         if (-not $scriptParams.ContainsKey("Timezone") -or [string]::IsNullOrWhiteSpace($scriptParams["Timezone"])) {
-            if ($detectedParams.DefaultTimezone) {
+            if ($detectedParams.DefaultTimezone -and ($acceptedParams.Count -eq 0 -or $acceptedParams -contains "Timezone")) {
                 $scriptParams["Timezone"] = $detectedParams.DefaultTimezone
                 Write-Host "   ✅ Auto-detected Timezone: $($detectedParams.DefaultTimezone)" -ForegroundColor Green
             }

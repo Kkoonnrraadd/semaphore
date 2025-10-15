@@ -951,17 +951,19 @@ if ($tagsIncomplete -gt 0 -or $tagsError -gt 0) {
     Write-Host ""
     
     if ($reVerifyIncomplete -gt 0) {
-        Write-Host "⚠️  WARNING: $reVerifyIncomplete databases still have incomplete tags" -ForegroundColor Yellow
+        Write-Host "❌  WARNING: $reVerifyIncomplete databases still have incomplete tags" -ForegroundColor Red
         Write-Host ""
-        Write-Host "💡 This may cause issues with:" -ForegroundColor Yellow
+        Write-Host "💡 This may cause issues with:" -ForegroundColor Red
         Write-Host "   • Terraform state management" -ForegroundColor Gray
         Write-Host "   • Resource identification and management" -ForegroundColor Gray
         Write-Host "   • Environment-specific configurations" -ForegroundColor Gray
         Write-Host ""
-        Write-Host "🔧 Please manually verify and fix tags for the affected databases" -ForegroundColor Yellow
+        Write-Host "🔧 Please manually verify and fix tags for the affected databases" -ForegroundColor Red
         Write-Host ""
+        exit 1
     } else {
         Write-Host "✅ All tags successfully re-applied and verified" -ForegroundColor Green
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
         Write-Host ""
     }
 }

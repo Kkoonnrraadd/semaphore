@@ -142,7 +142,7 @@ function Get-ScriptPath {
 function Perform-Migration {
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0A: GRANT PERMISSIONS (Using ENVIRONMENT variable)
+    # SET UP SCRIPT BASE DIRECTORY
     # ═══════════════════════════════════════════════════════════════════════════
     
     # Get the current script's directory for all script paths
@@ -161,19 +161,20 @@ function Perform-Migration {
         Write-Host "🔍 Using fallback paths - Base: $global:ScriptBaseDir" -ForegroundColor Gray
     }
     
-    Write-Host "`n🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    Write-AutomationLog "🔐 Granting permissions for Service Principal" "INFO"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEPS 0A, 0B, 0C: RUN PREREQUISITE STEPS (Using unified module)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-AutomationLog "🔐 Running prerequisite steps (permissions, authentication, parameter detection)" "INFO"
     
     # Determine target environment with correct priority:
     # 1. User-provided Source parameter (highest priority)
     # 2. ENVIRONMENT variable (fallback)
     $targetEnvironment = $null
     if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
-        # User explicitly provided Source - use it
         $targetEnvironment = $script:OriginalSource.ToLower()
         Write-Host "📋 Target Environment: $targetEnvironment (from USER-PROVIDED Source)" -ForegroundColor Gray
     } elseif (-not [string]::IsNullOrWhiteSpace($env:ENVIRONMENT)) {
-        # Fallback to ENVIRONMENT variable
         $targetEnvironment = $env:ENVIRONMENT.ToLower()
         Write-Host "📋 Target Environment: $targetEnvironment (from ENVIRONMENT variable)" -ForegroundColor Gray
     } else {
@@ -188,96 +189,44 @@ function Perform-Migration {
         throw "Cannot proceed without environment specification for permission granting"
     }
     
-    if ($targetEnvironment) {
-        Write-Host "📋 Service Account: SelfServiceRefresh" -ForegroundColor Gray
-        Write-Host "📋 Action: Grant" -ForegroundColor Gray
-        
-        # Call the dedicated permission management script
-        # NOTE: This ALWAYS runs, even in dry-run mode, because:
-        # 1. Permissions are needed for subsequent Azure operations
-        # 2. Azure Function call is safe (idempotent)
-        # 3. No actual infrastructure changes
-        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-        if (Test-Path $permissionScript) {
-            Write-Host "🔑 Calling Azure Function to grant permissions..." -ForegroundColor Gray
-            $permissionResult = & $permissionScript -Action "Grant" -Environment $targetEnvironment -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
-            
-            if (-not $permissionResult.Success) {
-                Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
-                Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-                throw "Permission grant failed: $($permissionResult.Error)"
-            }
-            
-            Write-Host "✅ Permissions granted successfully for environment: $targetEnvironment" -ForegroundColor Green
-            Write-AutomationLog "✅ Permissions granted successfully for $targetEnvironment" "SUCCESS"
-        } else {
-            Write-AutomationLog "❌ FATAL ERROR: Permission script not found at $permissionScript" "ERROR"
-            throw "Cannot proceed without granting permissions"
-        }
+    # Call the unified prerequisite steps script
+    # NOTE: This ALWAYS runs, even in dry-run mode, because:
+    # 1. Permissions are needed for subsequent Azure operations
+    # 2. Azure Function call is safe (idempotent)
+    # 3. No actual infrastructure changes
+    $prerequisiteScript = Get-ScriptPath "common/Invoke-PrerequisiteSteps.ps1"
+    if (-not (Test-Path $prerequisiteScript)) {
+        Write-AutomationLog "❌ FATAL ERROR: Prerequisite script not found at $prerequisiteScript" "ERROR"
+        throw "Prerequisite script not found at: $prerequisiteScript"
     }
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0B: AZURE AUTHENTICATION (AFTER PERMISSIONS - using Service Principal)
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    Write-Host "`n🔐 STEP 0B: AUTHENTICATE TO AZURE (Service Principal)" -ForegroundColor Cyan
-    Write-AutomationLog "🔐 Authenticating using Service Principal from environment variables" "INFO"
-    
-    # Authenticate using Service Principal (from env vars: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
-    # This works WITHOUT needing to know the Cloud first - the Connect-Azure script will handle it
-    $commonDir = Join-Path $global:ScriptBaseDir "common"
-    $authScript = Join-Path $commonDir "Connect-Azure.ps1"
-    
-    if (Test-Path $authScript) {
-        Write-Host "📝 Using authentication script: $authScript" -ForegroundColor Gray
-        Write-Host "🔑 Authenticating with Service Principal (AZURE_CLIENT_ID from env)" -ForegroundColor Gray
-        
-        # Pass user-provided Cloud parameter if available, otherwise Connect-Azure will auto-detect
-        if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
-            Write-Host "🌐 Using user-provided cloud: $($script:OriginalCloud)" -ForegroundColor Gray
-            $authResult = & $authScript -Cloud $script:OriginalCloud
-        } else {
-            Write-Host "🌐 Cloud not provided, will auto-detect" -ForegroundColor Gray
-            $authResult = & $authScript
-        }
-        if (-not $authResult) {
-            Write-AutomationLog "❌ FATAL ERROR: Failed to authenticate to Azure" "ERROR"
-            Write-Host "❌ Azure authentication failed. Cannot proceed." -ForegroundColor Red
-            Write-Host "   Make sure these environment variables are set:" -ForegroundColor Yellow
-            Write-Host "   - AZURE_CLIENT_ID" -ForegroundColor Gray
-            Write-Host "   - AZURE_CLIENT_SECRET" -ForegroundColor Gray
-            Write-Host "   - AZURE_TENANT_ID" -ForegroundColor Gray
-            $global:LASTEXITCODE = 1
-            throw "Azure authentication failed - ensure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set"
-        }
-        Write-Host "✅ Azure authentication successful" -ForegroundColor Green
-    } else {
-        Write-AutomationLog "❌ FATAL ERROR: Authentication script not found at $authScript" "ERROR"
-        Write-Host "❌ Cannot authenticate without Connect-Azure.ps1" -ForegroundColor Red
-        $global:LASTEXITCODE = 1
-        throw "Authentication script not found at: $authScript"
+    # Build parameters for prerequisite script
+    $prereqParams = @{
+        Source = $script:OriginalSource
+        Destination = $script:OriginalDestination
+        SourceNamespace = $script:OriginalSourceNamespace
+        DestinationNamespace = $script:OriginalDestinationNamespace
     }
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 0C: AUTO-DETECT PARAMETERS FROM AZURE (Now that we're authenticated)
-    # ═══════════════════════════════════════════════════════════════════════════
+    $prerequisiteResult = & $prerequisiteScript `
+        -TargetEnvironment $targetEnvironment `
+        -Cloud $script:OriginalCloud `
+        -Parameters $prereqParams
     
-    Write-Host "`n🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
-    
-    # Load the Azure parameter detection function
-    $azureParamsScript = Join-Path $global:ScriptBaseDir "common/Get-AzureParameters.ps1"
-    if (-not (Test-Path $azureParamsScript)) {
-        Write-Host "❌ FATAL ERROR: Azure parameter detection script not found at: $azureParamsScript" -ForegroundColor Red
-        $global:LASTEXITCODE = 1
-        throw "Azure parameter detection script not found at: $azureParamsScript"
+    if (-not $prerequisiteResult.Success) {
+        Write-AutomationLog "❌ FATAL ERROR: Prerequisite steps failed" "ERROR"
+        Write-AutomationLog "📍 Error: $($prerequisiteResult.Error)" "ERROR"
+        throw "Prerequisite steps failed: $($prerequisiteResult.Error)"
     }
     
-    # Auto-detect parameters from Azure environment
-    $detectedParams = & $azureParamsScript `
-        -Source $script:OriginalSource `
-        -Destination $script:OriginalDestination `
-        -SourceNamespace $script:OriginalSourceNamespace `
-        -DestinationNamespace $script:OriginalDestinationNamespace
+    Write-AutomationLog "✅ Prerequisite steps completed successfully" "SUCCESS"
+    
+    # Extract detected parameters
+    $detectedParams = $prerequisiteResult.DetectedParameters
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MERGE USER-PROVIDED AND AUTO-DETECTED PARAMETERS
+    # ═══════════════════════════════════════════════════════════════════════════
     
     # Apply detected values, but allow user-provided values to override
     Write-Host "`n🔀 Merging user-provided values with auto-detected values..." -ForegroundColor Cyan
@@ -643,7 +592,7 @@ function Invoke-Migration {
         Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
         Write-Host "🔍 This was a dry run - no actual changes were made" -ForegroundColor Yellow
         Write-Host "📋 The following operations would have been performed:" -ForegroundColor Cyan
-        Write-Host "   STEP 0: Grant permissions to SelfServiceRefresh via Azure Function" -ForegroundColor Gray
+        Write-Host "   STEP 0: Prerequisites (permissions, authentication, parameter detection)" -ForegroundColor Gray
         Write-Host "   STEP 1: Restore databases to point in time: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
         Write-Host "   STEP 2: Stop environment $Destination" -ForegroundColor Gray
         Write-Host "   STEP 3: Copy attachments from $Source to $Destination" -ForegroundColor Gray

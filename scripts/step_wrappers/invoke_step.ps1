@@ -242,6 +242,9 @@ try {
     $detectedParams = $prerequisiteResult.DetectedParameters
     
     if ($detectedParams -and $detectedParams.Count -gt 0) {
+        Write-Host ""
+        Write-Host "🔀 Merging auto-detected parameters..." -ForegroundColor Cyan
+        
         # Get target script parameters to validate what we can pass
         $targetScriptInfo = Get-Command $fullScriptPath -ErrorAction SilentlyContinue
         $acceptedParams = @()
@@ -250,6 +253,7 @@ try {
         }
         
         # Merge detected parameters (only if not already set and target script accepts them)
+        $mergedCount = 0
         foreach ($paramName in $detectedParams.Keys) {
             $shouldAdd = (-not $scriptParams.ContainsKey($paramName) -or [string]::IsNullOrWhiteSpace($scriptParams[$paramName])) -and
                          ($acceptedParams.Count -eq 0 -or $acceptedParams -contains $paramName) -and
@@ -257,8 +261,23 @@ try {
             
             if ($shouldAdd) {
                 $scriptParams[$paramName] = $detectedParams[$paramName]
+                Write-Host "   ✅ Added $paramName = $($detectedParams[$paramName])" -ForegroundColor Green
+                $mergedCount++
+            } else {
+                if ($scriptParams.ContainsKey($paramName)) {
+                    Write-Host "   ⊘ Skipped $paramName (user-provided value takes priority)" -ForegroundColor DarkGray
+                } elseif ($acceptedParams.Count -gt 0 -and $acceptedParams -notcontains $paramName) {
+                    Write-Host "   ⊘ Skipped $paramName (target script doesn't accept it)" -ForegroundColor DarkGray
+                }
             }
         }
+        
+        if ($mergedCount -gt 0) {
+            Write-Host "   ✅ Merged $mergedCount auto-detected parameter(s)" -ForegroundColor Green
+        } else {
+            Write-Host "   ℹ️  No additional parameters to merge" -ForegroundColor Gray
+        }
+        Write-Host ""
     }
     
 } catch {

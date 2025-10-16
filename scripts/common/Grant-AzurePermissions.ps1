@@ -114,6 +114,10 @@ try {
         $permissionResult.Response | ConvertTo-Json -Compress
     }
     
+    Write-Host "   📋 Azure Function Response:" -ForegroundColor Gray
+    Write-Host "      $responseText" -ForegroundColor DarkGray
+    Write-Host ""
+    
     $permissionsAdded = 0
     $needsWait = $false
     
@@ -121,19 +125,22 @@ try {
     if ($responseText -match "(\d+) succeeded") {
         $permissionsAdded = [int]$matches[1]
         
+        Write-Host "   📊 Parsed result: $permissionsAdded permission(s) successfully added" -ForegroundColor Gray
+        
         if ($permissionsAdded -gt 0) {
             Write-Host "   ✅ Permissions granted: $permissionsAdded group(s) added" -ForegroundColor Green
-            Write-Host "   ⏳ Propagation wait required (changes were made)" -ForegroundColor Yellow
+            Write-Host "   ⏳ Propagation wait REQUIRED (changes were made to Azure AD)" -ForegroundColor Yellow
             $needsWait = $true
         } else {
             Write-Host "   ✅ Permissions already configured (no changes needed)" -ForegroundColor Green
-            Write-Host "   ⚡ Skipping propagation wait - service principal already has access" -ForegroundColor Cyan
+            Write-Host "   ⚡ Propagation wait SKIPPED - service principal already has access" -ForegroundColor Cyan
             $needsWait = $false
         }
     } else {
         # Couldn't parse response - be safe and recommend waiting
+        Write-Host "   ⚠️  Could not parse response (pattern '(\d+) succeeded' not found)" -ForegroundColor Yellow
         Write-Host "   ✅ Permissions granted successfully" -ForegroundColor Green
-        Write-Host "   ⏳ Propagation wait recommended (unable to determine if changes were made)" -ForegroundColor Yellow
+        Write-Host "   ⏳ Propagation wait RECOMMENDED (unable to determine if changes were made)" -ForegroundColor Yellow
         $needsWait = $true
     }
     

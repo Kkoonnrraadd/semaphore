@@ -186,7 +186,7 @@ try {
         Write-StatusMessage "✅ Permission propagation wait completed" "Success"
         Write-Host ""
     } elseif ($NoWait) {
-        Write-StatusMessage "⏭️  Skipped permission propagation wait (-NoWait specified)" "Info"
+        Write-StatusMessage "⏭️  Deferring permission propagation wait (will be handled by caller)" "Info"
         Write-Host ""
     }
     

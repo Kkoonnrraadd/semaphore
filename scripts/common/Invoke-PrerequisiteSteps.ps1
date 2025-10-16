@@ -241,7 +241,18 @@ if (-not $SkipAuthentication) {
     if ($result.NeedsPropagationWait) {
         $waitSeconds = $result.PropagationWaitSeconds
         Write-Host ""
-        Write-Host "   ⏳ Waiting $waitSeconds seconds for Azure AD permissions to propagate..." -ForegroundColor Yellow
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "   ⚡ Note: This wait is SKIPPED on subsequent runs if permissions already exist!" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
         
         # Progress bar for better UX
         for ($i = 1; $i -le $waitSeconds; $i++) {
@@ -252,6 +263,11 @@ if (-not $SkipAuthentication) {
         Write-Progress -Activity "Azure AD Permission Propagation" -Completed
         
         Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
+        Write-Host ""
+    } else {
+        Write-Host ""
+        Write-Host "   ⚡ SKIPPING propagation wait - no Azure AD changes were made" -ForegroundColor Cyan
+        Write-Host ""
     }
     
     Write-Host ""
@@ -293,14 +309,30 @@ if (-not $SkipParameterDetection) {
             $detectedParams = & $azureParamsScript @detectionParams
             
             if ($detectedParams) {
-                # Store all detected parameters
-                $result.DetectedParameters = $detectedParams
+                # Normalize parameter names (map DefaultX to X for script compatibility)
+                $normalizedParams = @{}
+                foreach ($key in $detectedParams.Keys) {
+                    $value = $detectedParams[$key]
+                    
+                    # Add with original name
+                    $normalizedParams[$key] = $value
+                    
+                    # Also add without "Default" prefix for script compatibility
+                    if ($key -like "Default*") {
+                        $normalizedKey = $key -replace "^Default", ""
+                        $normalizedParams[$normalizedKey] = $value
+                        Write-Host "   📋 Mapped $key → $normalizedKey" -ForegroundColor DarkGray
+                    }
+                }
+                
+                # Store normalized parameters
+                $result.DetectedParameters = $normalizedParams
                 
                 # Show what was detected
                 $detectedCount = 0
-                foreach ($key in $detectedParams.Keys) {
-                    if (-not [string]::IsNullOrWhiteSpace($detectedParams[$key])) {
-                        Write-Host "   ✅ Auto-detected $key`: $($detectedParams[$key])" -ForegroundColor Green
+                foreach ($key in $normalizedParams.Keys) {
+                    if (-not [string]::IsNullOrWhiteSpace($normalizedParams[$key]) -and $key -notlike "Default*") {
+                        Write-Host "   ✅ Auto-detected $key`: $($normalizedParams[$key])" -ForegroundColor Green
                         $detectedCount++
                     }
                 }

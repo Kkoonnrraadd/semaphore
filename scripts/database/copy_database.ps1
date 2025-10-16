@@ -499,6 +499,7 @@ function Copy-SingleDatabase {
         [string]$DestSubscriptionId,
         [string]$DestElasticPool,
         [string]$AccessToken,
+        [string]$ResourceUrl,
         [object]$SavedTags,
         [object]$ServerSecondary = $null,
         [string]$DestServerSecondary = $null,
@@ -510,6 +511,25 @@ function Copy-SingleDatabase {
     Write-Host "📋 Copying: $SourceDatabaseName" -ForegroundColor Cyan
     Write-Host "   Target: $DestinationDatabaseName" -ForegroundColor Cyan
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+    
+    Write-Host "  🗑️  Deleting existing database from primary server: $DestinationDatabaseName" -ForegroundColor Yellow
+    try {
+        $deleteResult = az sql db delete `
+            --name $DestinationDatabaseName `
+            --resource-group $DestResourceGroup `
+            --server $DestServer `
+            --subscription $DestSubscriptionId `
+            --yes --only-show-errors 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  ⚠️  Database may not exist on primary (this is OK): $deleteResult" -ForegroundColor Gray
+        } else {
+            Write-Host "  ✅ Deleted existing database from primary server" -ForegroundColor Green
+        }
+        Start-Sleep -Seconds 10
+        } catch {
+        Write-Host "  ⚠️  Warning during primary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
     
     # Delete existing destination database (secondary first, then primary)
     if ($ServerSecondary -and $DestServerSecondary) {
@@ -532,25 +552,7 @@ function Copy-SingleDatabase {
             Write-Host "  ⚠️  Warning during secondary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
-    
-    Write-Host "  🗑️  Deleting existing database from primary server: $DestinationDatabaseName" -ForegroundColor Yellow
-    try {
-        $deleteResult = az sql db delete `
-            --name $DestinationDatabaseName `
-            --resource-group $DestResourceGroup `
-            --server $DestServer `
-            --subscription $DestSubscriptionId `
-            --yes --only-show-errors 2>&1
-        
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "  ⚠️  Database may not exist on primary (this is OK): $deleteResult" -ForegroundColor Gray
-        } else {
-            Write-Host "  ✅ Deleted existing database from primary server" -ForegroundColor Green
-        }
-        Start-Sleep -Seconds 10
-        } catch {
-        Write-Host "  ⚠️  Warning during primary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
+
     
     # Build SQL copy command
     $sqlCommand = "CREATE DATABASE [$DestinationDatabaseName] AS COPY OF [$SourceServer].[$SourceDatabaseName] (SERVICE_OBJECTIVE = ELASTIC_POOL(name = [$DestElasticPool]));"
@@ -565,10 +567,13 @@ function Copy-SingleDatabase {
         try {
             if ($retry -gt 1) {
                 Write-Host "  🔄 Retry attempt $retry of $maxRetries" -ForegroundColor Yellow
+                # Refresh token before retry
+                Write-Host "  🔑 Refreshing access token..." -ForegroundColor Gray
+                $AccessToken = (az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv)
                 Start-Sleep -Seconds $retryDelay
             }
             
-            Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServerFQDN -Query $sqlCommand -ConnectionTimeout 30 -QueryTimeout 300
+            Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServerFQDN -Query $sqlCommand -ConnectionTimeout 30 -QueryTimeout 600
             Write-Host "  ✅ Copy command executed successfully (attempt $retry)" -ForegroundColor Green
             $copyInitiated = $true
             Start-Sleep -Seconds 10
@@ -603,12 +608,22 @@ function Copy-SingleDatabase {
     # Wait for database to come online
     Write-Host "  ⏳ Waiting for database to come online..." -ForegroundColor Yellow
     $startTime = Get-Date
-    $maxWaitMinutes = 15
+    $maxWaitMinutes = 90  # Increased to 90 minutes for large database copies
     $maxIterations = $maxWaitMinutes * 2  # Check every 30 seconds
     
     for ($i = 1; $i -le $maxIterations; $i++) {
         $elapsed = (Get-Date) - $startTime
         $elapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1)
+        
+        # Refresh token every 45 minutes to prevent expiration (Azure tokens expire after 1 hour)
+        if ($i -gt 1 -and ($i % 90) -eq 0) {  # Every 45 minutes (90 iterations * 30 seconds)
+            Write-Host "  🔑 Refreshing access token (${elapsedMinutes} minutes elapsed)..." -ForegroundColor Gray
+            try {
+                $AccessToken = (az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv)
+            } catch {
+                Write-Host "  ⚠️  Warning: Failed to refresh token: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
         
         if ($elapsedMinutes -ge $maxWaitMinutes) {
             Write-Host "  ❌ Database failed to come online within ${maxWaitMinutes} minutes" -ForegroundColor Red
@@ -682,9 +697,9 @@ if ($DryRun) {
     Write-Host "=====================================" -ForegroundColor Yellow
     Write-Host "No actual copy operations will be performed" -ForegroundColor Yellow
 } else {
-    Write-Host "`n====================================" -ForegroundColor Cyan
-Write-Host " Copy Database Script (RestorePoint)" -ForegroundColor Cyan
-Write-Host "====================================`n" -ForegroundColor Cyan
+    Write-Host "`n=====================================" -ForegroundColor Cyan
+    Write-Host "              Copy Database" -ForegroundColor Cyan
+    Write-Host "====================================`n" -ForegroundColor Cyan
 }
 
 $destination_lower = (Get-Culture).TextInfo.ToLower($destination)
@@ -795,6 +810,7 @@ Write-Host "Destination: $dest_server_fqdn" -ForegroundColor Yellow
 Write-Host "Elastic Pool: $dest_elasticpool" -ForegroundColor Yellow
 Write-Host "Source Namespace: $SourceNamespace" -ForegroundColor Yellow
 Write-Host "Destination Namespace: $DestinationNamespace" -ForegroundColor Yellow
+
 if ($server_secondary) {
     Write-Host "Secondary Server: $dest_server_fqdn_secondary" -ForegroundColor Yellow
     Write-Host "Failover Group: $failover_group" -ForegroundColor Yellow
@@ -1054,21 +1070,21 @@ if ($databasesToProcess.Count -gt 0) {
 # ============================================================================
 
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
-    Write-Host ""
-    foreach ($dbInfo in $databasesToProcess) {
-        Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
-        if ($dbInfo.SavedTags) {
-                $tagList = @()
-            foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
-                    $tagList += "$($tag.Name)=$($tag.Value)"
-                }
-            Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
-        }
-    }
-    Write-Host ""
-    Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
-    Write-Host ""
+    # Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
+    # Write-Host ""
+    # foreach ($dbInfo in $databasesToProcess) {
+    #     Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
+    #     if ($dbInfo.SavedTags) {
+    #             $tagList = @()
+    #         foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
+    #                 $tagList += "$($tag.Name)=$($tag.Value)"
+    #             }
+    #         Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
+    #     }
+    # }
+    # Write-Host ""
+    # Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
+    # Write-Host ""
     
     # Check if there were any validation failures during dry run
     if ($script:DryRunHasFailures) {
@@ -1116,6 +1132,7 @@ foreach ($dbInfo in $databasesToProcess) {
         -DestSubscriptionId $dest_subscription `
         -DestElasticPool $dest_elasticpool `
         -AccessToken $AccessToken `
+        -ResourceUrl $resourceUrl `
         -SavedTags $dbInfo.SavedTags `
         -ServerSecondary $server_secondary `
         -DestServerSecondary $dest_server_secondary `

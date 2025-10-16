@@ -32,8 +32,9 @@ function Convert-ToUTCRestorePoint {
         Write-Host "✅ Using timezone: $Timezone ($($timezoneInfo.DisplayName))"
         
         # Parse the datetime as Unspecified (not tied to any timezone)
-        # This prevents PowerShell from interpreting it based on the system's local timezone
-        $restorePoint = [DateTime]::ParseExact($RestoreDateTime, 'yyyy-MM-dd HH:mm:ss', $null, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+        # This is CRITICAL: We parse as Unspecified, NOT as Universal
+        # The input string "2025-10-15 13:10:09" literally means "13:10:09 in the specified timezone"
+        $restorePoint = [DateTime]::ParseExact($RestoreDateTime, 'yyyy-MM-dd HH:mm:ss', $null, [System.Globalization.DateTimeStyles]::None)
         $restorePoint = [DateTime]::SpecifyKind($restorePoint, [DateTimeKind]::Unspecified)
         
         # If timezone is UTC, treat input as already UTC
@@ -44,8 +45,10 @@ function Convert-ToUTCRestorePoint {
             Write-Host "   🌍 In UTC: $($restorePointInTimezone.ToString('yyyy-MM-dd HH:mm:ss'))"
             Write-Host "   ⏰ UTC restore point: $($restorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
         } else {
-            # Convert from specified timezone to UTC
-            # The datetime is now truly Unspecified, treat it as being in the target timezone
+            # The input datetime is in the specified timezone
+            # We need to convert it to UTC
+            # Input: "2025-10-15 13:10:09" in "America/New_York" 
+            # Should become: "2025-10-15 17:10:09" in UTC (EDT is UTC-4 in October)
             $restorePointInTimezone = $restorePoint
             $restorePointUtc = [System.TimeZoneInfo]::ConvertTimeToUtc($restorePoint, $timezoneInfo)
             
@@ -832,8 +835,10 @@ Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)
 Write-Host ""
 
 if ($databasesToRestore.Count -eq 0) {
-    Write-Host "⚠️  No databases to restore"
-    exit 0
+    Write-Host "❌  No databases to restore"
+    $global:LASTEXITCODE = 1
+    throw "No databases to restore"
+
 }
 
 # ============================================================================

@@ -707,15 +707,9 @@ function Copy-SingleDatabase {
             if ($result.state_desc -eq "ONLINE") {
                 Write-Host "  ✅ Database is ONLINE (took ${elapsedMinutes} minutes)" -ForegroundColor Green
                 
-                # Restore tags
+                # Tags will be applied after all databases are copied (in TAG VERIFICATION phase)
                 if ($SavedTags) {
-                    Write-Host "  🏷️  Restoring tags..." -ForegroundColor Yellow
-                    Apply-DatabaseTags `
-                        -Server $DestServer `
-                        -ResourceGroup $DestResourceGroup `
-                        -SubscriptionId $DestSubscriptionId `
-                        -DatabaseName $DestinationDatabaseName `
-                        -Tags $SavedTags
+                    Write-Host "  📋 Tags will be applied after all copy operations complete" -ForegroundColor Gray
                 }
                 
                 return @{ 
@@ -1255,11 +1249,15 @@ Write-Host "══════════════════════�
 Write-Host ""
 
 # ============================================================================
-# TAG VERIFICATION
+# TAG VERIFICATION AND APPLICATION
+# ============================================================================
+# Tags are applied AFTER all database copies complete to ensure databases
+# have fully stabilized and are ready to accept tag updates reliably.
 # ============================================================================
 
-Write-Host "🔍 VERIFYING DATABASE TAGS" -ForegroundColor Cyan
-Write-Host "===========================" -ForegroundColor Cyan
+Write-Host "🔍 APPLYING AND VERIFYING DATABASE TAGS" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "ℹ️  Tags are applied after all copies complete for maximum reliability" -ForegroundColor Gray
 Write-Host ""
 
 # Determine required tags based on namespace

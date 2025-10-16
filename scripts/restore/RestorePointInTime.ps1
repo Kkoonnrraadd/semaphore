@@ -959,7 +959,10 @@ $restored_dbs = $databasesToRestore | ForEach-Object -ThrottleLimit $ThrottleLim
     $db = $_
     $db_name = "$($db.name)-restored"
     
-    Write-Host "🔄 Starting restore: $($db.name) → $db_name to $($restore_point_in_timezone.ToString('yyyy-MM-dd HH:mm:ss')) ($Timezone)"
+    # Output to both stdout and stderr to ensure visibility in Semaphore
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $message = "[$timestamp] 🔄 Starting restore: $($db.name) → $db_name to $($restore_point_in_timezone.ToString('yyyy-MM-dd HH:mm:ss')) ($Timezone)"
+    [Console]::WriteLine($message)
     
     # Start the restore
     az sql db restore `
@@ -1014,7 +1017,9 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
                 --output tsv 2>$null
             
             if ($az_result -eq "Online") {
-                Write-Host "✅ $db_name restored successfully (${elapsed_minutes} min)"
+                $timestamp = Get-Date -Format "HH:mm:ss"
+                $successMsg = "[$timestamp] ✅ $db_name restored successfully (${elapsed_minutes} min)"
+                [Console]::WriteLine($successMsg)
                 return @{ Database = $db_name; Status = "success"; Elapsed = $elapsed_minutes }
             }
         } catch {
@@ -1032,7 +1037,9 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
                 -ErrorAction SilentlyContinue
             
             if ($result -and $result.state_desc -eq "ONLINE") {
-                Write-Host "✅ $db_name restored successfully (${elapsed_minutes} min)"
+                $timestamp = Get-Date -Format "HH:mm:ss"
+                $successMsg = "[$timestamp] ✅ $db_name restored successfully (${elapsed_minutes} min)"
+                [Console]::WriteLine($successMsg)
                 return @{ Database = $db_name; Status = "success"; Elapsed = $elapsed_minutes }
             }
         } catch {
@@ -1041,7 +1048,9 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
         
         # Show progress every 2 minutes
         if ($i % 4 -eq 0) {
-            Write-Host "⏳ $db_name still restoring... (${elapsed_minutes} min elapsed)"
+            $timestamp = Get-Date -Format "HH:mm:ss"
+            $progressMsg = "[$timestamp] ⏳ $db_name still restoring... (${elapsed_minutes} min elapsed)"
+            [Console]::WriteLine($progressMsg)
         }
         
         Start-Sleep -Seconds 30
@@ -1050,7 +1059,9 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
     # If we reach here, we've exhausted all iterations without success
     $final_elapsed = (Get-Date) - $start_time
     $final_elapsed_minutes = [math]::Round($final_elapsed.TotalMinutes, 1)
-    Write-Host "❌ $db_name failed to restore within ${max_wait_minutes} minutes (${final_elapsed_minutes} min elapsed)"
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $errorMsg = "[$timestamp] ❌ $db_name failed to restore within ${max_wait_minutes} minutes (${final_elapsed_minutes} min elapsed)"
+    [Console]::WriteLine($errorMsg)
     return @{ Database = $db_name; Status = "failed"; Elapsed = $final_elapsed_minutes; Error = "Timeout" }
 }
 

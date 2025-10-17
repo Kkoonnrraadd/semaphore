@@ -189,6 +189,21 @@ if ($repositories -and $repositories.Count -gt 0) {
 $selfServiceScript = Join-Path $scriptDir "self_service.ps1"
 Write-Host "📂 Self-service script path: $selfServiceScript" -ForegroundColor Gray
 
+# Safety check: Verify the script exists
+if (-not (Test-Path $selfServiceScript)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: self_service.ps1 not found at expected path" -ForegroundColor Red
+    Write-Host "   Expected: $selfServiceScript" -ForegroundColor Yellow
+    Write-Host "   This usually means the repository was not properly cloned by Semaphore" -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    Write-Host "📋 Troubleshooting:" -ForegroundColor Cyan
+    Write-Host "   1. Check if Semaphore has cloned the repository" -ForegroundColor Gray
+    Write-Host "   2. Verify the git repository is accessible" -ForegroundColor Gray
+    Write-Host "   3. Check Semaphore task logs for clone errors" -ForegroundColor Gray
+    Write-Host "" -ForegroundColor Red
+    throw "self_service.ps1 not found - repository may not be properly initialized"
+}
+
 # Convert MaxWaitMinutes to integer
 $MaxWaitMinutesInt = 60  # Default value
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {

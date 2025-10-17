@@ -208,12 +208,8 @@ foreach ($key in $parsedParams.Keys) {
         continue
     }
     
-    # DEBUG: Check if this key is in the known switch params
-    $isSwitch = $knownSwitchParams -contains $key
-    Write-Host "  🔍 DEBUG: Checking '$key' - IsSwitch=$isSwitch" -ForegroundColor DarkGray
-    
     # Handle switch/boolean parameters
-    if ($isSwitch) {
+    if ($knownSwitchParams -contains $key) {
         $boolValue = Convert-ToBoolean -Value $value
         # Only add switch parameters when they're TRUE
         # PowerShell switches are either present (true) or absent (false)
@@ -341,14 +337,14 @@ Write-Host "🚀 EXECUTING TARGET SCRIPT" -ForegroundColor Green
 Write-Host "═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-# DEBUG: Show final parameter hashtable
-Write-Host "🔍 DEBUG: Final parameter hashtable contents:" -ForegroundColor Magenta
-foreach ($key in $scriptParams.Keys) {
-    $value = $scriptParams[$key]
-    $type = if ($null -ne $value) { $value.GetType().Name } else { "null" }
-    Write-Host "   $key = $value (Type: $type)" -ForegroundColor DarkGray
-}
-Write-Host ""
+# DEBUG: Show final parameter hashtable (uncomment for troubleshooting)
+# Write-Host "🔍 DEBUG: Final parameter hashtable contents:" -ForegroundColor Magenta
+# foreach ($key in $scriptParams.Keys) {
+#     $value = $scriptParams[$key]
+#     $type = if ($null -ne $value) { $value.GetType().Name } else { "null" }
+#     Write-Host "   $key = $value (Type: $type)" -ForegroundColor DarkGray
+# }
+# Write-Host ""
 
 try {
     # Execute with splatting

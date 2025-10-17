@@ -319,12 +319,8 @@ if ($DryRun) {
         $sourceUrl = ""
         $destUrl = ""
         
-        Write-Host "  🔍 DEBUG: UseSasTokens value = $UseSasTokens (Type: $($UseSasTokens.GetType().Name))" -ForegroundColor DarkGray
-        Write-Host "  🔍 DEBUG: Checking if UseSasTokens is true..." -ForegroundColor DarkGray
-        
         if ($UseSasTokens) {
             # Generate SAS tokens for source and destination
-            Write-Host "  ✅ DEBUG: UseSasTokens condition is TRUE - Generating SAS tokens..." -ForegroundColor Magenta
             Write-Host "  🔑 Generating SAS tokens for container..." -ForegroundColor Gray
             
             $sourceSas = New-ContainerSasToken `
@@ -353,7 +349,6 @@ if ($DryRun) {
         
         if (-not $UseSasTokens) {
             # Use Azure CLI authentication with token refresh
-            Write-Host "  ℹ️  DEBUG: UseSasTokens is FALSE - Using Azure CLI authentication" -ForegroundColor DarkGray
             Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
             $sourceUrl = "${source_blob_endpoint}${containerName}"
             $destUrl = "${dest_blob_endpoint}${containerName}"

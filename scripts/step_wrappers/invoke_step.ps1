@@ -190,8 +190,14 @@ foreach ($key in $parsedParams.Keys) {
     # Handle switch/boolean parameters
     if ($knownSwitchParams -contains $key) {
         $boolValue = Convert-ToBoolean -Value $value
-        $scriptParams[$key] = $boolValue
-        Write-Host "  ✓ $key = $boolValue (switch)" -ForegroundColor Yellow
+        # Only add switch parameters when they're TRUE
+        # PowerShell switches are either present (true) or absent (false)
+        if ($boolValue) {
+            $scriptParams[$key] = $true
+            Write-Host "  ✓ $key = TRUE (switch - will be passed)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  ✓ $key = FALSE (switch - will be omitted)" -ForegroundColor DarkGray
+        }
     }
     # Handle integer parameters
     elseif ($key -match "(Timeout|Wait|Max|Minutes|Seconds|Count|Limit)") {

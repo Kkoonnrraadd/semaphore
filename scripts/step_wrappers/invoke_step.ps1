@@ -195,8 +195,12 @@ foreach ($key in $parsedParams.Keys) {
         continue
     }
     
+    # DEBUG: Check if this key is in the known switch params
+    $isSwitch = $knownSwitchParams -contains $key
+    Write-Host "  🔍 DEBUG: Checking '$key' - IsSwitch=$isSwitch" -ForegroundColor DarkGray
+    
     # Handle switch/boolean parameters
-    if ($knownSwitchParams -contains $key) {
+    if ($isSwitch) {
         $boolValue = Convert-ToBoolean -Value $value
         # Only add switch parameters when they're TRUE
         # PowerShell switches are either present (true) or absent (false)

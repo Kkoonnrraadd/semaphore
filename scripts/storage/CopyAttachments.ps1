@@ -3,7 +3,8 @@
     [Parameter(Mandatory)][string]$destination,
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [Parameter(Mandatory)][string]$SourceNamespace,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$UseSasTokens  # Use SAS tokens for long-running operations (3TB+ containers)
 )
 
 # ============================================================================
@@ -49,6 +50,78 @@ function Refresh-AzCopyAuth {
     }
 }
 
+function New-ContainerSasToken {
+    param(
+        [string]$StorageAccount,
+        [string]$ResourceGroup,
+        [string]$SubscriptionId,
+        [string]$ContainerName,
+        [int]$ExpiryHours = 8  # Default 8 hours for very large copies
+    )
+    
+    try {
+        # Calculate expiry time
+        $expiryTime = (Get-Date).AddHours($ExpiryHours).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        
+        # Generate SAS token with read and list permissions for source
+        $sasToken = az storage container generate-sas `
+            --account-name $StorageAccount `
+            --name $ContainerName `
+            --subscription $SubscriptionId `
+            --permissions rl `
+            --expiry $expiryTime `
+            --auth-mode login `
+            --as-user `
+            -o tsv 2>$null
+        
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($sasToken)) {
+            return $sasToken
+        } else {
+            Write-Host "    ⚠️  Failed to generate SAS token for container: $ContainerName" -ForegroundColor Yellow
+            return $null
+        }
+    } catch {
+        Write-Host "    ⚠️  Error generating SAS token: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $null
+    }
+}
+
+function New-ContainerSasTokenWithWrite {
+    param(
+        [string]$StorageAccount,
+        [string]$ResourceGroup,
+        [string]$SubscriptionId,
+        [string]$ContainerName,
+        [int]$ExpiryHours = 8
+    )
+    
+    try {
+        # Calculate expiry time
+        $expiryTime = (Get-Date).AddHours($ExpiryHours).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        
+        # Generate SAS token with write, list, and create permissions for destination
+        $sasToken = az storage container generate-sas `
+            --account-name $StorageAccount `
+            --name $ContainerName `
+            --subscription $SubscriptionId `
+            --permissions wlc `
+            --expiry $expiryTime `
+            --auth-mode login `
+            --as-user `
+            -o tsv 2>$null
+        
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($sasToken)) {
+            return $sasToken
+        } else {
+            Write-Host "    ⚠️  Failed to generate write SAS token for container: $ContainerName" -ForegroundColor Yellow
+            return $null
+        }
+    } catch {
+        Write-Host "    ⚠️  Error generating write SAS token: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $null
+    }
+}
+
 # ============================================================================
 # MAIN SCRIPT
 # ============================================================================
@@ -57,10 +130,23 @@ if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Attachments" -ForegroundColor Yellow
     Write-Host "===================================" -ForegroundColor Yellow
     Write-Host "No actual copy operations will be performed" -ForegroundColor Yellow
+    if ($UseSasTokens) {
+        Write-Host "Authentication: SAS Tokens (8-hour expiry)" -ForegroundColor Yellow
+    } else {
+        Write-Host "Authentication: Azure CLI with refresh" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "`n=========================" -ForegroundColor Cyan
-    Write-Host " Copy Attachments" -ForegroundColor Cyan
-    Write-Host "===========================`n" -ForegroundColor Cyan
+    Write-Host "`n=====================================" -ForegroundColor Cyan
+    Write-Host "       Copy Attachments" -ForegroundColor Cyan
+    Write-Host "=====================================" -ForegroundColor Cyan
+    if ($UseSasTokens) {
+        Write-Host "🔐 Mode: SAS Token Authentication" -ForegroundColor Magenta
+        Write-Host "   (Recommended for 3TB+ containers)" -ForegroundColor Gray
+    } else {
+        Write-Host "🔐 Mode: Azure CLI Authentication" -ForegroundColor Magenta
+        Write-Host "   (With automatic token refresh)" -ForegroundColor Gray
+    }
+    Write-Host ""
 }
 
 $source_lower = (Get-Culture).TextInfo.ToLower($source)
@@ -195,6 +281,11 @@ if ($DryRun) {
     Write-Host "🚀 STARTING BLOB COPY PROCESS" -ForegroundColor Cyan
     Write-Host "==============================" -ForegroundColor Cyan
     Write-Host "Processing $($containers.Count) containers sequentially" -ForegroundColor White
+    
+    if ($UseSasTokens) {
+        Write-Host "🔐 Generating SAS tokens (valid for 8 hours)..." -ForegroundColor Magenta
+        Write-Host "   This ensures no token expiration during large copies" -ForegroundColor Gray
+    }
     Write-Host ""
     
     $copyResults = @()
@@ -207,21 +298,61 @@ if ($DryRun) {
         Write-Host "📦 Copying container: $containerName" -ForegroundColor Cyan
         Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
         
-        # Refresh authentication before each container copy
-        Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
+        $sourceUrl = ""
+        $destUrl = ""
         
-        $sourceUrl = "${source_blob_endpoint}${containerName}"
-        $destUrl = "${dest_blob_endpoint}${containerName}"
+        if ($UseSasTokens) {
+            # Generate SAS tokens for source and destination
+            Write-Host "  🔑 Generating SAS tokens for container..." -ForegroundColor Gray
+            
+            $sourceSas = New-ContainerSasToken `
+                -StorageAccount $source_account `
+                -ResourceGroup $source_rg `
+                -SubscriptionId $source_subscription `
+                -ContainerName $containerName `
+                -ExpiryHours 8
+            
+            $destSas = New-ContainerSasTokenWithWrite `
+                -StorageAccount $dest_account `
+                -ResourceGroup $dest_rg `
+                -SubscriptionId $dest_subscription `
+                -ContainerName $containerName `
+                -ExpiryHours 8
+            
+            if ($sourceSas -and $destSas) {
+                $sourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
+                $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
+                Write-Host "  ✅ SAS tokens generated successfully (valid for 8 hours)" -ForegroundColor Green
+            } else {
+                Write-Host "  ❌ Failed to generate SAS tokens, falling back to Azure CLI auth" -ForegroundColor Red
+                $UseSasTokens = $false  # Fallback for this container
+            }
+        }
+        
+        if (-not $UseSasTokens) {
+            # Use Azure CLI authentication with token refresh
+            Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
+            $sourceUrl = "${source_blob_endpoint}${containerName}"
+            $destUrl = "${dest_blob_endpoint}${containerName}"
+        }
 
-        Write-Host "  From: $sourceUrl" -ForegroundColor Gray
-        Write-Host "  To:   $destUrl" -ForegroundColor Gray
+        Write-Host "  From: ${source_blob_endpoint}${containerName}" -ForegroundColor Gray
+        Write-Host "  To:   ${dest_blob_endpoint}${containerName}" -ForegroundColor Gray
         Write-Host ""
 
         $copyStartTime = Get-Date
         
         # Start azcopy with progress info and error handling
         Write-Host "  🔄 Starting copy operation..." -ForegroundColor Yellow
-        azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+        
+        if ($UseSasTokens) {
+            # When using SAS tokens, don't use AZCLI auto-login
+            $env:AZCOPY_AUTO_LOGIN_TYPE = ""
+            azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+            $env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"  # Restore for potential fallback
+        } else {
+            azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+        }
         
         $copyElapsed = (Get-Date) - $copyStartTime
         $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
@@ -236,9 +367,15 @@ if ($DryRun) {
                 Duration = $copyMinutes
             }
             
-            # Warn about long copies
-            if ($copyMinutes -gt 40) {
+            # Warn about long copies when using Azure CLI auth
+            if (-not $UseSasTokens -and $copyMinutes -gt 40) {
                 Write-Host "  ⚠️  Long copy detected ($copyMinutes min) - authentication will be refreshed for next container" -ForegroundColor Yellow
+                Write-Host "  💡 Consider using -UseSasTokens for containers that take >60 minutes" -ForegroundColor Gray
+            }
+            
+            # Info for very long copies with SAS tokens
+            if ($UseSasTokens -and $copyMinutes -gt 60) {
+                Write-Host "  ℹ️  Long copy ($copyMinutes min) - SAS token still valid for up to 8 hours" -ForegroundColor Cyan
             }
         } else {
             Write-Host ""

@@ -6,6 +6,53 @@
     [switch]$DryRun
 )
 
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+function Get-StorageResourceUrl {
+    param([string]$BlobEndpoint)
+    
+    # Determine Azure cloud type based on blob endpoint
+    if ($BlobEndpoint -match "blob.core.windows.net") {
+        return "https://storage.azure.com/"
+    } elseif ($BlobEndpoint -match "blob.core.usgovcloudapi.net") {
+        return "https://storage.azure.us/"
+    } else {
+        Write-Host "  ⚠️  Unknown cloud type, defaulting to Azure Commercial" -ForegroundColor Yellow
+        return "https://storage.azure.com/"
+    }
+}
+
+function Refresh-AzCopyAuth {
+    param([string]$ResourceUrl)
+    
+    Write-Host "  🔑 Refreshing Azure authentication for storage..." -ForegroundColor Gray
+    
+    try {
+        # Clear existing azcopy auth cache to force refresh
+        azcopy logout 2>$null | Out-Null
+        
+        # Force az CLI to get fresh token for storage
+        $token = az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv 2>$null
+        
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+            Write-Host "  ⚠️  Warning: Token refresh failed, azcopy will use existing authentication" -ForegroundColor Yellow
+            return $false
+        } else {
+            Write-Host "  ✅ Authentication token refreshed successfully" -ForegroundColor Green
+            return $true
+        }
+    } catch {
+        Write-Host "  ⚠️  Warning: Authentication refresh encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+# ============================================================================
+# MAIN SCRIPT
+# ============================================================================
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Attachments" -ForegroundColor Yellow
     Write-Host "===================================" -ForegroundColor Yellow
@@ -140,18 +187,99 @@ if ($DryRun) {
     $source_blob_endpoint = az storage account show --name "$source_account" --subscription "$source_subscription" --query "primaryEndpoints.blob" -o tsv
     $dest_blob_endpoint = az storage account show --name "$dest_account" --subscription "$dest_subscription" --query "primaryEndpoints.blob" -o tsv 
 
-    Write-Host "`nStarting Blob copy..." -ForegroundColor Cyan
+    # Determine storage resource URL for token refresh
+    $storageResourceUrl = Get-StorageResourceUrl -BlobEndpoint $source_blob_endpoint
+    Write-Host "Detected Azure Cloud: $storageResourceUrl" -ForegroundColor Gray
+    Write-Host ""
+
+    Write-Host "🚀 STARTING BLOB COPY PROCESS" -ForegroundColor Cyan
+    Write-Host "==============================" -ForegroundColor Cyan
+    Write-Host "Processing $($containers.Count) containers sequentially" -ForegroundColor White
+    Write-Host ""
+    
+    $copyResults = @()
+    $successCount = 0
+    $failCount = 0
+    $totalStartTime = Get-Date
 
     foreach ($containerName in $containers) {
+        Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+        Write-Host "📦 Copying container: $containerName" -ForegroundColor Cyan
+        Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+        
+        # Refresh authentication before each container copy
+        Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
+        
         $sourceUrl = "${source_blob_endpoint}${containerName}"
         $destUrl = "${dest_blob_endpoint}${containerName}"
 
-        Write-Host "Copying container '$containerName'..." -ForegroundColor Green
-        Write-Host "From: $sourceUrl"
-        Write-Host "To:   $destUrl"
+        Write-Host "  From: $sourceUrl" -ForegroundColor Gray
+        Write-Host "  To:   $destUrl" -ForegroundColor Gray
+        Write-Host ""
 
+        $copyStartTime = Get-Date
+        
         # Start azcopy with progress info and error handling
-        azcopy copy $sourceUrl $destUrl --recursive --log-level DEBUG
+        Write-Host "  🔄 Starting copy operation..." -ForegroundColor Yellow
+        azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+        
+        $copyElapsed = (Get-Date) - $copyStartTime
+        $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ""
+            Write-Host "  ✅ Container '$containerName' copied successfully (took $copyMinutes min)" -ForegroundColor Green
+            $successCount++
+            $copyResults += @{
+                Container = $containerName
+                Status = "Success"
+                Duration = $copyMinutes
+            }
+            
+            # Warn about long copies
+            if ($copyMinutes -gt 40) {
+                Write-Host "  ⚠️  Long copy detected ($copyMinutes min) - authentication will be refreshed for next container" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host ""
+            Write-Host "  ❌ Container '$containerName' copy failed!" -ForegroundColor Red
+            Write-Host "  💡 Check azcopy logs for details" -ForegroundColor Yellow
+            $failCount++
+            $copyResults += @{
+                Container = $containerName
+                Status = "Failed"
+                Duration = $copyMinutes
+            }
+            
+            # Don't stop on failure, continue with other containers
+            Write-Host "  ⚠️  Continuing with remaining containers..." -ForegroundColor Yellow
+        }
+    }
+    
+    # Summary
+    $totalElapsed = (Get-Date) - $totalStartTime
+    $totalMinutes = [math]::Round($totalElapsed.TotalMinutes, 1)
+    
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "           BLOB COPY SUMMARY" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Total time: $totalMinutes minutes" -ForegroundColor White
+    Write-Host "✅ Successful: $successCount containers" -ForegroundColor Green
+    Write-Host "❌ Failed: $failCount containers" -ForegroundColor $(if ($failCount -gt 0) { "Red" } else { "Gray" })
+    Write-Host ""
+    
+    # Detailed results
+    foreach ($result in $copyResults) {
+        $icon = if ($result.Status -eq "Success") { "✅" } else { "❌" }
+        $color = if ($result.Status -eq "Success") { "Green" } else { "Red" }
+        Write-Host "  $icon $($result.Container) - $($result.Duration) min" -ForegroundColor $color
+    }
+    Write-Host ""
+    
+    if ($failCount -gt 0) {
+        Write-Host "⚠️  Some containers failed to copy. Please review the errors above." -ForegroundColor Yellow
     }
 
     # Close firewall rules (disable public network access)
@@ -178,5 +306,14 @@ if ($DryRun) {
     } else {
         Write-Host "Closing firewall rules failed" -ForegroundColor Red
     }
-    Write-Host "`nCopy attachments completed." -ForegroundColor Cyan
+    
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    if ($failCount -eq 0) {
+        Write-Host "🎉 All containers copied successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Copy completed with $failCount failure(s)" -ForegroundColor Yellow
+        $global:LASTEXITCODE = 1
+    }
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
 }

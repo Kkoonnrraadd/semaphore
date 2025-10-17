@@ -36,9 +36,6 @@
 .PARAMETER DryRun
     Enable dry run mode (preview only, no changes)
 
-.PARAMETER Force
-    Automatically delete existing -restored databases before restore (default: false)
-
 .PARAMETER MaxWaitMinutes
     Maximum minutes to wait for operations
 
@@ -81,8 +78,8 @@ function Parse-Arguments {
             $parameters[$paramName] = $paramValue
             Write-Host "🔧 Parsed parameter: $paramName = $paramValue" -ForegroundColor Yellow
         }
-        # Check if it's a boolean value (like "DryRun=true" or "Force=true")
-        elseif ($arg -match "^(DryRun|Force)=(true|false)$") {
+        # Check if it's a boolean value (like "DryRun=true")
+        elseif ($arg -match "^(DryRun)=(true|false)$") {
             $paramName = $matches[1]
             $paramValue = $matches[2] -eq "true"
             $parameters[$paramName] = $paramValue
@@ -122,13 +119,6 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
-$Force = if ($parsedParams.ContainsKey("Force")) { 
-    $forceValue = $parsedParams["Force"]
-    $forceBool = if ($forceValue -eq "true" -or $forceValue -eq $true) { $true } else { $false }
-    $forceBool
-} else { 
-    $false  # Default: false
-}
 $MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
@@ -144,7 +134,6 @@ Write-Host "  CustomerAlias: $CustomerAlias" -ForegroundColor Gray
 Write-Host "  CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
 Write-Host "  Cloud: $Cloud" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun" -ForegroundColor Gray
-Write-Host "  Force: $Force" -ForegroundColor Gray
 Write-Host "  MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Gray
 if ($production_confirm) {
     Write-Host "  production_confirm: $production_confirm" -ForegroundColor Gray
@@ -377,7 +366,6 @@ if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { $scriptParams['Customer
 if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove }
 if (-not [string]::IsNullOrWhiteSpace($Cloud)) { $scriptParams['Cloud'] = $Cloud }
 $scriptParams['DryRun'] = $DryRun
-$scriptParams['Force'] = $Force
 $scriptParams['MaxWaitMinutes'] = $MaxWaitMinutesInt
 
 # Call the main script with splatting - only passes parameters that have values

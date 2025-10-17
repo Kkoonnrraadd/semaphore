@@ -4,7 +4,6 @@
     [Parameter(Mandatory)][string]$RestoreDateTime,
     [Parameter(Mandatory)][string]$Timezone,
     [switch]$DryRun,
-    [switch]$Force,  # If set, automatically delete conflicting databases before restore
     [int]$MaxWaitMinutes = 60,
     [int]$ThrottleLimit = 10  # Number of databases to restore in parallel
 )
@@ -145,8 +144,7 @@ function Test-ExistingRestoredDatabases {
         [array]$DatabasesToRestore,
         [string]$SourceSubscription,
         [string]$SourceResourceGroup,
-        [string]$SourceServer,
-        [bool]$ForceDelete = $false
+        [string]$SourceServer
     )
     
     Write-Host "`n🔍 CHECKING FOR EXISTING RESTORED DATABASES"
@@ -208,143 +206,37 @@ function Test-ExistingRestoredDatabases {
         }
         Write-Host ""
         
-        # Handle Force mode - automatically delete previous restore attempts
-        if ($ForceDelete) {
-            Write-Host "🗑️  Force mode enabled: Deleting previous restore attempts..."
-            Write-Host "   ℹ️  Note: Only databases with '-restored' suffix will be deleted (safe)"
-            Write-Host ""
-            
-            $deleteSucceeded = @()
-            $deleteFailed = @()
-            
-            foreach ($conflict in $conflicts) {
-                # SAFETY CHECK: Verify -restored suffix before deletion
-                if (-not $conflict.EndsWith("-restored")) {
-                    Write-Host "  ⚠️  SAFETY SKIP: $conflict (does not end with -restored suffix)"
-                    $deleteFailed += $conflict
-                    continue
-                }
-                
-                Write-Host "  🗑️  Deleting: $conflict"
-                try {
-                    $deleteOutput = az sql db delete `
-                        --subscription $SourceSubscription `
-                        --resource-group $SourceResourceGroup `
-                        --server $SourceServer `
-                        --name $conflict `
-                        --yes `
-                        --no-wait 2>&1
-                    
-                    if ($LASTEXITCODE -eq 0) {
-                        Write-Host "    ✅ Deletion initiated successfully"
-                        $deleteSucceeded += $conflict
-                    } else {
-                        Write-Host "    ❌ Failed to delete: $deleteOutput"
-                        $deleteFailed += $conflict
-                    }
-                } catch {
-                    Write-Host "    ❌ Error: $($_.Exception.Message)"
-                    $deleteFailed += $conflict
-                }
-            }
-            
-            Write-Host ""
-            if ($deleteSucceeded.Count -gt 0) {
-                Write-Host "⏳ Waiting for database deletions to complete..."
-                Write-Host "   ℹ️  Verifying each database is fully deleted before proceeding"
-                Write-Host ""
-                
-                # Verify each database is actually deleted (not just deletion initiated)
-                $maxWaitSeconds = 120  # Maximum 2 minutes total wait
-                $checkIntervalSeconds = 10
-                $maxChecks = $maxWaitSeconds / $checkIntervalSeconds
-                $allDeleted = $false
-                
-                for ($checkNum = 1; $checkNum -le $maxChecks; $checkNum++) {
-                    Start-Sleep -Seconds $checkIntervalSeconds
-                    $elapsedSeconds = $checkNum * $checkIntervalSeconds
-                    
-                    # Check if all databases are actually gone
-                    $stillExist = @()
-                    foreach ($dbName in $deleteSucceeded) {
-                        try {
-                            $dbCheck = az sql db show `
-                                --subscription $SourceSubscription `
-                                --resource-group $SourceResourceGroup `
-                                --server $SourceServer `
-                                --name $dbName `
-                                --query "name" `
-                                --output tsv 2>&1
-                            
-                            if ($LASTEXITCODE -eq 0 -and $dbCheck -and $dbCheck -notmatch "ERROR" -and $dbCheck -notmatch "not found") {
-                                $stillExist += $dbName
-                            }
-                        } catch {
-                            # Database not found - good!
-                        }
-                    }
-                    
-                    if ($stillExist.Count -eq 0) {
-                        Write-Host "  ✅ All databases confirmed deleted (${elapsedSeconds}s)"
-                        $allDeleted = $true
-                        break
-                    } else {
-                        Write-Host "  ⏳ Still waiting for $($stillExist.Count) database(s) to be deleted... (${elapsedSeconds}s)"
-                    }
-                }
-                
-                if (-not $allDeleted) {
-                    Write-Host ""
-                    Write-Host "  ⚠️  WARNING: Some databases may not be fully deleted yet" -ForegroundColor Yellow
-                    Write-Host "     Adding additional 30 second buffer..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 30
-                }
-                
-                Write-Host "✅ Database deletion process completed"
-                Write-Host ""
-            }
-            
-            if ($deleteFailed.Count -gt 0) {
-                Write-Host "❌ Failed to delete $($deleteFailed.Count) database(s):"
-                Write-Host "───────────────────────────────────────────────────"
-                foreach ($failed in $deleteFailed) {
-                    Write-Host "  • $failed"
-                }
-                Write-Host ""
-                Write-Host "💡 These databases may be locked or require manual intervention"
-                Write-Host "   ⚠️  The restore process cannot continue with these conflicts"
-                return @{ HasConflicts = $true; Conflicts = $deleteFailed }
-            }
-            
-            Write-Host ""
-            return @{ HasConflicts = $false; Conflicts = @() }
-        } else {
-            # No Force mode - CANCEL THE RUN
-            Write-Host "❌ OPERATION CANCELED: Restored databases already exist"
-            Write-Host "═══════════════════════════════════════════════════"
-            Write-Host ""
-            Write-Host "⚠️  The following databases already exist and must be removed first:"
-            Write-Host ""
-            foreach ($conflict in $conflicts) {
-                Write-Host "  • $conflict"
-            }
-            Write-Host ""
-            Write-Host "📋 These are previous restore attempts (all have '-restored' suffix)."
-            Write-Host ""
-            Write-Host "💡 To automatically delete them and proceed, add the -Force flag:"
-            Write-Host ""
-            Write-Host "   -Force"
-            Write-Host ""
-            Write-Host "ℹ️  This is safe because:"
-            Write-Host "  • Only databases ending with '-restored' will be deleted"
-            Write-Host "  • These are previous restore operations, not production data"
-            Write-Host "  • The script validates the suffix before any deletion"
-            Write-Host ""
-            Write-Host "🛑 Canceling restore operation..."
-            Write-Host ""
-            
-            return @{ HasConflicts = $true; Conflicts = $conflicts }
+        # CANCEL THE RUN - databases must be manually cleaned up
+        Write-Host "❌ OPERATION CANCELED: Restored databases already exist"
+        Write-Host "═══════════════════════════════════════════════════"
+        Write-Host ""
+        Write-Host "⚠️  The following databases already exist and must be removed first:"
+        Write-Host ""
+        foreach ($conflict in $conflicts) {
+            Write-Host "  • $conflict"
         }
+        Write-Host ""
+        Write-Host "📋 These are previous restore attempts (all have '-restored' suffix)."
+        Write-Host ""
+        Write-Host "💡 Please manually delete these databases before retrying:"
+        Write-Host ""
+        Write-Host "   Option 1: Use Azure Portal to delete the databases"
+        Write-Host "   Option 2: Use Azure CLI:"
+        Write-Host ""
+        foreach ($conflict in $conflicts) {
+            Write-Host "   az sql db delete --subscription $SourceSubscription \"
+            Write-Host "     --resource-group $SourceResourceGroup \"
+            Write-Host "     --server $SourceServer \"
+            Write-Host "     --name $conflict --yes"
+            Write-Host ""
+        }
+        Write-Host "   Option 3: Run the cleanup script:"
+        Write-Host "   ./scripts/database/delete_restored_db.ps1 -source $source"
+        Write-Host ""
+        Write-Host "🛑 Canceling restore operation..."
+        Write-Host ""
+        
+        return @{ HasConflicts = $true; Conflicts = $conflicts }
     }
 }
 
@@ -876,18 +768,17 @@ $conflictCheck = Test-ExistingRestoredDatabases `
     -DatabasesToRestore $databasesToRestore `
     -SourceSubscription $source_subscription `
     -SourceResourceGroup $source_rg `
-    -SourceServer $source_server `
-    -ForceDelete $Force
+    -SourceServer $source_server
 
 if ($conflictCheck.HasConflicts) {
     if ($DryRun) {
         Write-Host "⚠️  DRY RUN WARNING: Conflicts detected with existing databases" -ForegroundColor Yellow
-        Write-Host "⚠️  In production, this would fail unless -Force is used" -ForegroundColor Yellow
+        Write-Host "⚠️  In production, this would fail - databases must be manually deleted" -ForegroundColor Yellow
         Write-Host "⚠️  Continuing dry run to show what would happen..." -ForegroundColor Yellow
         Write-Host ""
         # Track this failure for final dry run summary
         $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "Conflicts detected with existing databases (use -Force to override)"
+        $script:DryRunFailureReasons += "Conflicts detected with existing databases (must be manually deleted before restore)"
     } else {
         Write-Host "❌ Cannot proceed: Conflicts detected with existing databases"
         Write-Host "⚠️  Please resolve conflicts before running restore operation"

@@ -119,6 +119,19 @@ Write-Host "🔍 Detecting latest repository path..." -ForegroundColor Cyan
 # Check if we're in Semaphore environment
 if (Test-Path $baseDir) {
     try {
+        # First, update the entry point repository to ensure we have latest code
+        $entryRepo = Join-Path $baseDir "repository_1_template_1"
+        if (Test-Path $entryRepo) {
+            Write-Host "   🔄 Updating entry repository..." -ForegroundColor Gray
+            try {
+                git -C $entryRepo fetch origin 2>&1 | Out-Null
+                git -C $entryRepo reset --hard origin/main 2>&1 | Out-Null
+                Write-Host "   ✅ Entry repository updated" -ForegroundColor Green
+            } catch {
+                Write-Host "   ⚠️  Could not update entry repository (will use existing): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+        
         $repositories = Get-ChildItem -Path $baseDir -Directory -ErrorAction SilentlyContinue | 
             Where-Object { $_.Name -match '^repository_\d+_template_\d+$' } |
             Sort-Object LastWriteTime -Descending

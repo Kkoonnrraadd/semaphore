@@ -81,7 +81,15 @@ Write-Host ""
 
 # Parse all arguments
 Write-Host "📋 Raw arguments: $($args -join ' ')" -ForegroundColor Gray
+Write-Host "📋 Number of arguments: $($args.Count)" -ForegroundColor Gray
 $parsedParams = Parse-SemaphoreArguments -Arguments $args
+
+Write-Host "" 
+Write-Host "🔍 Parsed parameters (before processing):" -ForegroundColor Cyan
+foreach ($key in $parsedParams.Keys) {
+    Write-Host "   $key = $($parsedParams[$key])" -ForegroundColor Gray
+}
+Write-Host ""
 
 # Extract and validate ScriptPath (REQUIRED)
 if (-not $parsedParams.ContainsKey("ScriptPath")) {

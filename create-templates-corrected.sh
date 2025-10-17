@@ -395,13 +395,6 @@ create_main_templates() {
                 "required": true
             },
             {
-                "name": "Force",
-                "title": "Force Mode",
-                "description": "Enable force mode (auto-delete existing -restored databases). FIXED to true for this template.",
-                "default_value": "false",
-                "required": false
-            },
-            {
                 "name": "MaxWaitMinutes",
                 "title": "Max Wait Minutes (OPTIONAL)",
                 "description": "Maximum minutes to wait for operations. Default: 60",

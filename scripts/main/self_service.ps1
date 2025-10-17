@@ -60,6 +60,7 @@ param (
     [AllowEmptyString()][string]$CustomerAliasToRemove,
     [AllowEmptyString()][string]$Cloud,
     [switch]$DryRun=$true,
+    [switch]$UseSasTokens=$false,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
     [switch]$Force=$false,  # Automatically delete existing -restored databases before restore
     [int]$MaxWaitMinutes = 60,
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
@@ -427,14 +428,29 @@ function Invoke-Migration {
     
     # Step 3: Copy Attachments
     Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    
+    # Build parameter hashtable for CopyAttachments
+    $copyParams = @{
+        source = $Source
+        destination = $Destination
+        SourceNamespace = $SourceNamespace
+        DestinationNamespace = $DestinationNamespace
+    }
+    
+    # Add UseSasTokens if specified (for 3TB+ containers)
+    if ($UseSasTokens -eq $true) {
+        $copyParams['UseSasTokens'] = $true
+        Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
+    }
+    
+    # Add DryRun if enabled
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        $copyParams['DryRun'] = $true
     }
+    
+    $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
+    & $scriptPath @copyParams
     
     # Step 4: Copy Database
     Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan

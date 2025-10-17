@@ -613,13 +613,14 @@ create_task_templates() {
     # Task 3: Copy Attachments
     log_info "Creating Task 3: Copy Attachments..."
     create_template "Task 3: Copy Attachments" \
-        "Copy attachments from source to destination storage. Parameters: Source, Destination, SourceNamespace, DestinationNamespace (all OPTIONAL)" \
+        "Copy attachments from source to destination storage. Use SAS tokens for 3TB+ containers. Parameters: Source, Destination, SourceNamespace, DestinationNamespace (all OPTIONAL)" \
         "storage/CopyAttachments.ps1" \
         '[
             {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected","default_value":"","required":false},
             {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto: same as Source","default_value":"","required":false},
             {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},
             {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
+            {"name":"UseSasTokens","title":"Use SAS Tokens (OPTIONAL)","description":"Use SAS tokens for large 3TB+ containers (true/false)","default_value":"false","required":false},
             {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
         ]'
     

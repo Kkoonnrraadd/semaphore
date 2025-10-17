@@ -126,6 +126,24 @@ function New-ContainerSasTokenWithWrite {
 # MAIN SCRIPT
 # ============================================================================
 
+Write-Host ""
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
+Write-Host "🔍 PARAMETER DIAGNOSTICS" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
+Write-Host "  Source: $source" -ForegroundColor Gray
+Write-Host "  Destination: $destination" -ForegroundColor Gray
+Write-Host "  SourceNamespace: $SourceNamespace" -ForegroundColor Gray
+Write-Host "  DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
+Write-Host "  DryRun: $DryRun (Type: $($DryRun.GetType().Name))" -ForegroundColor Gray
+Write-Host "  UseSasTokens: $UseSasTokens (Type: $($UseSasTokens.GetType().Name))" -ForegroundColor $(if ($UseSasTokens) { "Magenta" } else { "Gray" })
+if ($UseSasTokens) {
+    Write-Host "  ⚠️  SAS Token mode is ENABLED" -ForegroundColor Magenta
+} else {
+    Write-Host "  ℹ️  SAS Token mode is DISABLED (default)" -ForegroundColor Gray
+}
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
+Write-Host ""
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Attachments" -ForegroundColor Yellow
     Write-Host "===================================" -ForegroundColor Yellow
@@ -301,8 +319,12 @@ if ($DryRun) {
         $sourceUrl = ""
         $destUrl = ""
         
+        Write-Host "  🔍 DEBUG: UseSasTokens value = $UseSasTokens (Type: $($UseSasTokens.GetType().Name))" -ForegroundColor DarkGray
+        Write-Host "  🔍 DEBUG: Checking if UseSasTokens is true..." -ForegroundColor DarkGray
+        
         if ($UseSasTokens) {
             # Generate SAS tokens for source and destination
+            Write-Host "  ✅ DEBUG: UseSasTokens condition is TRUE - Generating SAS tokens..." -ForegroundColor Magenta
             Write-Host "  🔑 Generating SAS tokens for container..." -ForegroundColor Gray
             
             $sourceSas = New-ContainerSasToken `
@@ -331,6 +353,7 @@ if ($DryRun) {
         
         if (-not $UseSasTokens) {
             # Use Azure CLI authentication with token refresh
+            Write-Host "  ℹ️  DEBUG: UseSasTokens is FALSE - Using Azure CLI authentication" -ForegroundColor DarkGray
             Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
             $sourceUrl = "${source_blob_endpoint}${containerName}"
             $destUrl = "${dest_blob_endpoint}${containerName}"

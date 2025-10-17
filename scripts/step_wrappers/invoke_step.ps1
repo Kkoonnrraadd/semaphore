@@ -172,7 +172,7 @@ Write-Host "🔄 Converting parameters to PowerShell format..." -ForegroundColor
 # List of known boolean/switch parameters (extend as needed)
 $knownSwitchParams = @(
     "DryRun", "Force", "AutoApprove", "StopOnFailure", 
-    "Revert", "WaitForCompletion", "SkipValidation"
+    "Revert", "WaitForCompletion", "SkipValidation", "UseSasTokens"
 )
 
 # Build splatting hashtable

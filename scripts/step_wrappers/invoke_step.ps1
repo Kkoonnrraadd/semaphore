@@ -266,13 +266,25 @@ try {
                          (-not [string]::IsNullOrWhiteSpace($detectedParams[$paramName]))
             
             if ($shouldAdd) {
-                $scriptParams[$paramName] = $detectedParams[$paramName]
-                Write-Host "   ✅ Added $paramName = $($detectedParams[$paramName])" -ForegroundColor Green
-                $mergedCount++
+                # Check if this is a known switch parameter - need to convert to boolean
+                if ($knownSwitchParams -contains $paramName) {
+                    $boolValue = Convert-ToBoolean -Value $detectedParams[$paramName]
+                    if ($boolValue) {
+                        $scriptParams[$paramName] = $true
+                        Write-Host "   ✅ Added $paramName = TRUE (switch)" -ForegroundColor Green
+                        $mergedCount++
+                    } else {
+                        Write-Host "   ⊘ Skipped $paramName = FALSE (switch - omitted)" -ForegroundColor DarkGray
+                    }
+                } else {
+                    $scriptParams[$paramName] = $detectedParams[$paramName]
+                    Write-Host "   ✅ Added $paramName = $($detectedParams[$paramName])" -ForegroundColor Green
+                    $mergedCount++
+                }
             } else {
                 if ($scriptParams.ContainsKey($paramName)) {
                     Write-Host "   ⊘ Skipped $paramName (user-provided value takes priority)" -ForegroundColor DarkGray
-                } elseif ($acceptedParams.Count -gt 0 -and $acceptedParams -notcontains $paramName) {
+                } elseif ($acceptedParams.Count -eq 0 -or $acceptedParams -notcontains $paramName) {
                     Write-Host "   ⊘ Skipped $paramName (target script doesn't accept it)" -ForegroundColor DarkGray
                 }
             }
@@ -302,6 +314,15 @@ Write-Host ""
 Write-Host "═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "🚀 EXECUTING TARGET SCRIPT" -ForegroundColor Green
 Write-Host "═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+
+# DEBUG: Show final parameter hashtable
+Write-Host "🔍 DEBUG: Final parameter hashtable contents:" -ForegroundColor Magenta
+foreach ($key in $scriptParams.Keys) {
+    $value = $scriptParams[$key]
+    $type = if ($null -ne $value) { $value.GetType().Name } else { "null" }
+    Write-Host "   $key = $value (Type: $type)" -ForegroundColor DarkGray
+}
 Write-Host ""
 
 try {

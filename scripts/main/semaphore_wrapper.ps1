@@ -120,6 +120,13 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     $true 
 }
 $MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
+$UseSasTokens = if ($parsedParams.ContainsKey("UseSasTokens")) { 
+    $useSasValue = $parsedParams["UseSasTokens"]
+    $useSasBool = if ($useSasValue -eq "true" -or $useSasValue -eq $true) { $true } else { $false }
+    $useSasBool
+} else { 
+    $false 
+}
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
 Write-Host "🔧 Semaphore Wrapper: Converting parameters for self_service.ps1" -ForegroundColor Cyan
@@ -134,6 +141,7 @@ Write-Host "  CustomerAlias: $CustomerAlias" -ForegroundColor Gray
 Write-Host "  CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
 Write-Host "  Cloud: $Cloud" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun" -ForegroundColor Gray
+Write-Host "  UseSasTokens: $UseSasTokens" -ForegroundColor Gray
 Write-Host "  MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Gray
 if ($production_confirm) {
     Write-Host "  production_confirm: $production_confirm" -ForegroundColor Gray
@@ -366,6 +374,7 @@ if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { $scriptParams['Customer
 if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove }
 if (-not [string]::IsNullOrWhiteSpace($Cloud)) { $scriptParams['Cloud'] = $Cloud }
 $scriptParams['DryRun'] = $DryRun
+$scriptParams['UseSasTokens'] = $UseSasTokens
 $scriptParams['MaxWaitMinutes'] = $MaxWaitMinutesInt
 
 # Call the main script with splatting - only passes parameters that have values

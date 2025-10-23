@@ -73,7 +73,7 @@ if (-not $dbs) {
 if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
 }else{
-    $global:LASTEXITCODE = 1
+    # $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty"
 }
 

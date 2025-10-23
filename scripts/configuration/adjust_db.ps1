@@ -80,7 +80,6 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix..." -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Domain: $domain" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Expected database pattern: -$DestinationNamespace-$dest_environment-$dest_location" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" -or $_.name -like "*$int_expectedName" }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
@@ -96,6 +95,12 @@ if ($DryRun) {
         Write-Host "  • https://$destinationAlias.manufacturo.$domain" -ForegroundColor Gray
         Write-Host "  • https://api.$destinationAlias.manufacturo.$domain" -ForegroundColor Gray
     }
+
+    Write-Host "🔍 DRY RUN: Would delete from Integrator Plus: " -ForegroundColor Gray
+    Write-Host "  • engine.parameter" -ForegroundColor Gray
+    Write-Host "  • api_keys.entity" -ForegroundColor Gray
+    Write-Host "  • api_keys.challengedlog" -ForegroundColor Gray
+    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
 
     exit 0
 }

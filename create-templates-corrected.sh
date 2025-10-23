@@ -22,9 +22,9 @@ REPOSITORY_URL="https://github.com/Kkoonnrraadd/semaphore.git"
 REPOSITORY_BRANCH="main"
 
 # Project and View names
-PROJECT_NAME="PROJEKT"
+PROJECT_NAME="SELF-SERVICE-DATA-REFRESH"
 VIEW_MAIN="REFRESH"
-VIEW_TASKS="TASKI"
+VIEW_TASKS="STEPS"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # COLORS FOR OUTPUT
@@ -368,15 +368,15 @@ create_main_templates() {
             },
             {
                 "name": "CustomerAlias",
-                "title": "Customer Alias (OPTIONAL)",
-                "description": "Customer identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "title": "Customer Alias (REQUIRED)",
+                "description": "Customer identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
                 "default_value": "",
-                "required": false
+                "required": true
             },
             {
                 "name": "CustomerAliasToRemove",
                 "title": "Customer Alias To Remove (OPTIONAL)",
-                "description": "Customer alias to remove during cleanup. Script auto-calculates from CustomerAlias if empty.",
+                "description": "Customer alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
                 "default_value": "",
                 "required": false
             },
@@ -399,6 +399,13 @@ create_main_templates() {
                 "title": "Max Wait Minutes (OPTIONAL)",
                 "description": "Maximum minutes to wait for operations. Default: 60",
                 "default_value": "",
+                "required": false
+            },
+            {
+                "name": "UseSasTokens",
+                "title": "Use SAS Tokens (OPTIONAL)",
+                "description": "Use SAS tokens for large 3TB+ containers (true/false). Default: false",
+                "default_value": "false",
                 "required": false
             }
         ],

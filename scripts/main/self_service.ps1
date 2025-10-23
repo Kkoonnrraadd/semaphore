@@ -93,6 +93,24 @@ $script:OriginalSourceNamespace = $SourceNamespace
 $script:OriginalDestinationNamespace = $DestinationNamespace
 $script:OriginalCloud = $Cloud
 $script:OriginalCustomerAlias = $CustomerAlias
+$script:OriginalCustomerAliasToRemove = $CustomerAliasToRemove
+
+
+if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS_TO_REMOVE)) {
+        $script:CustomerAliasToRemove = $env:INSTANCE_ALIAS_TO_REMOVE
+        Write-Host "📋 CustomerAliasToRemove: '$($script:CustomerAliasToRemove)' ← From INSTANCE_ALIAS_TO_REMOVE environment variable" -ForegroundColor Yellow
+    } else {
+        Write-Host "❌ FATAL ERROR: CustomerAliasToRemove is required" -ForegroundColor Red
+        Write-Host "   Please either:" -ForegroundColor Yellow
+        Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space')" -ForegroundColor Gray
+        Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
+    }
+} else {
+    $script:CustomerAliasToRemove = $script:OriginalCustomerAliasToRemove
+}
 
 # Apply CustomerAlias with fallback to INSTANCE_ALIAS environment variable
 if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
@@ -119,7 +137,7 @@ Write-Host "   SourceNamespace: $(if ([string]::IsNullOrWhiteSpace($SourceNamesp
 Write-Host "   DestinationNamespace: $(if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) { '<empty - will auto-detect>' } else { $DestinationNamespace + ' ✅' })" -ForegroundColor Gray
 Write-Host "   Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<empty - will auto-detect>' } else { $Cloud + ' ✅' })" -ForegroundColor Gray
 Write-Host "   CustomerAlias: $(if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) { $script:CustomerAlias + ' (from INSTANCE_ALIAS env var) ✅' } else { $script:CustomerAlias + ' ✅' })" -ForegroundColor Gray
-
+Write-Host "   CustomerAliasToRemove: $(if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) { $script:CustomerAliasToRemove + ' (from INSTANCE_ALIAS_TO_REMOVE env var) ✅' } else { $script:CustomerAliasToRemove + ' ✅' })" -ForegroundColor Gray
 Write-Host "✅ Basic parameter validation completed" -ForegroundColor Green
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -291,20 +309,20 @@ function Perform-Migration {
     $script:RestoreDateTime = if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $RestoreDateTime } else { $detectedParams.DefaultRestoreDateTime }
     $script:Timezone = if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $Timezone } else { $detectedParams.DefaultTimezone }
     
-    # Calculate CustomerAliasToRemove based on CustomerAlias pattern
-    if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
-        # Pattern: mil-space-test -> mil-space, mil-space-dev -> mil-space
-        if ($script:CustomerAlias -match "^(.+)-(test|dev)$") {
-            $script:CustomerAliasToRemove = $matches[1]
-            Write-Host "✅ Extracted customer alias to remove: $($script:CustomerAliasToRemove) (from $($script:CustomerAlias))" -ForegroundColor Green
-        } else {
-            # Fallback: Customer alias to remove is same as source
-            $script:CustomerAliasToRemove = $script:Source
-            Write-Host "✅ Using source as customer alias to remove: $($script:CustomerAliasToRemove)" -ForegroundColor Green
-        }
-    } else {
-        $script:CustomerAliasToRemove = $CustomerAliasToRemove
-    }
+    # # Calculate CustomerAliasToRemove based on CustomerAlias pattern
+    # if ([string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
+    #     # Pattern: mil-space-test -> mil-space, mil-space-dev -> mil-space
+    #     if ($script:CustomerAlias -match "^(.+)-(test|dev)$") {
+    #         $script:CustomerAliasToRemove = $matches[1]
+    #         Write-Host "✅ Extracted customer alias to remove: $($script:CustomerAliasToRemove) (from $($script:CustomerAlias))" -ForegroundColor Green
+    #     } else {
+    #         # Fallback: Customer alias to remove is same as source
+    #         $script:CustomerAliasToRemove = $script:Source
+    #         Write-Host "✅ Using source as customer alias to remove: $($script:CustomerAliasToRemove)" -ForegroundColor Green
+    #     }
+    # } else {
+    #     $script:CustomerAliasToRemove = $CustomerAliasToRemove
+    # }
     
     Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
     Write-Host "📋 Final parameters:" -ForegroundColor Cyan

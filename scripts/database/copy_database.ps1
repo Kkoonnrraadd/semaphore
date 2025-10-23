@@ -713,7 +713,7 @@ $dest_server_fqdn = $server[0].fqdn
 Write-Host "🔍 Searching for appropriate elastic pool..." -ForegroundColor Cyan
 
 # Step 1: Try to find elastic pool with "-test-" that does NOT contain "replica"
-$all_pools = az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[].name" -o tsv
+$all_pools = @(az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[].name" -o tsv)
 
 if ([string]::IsNullOrWhiteSpace($all_pools)) {
     $global:LASTEXITCODE = 1
@@ -1085,7 +1085,7 @@ if ($DryRun) {
         Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
         Write-Host ""
         $global:LASTEXITCODE = 1
-        throw "Database copy workflow failed: $failCount out of $($results.Count) databases failed"
+        exit 1
     } else {
         Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
         exit 0

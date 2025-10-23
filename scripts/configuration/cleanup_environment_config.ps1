@@ -70,10 +70,10 @@ if (-not $dbs) {
     throw "No databases found on server '$dest_server'"
 }
 
-if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
+if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
 }else{
-    # $global:LASTEXITCODE = 1
+    $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty"
 }
 

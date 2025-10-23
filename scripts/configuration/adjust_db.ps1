@@ -61,7 +61,7 @@ if (-not $dbs) {
     throw "No databases found on server '$dest_server'"
 }
 
-if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
+if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
     $int_expectedName = "integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
     $destinationAlias = "$destination-$DestinationNamespace"

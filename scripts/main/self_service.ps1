@@ -267,6 +267,17 @@ function Perform-Migration {
         Write-Host "   DestinationNamespace: '$($script:DestinationNamespace)' ← Default (org standard)" -ForegroundColor Yellow
     }
     
+    if ($script:DestinationNamespace -eq "manufacturo") {
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: Destination namespace cannot be 'manufacturo'" -ForegroundColor Red
+        Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
+        Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Red
+        Write-AutomationLog "❌ FATAL ERROR: Destination namespace 'manufacturo' is not allowed" "ERROR"
+        $global:LASTEXITCODE = 1
+        throw "Destination namespace 'manufacturo' is not allowed - this is a protected namespace"
+    }
+
     # Cloud
     if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
         $script:Cloud = $script:OriginalCloud
@@ -412,10 +423,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -source $Destination -sourceNamespace $DestinationNamespace -Cloud $Cloud 
+        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -Cloud $Cloud 
     }
     
     # Step 3: Copy Attachments

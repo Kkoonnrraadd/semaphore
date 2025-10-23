@@ -1,6 +1,6 @@
 ﻿param (
-    [string]$source,
-    [AllowEmptyString()][string]$sourceNamespace,
+    [string]$destination,
+    [AllowEmptyString()][string]$destinationNamespace,
     [string]$Cloud,
     [switch]$DryRun
 )
@@ -13,12 +13,12 @@ $script:DryRunHasFailures = $false
 $script:DryRunFailureReasons = @()
 
 # Setup Azure AKS credentials using discovered cluster information
-$source_lower = (Get-Culture).TextInfo.ToLower($source)
+$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
 
 $graph_query = "
   resources
   | where type =~ 'microsoft.containerservice/managedclusters'
-  | where tags.Environment == '$source_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId
 "
 $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
@@ -32,14 +32,14 @@ if (-not $recources -or $recources.Count -eq 0) {
     Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
     Write-Host "═══════════════════════════════════════════════"
     Write-Host ""
-    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$source'"
-    Write-Host "   └─ Query returned no results for tags.Environment='$source_lower' and tags.Type='Primary'"
+    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$destination'"
+    Write-Host "   └─ Query returned no results for tags.Environment='$destination_lower' and tags.Type='Primary'"
     Write-Host ""
     Write-Host "💡 SOLUTIONS:"
-    Write-Host "   1. Verify environment name is correct (provided: '$source')"
+    Write-Host "   1. Verify environment name is correct (provided: '$destination')"
     Write-Host "   2. Check if AKS cluster exists in Azure Portal"
     Write-Host "   3. Verify cluster has required tags:"
-    Write-Host "      • Environment = '$source_lower'"
+    Write-Host "      • Environment = '$destination_lower'"
     Write-Host "      • Type = 'Primary'"
     Write-Host ""
     
@@ -50,7 +50,7 @@ if (-not $recources -or $recources.Count -eq 0) {
         Write-Host ""
         # Track this failure for final dry run summary
         $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "No AKS cluster found for environment '$source'"
+        $script:DryRunFailureReasons += "No AKS cluster found for environment '$destination'"
         # Skip to end of script for dry run summary
         return
     } else {
@@ -61,18 +61,18 @@ if (-not $recources -or $recources.Count -eq 0) {
     }
 }
 
-$source_subscription = $recources[0].subscriptionId
-$source_aks = $recources[0].name
-$source_rg = $recources[0].resourceGroup
+$destination_subscription = $recources[0].subscriptionId
+$destination_aks = $recources[0].name
+$destination_rg = $recources[0].resourceGroup
 
 Write-Host "🔧 SETUP: Configuring Azure AKS credentials..."
-Write-Host "   Cluster: $source_aks" -ForegroundColor Gray
-Write-Host "   Resource Group: $source_rg" -ForegroundColor Gray
-Write-Host "   Subscription: $source_subscription" -ForegroundColor Gray
+Write-Host "   Cluster: $destination_aks" -ForegroundColor Gray
+Write-Host "   Resource Group: $destination_rg" -ForegroundColor Gray
+Write-Host "   Subscription: $destination_subscription" -ForegroundColor Gray
 
 try {
     # Build az aks get-credentials command with discovered parameters
-    $aks_cmd = "az aks get-credentials --resource-group $source_rg --name $source_aks --subscription $source_subscription --overwrite-existing"
+    $aks_cmd = "az aks get-credentials --resource-group $destination_rg --name $destination_aks --subscription $destination_subscription --overwrite-existing"
     
     Write-Host "   Executing: $aks_cmd" -ForegroundColor Gray
     Invoke-Expression $aks_cmd
@@ -84,10 +84,10 @@ try {
 
     # Verify the context was set successfully
     $current_context = kubectl config current-context 2>$null
-    if ($current_context -eq $source_aks) {
+    if ($current_context -eq $destination_aks) {
         Write-Host "✅ SUCCESS: Kubernetes context set to $current_context"
     } else {
-        Write-Host "⚠️  WARNING: Kubernetes context may not match (Expected: $source_aks, Got: $current_context)"
+        Write-Host "⚠️  WARNING: Kubernetes context may not match (Expected: $destination_aks, Got: $current_context)"
     }
 } catch {
     Write-Host ""
@@ -102,9 +102,9 @@ try {
     Write-Host "   1. Verify Azure CLI is authenticated (run 'az account show')"
     Write-Host "   2. Check if kubectl is installed and accessible"
     Write-Host "   3. Check if kubelogin is installed and accessible"
-    Write-Host "   4. Verify permissions on cluster: $source_aks"
+    Write-Host "   4. Verify permissions on cluster: $destination_aks"
     Write-Host "   5. Try running manually:"
-    Write-Host "      az aks get-credentials --resource-group $source_rg --name $source_aks"
+    Write-Host "      az aks get-credentials --resource-group $destination_rg --name $destination_aks"
     Write-Host ""
     
     if ($DryRun) {
@@ -114,7 +114,7 @@ try {
         Write-Host ""
         # Track this failure for final dry run summary
         $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "Failed to get AKS credentials for cluster '$source_aks'"
+        $script:DryRunFailureReasons += "Failed to get AKS credentials for cluster '$destination_aks'"
         # Skip to end of script for dry run summary
         return
     } else {
@@ -210,7 +210,7 @@ if ($DryRun) {
         
         # Retrieve tests once using classic method
         $webtests = az monitor app-insights web-test list `
-            --subscription $source_subscription `
+            --subscription $destination_subscription `
             --output json | ConvertFrom-Json
 
         if ($webtests.Count -eq 0) {
@@ -227,8 +227,8 @@ if ($DryRun) {
         
         # Use az resource list for government cloud compatibility
         $webtests = az resource list `
-            --subscription $source_subscription `
-            --resource-group $source_rg `
+            --subscription $destination_subscription `
+            --resource-group $destination_rg `
             --resource-type "Microsoft.Insights/webtests" `
             --output json `
             --only-show-errors | ConvertFrom-Json
@@ -253,7 +253,7 @@ if ($DryRun) {
         
         # Retrieve tests once using classic method
         $webtests = az monitor app-insights web-test list `
-            --subscription $source_subscription `
+            --subscription $destination_subscription `
             --output json | ConvertFrom-Json
 
         if ($webtests.Count -eq 0) {
@@ -265,9 +265,9 @@ if ($DryRun) {
         $webtests | ForEach-Object -Parallel {
             az monitor app-insights web-test update `
                 --name $_.name `
-                --resource-group $using:source_rg `
+                --resource-group $using:destination_rg `
                 --enabled false `
-                --subscription $using:source_subscription `
+                --subscription $using:destination_subscription `
                 --output none `
                 --only-show-errors | Out-Null
 
@@ -278,8 +278,8 @@ if ($DryRun) {
         
         # Use az resource list for government cloud compatibility
         $webtests = az resource list `
-            --subscription $source_subscription `
-            --resource-group $source_rg `
+            --subscription $destination_subscription `
+            --resource-group $destination_rg `
             --resource-type "Microsoft.Insights/webtests" `
             --output json `
             --only-show-errors | ConvertFrom-Json
@@ -313,10 +313,10 @@ if ($DryRun) {
 }
 
 
-if ($sourceNamespace -eq "manufacturo") {
-    $backend_health_alert = "${source_lower}_backend_health"
+if ($destinationNamespace -eq "manufacturo") {
+    $backend_health_alert = "${destination_lower}_backend_health"
 }else{
-    $backend_health_alert = "${source_lower}-${sourceNamespace}_backend_health"
+    $backend_health_alert = "${destination_lower}-${destinationNamespace}_backend_health"
 }
 
 
@@ -344,16 +344,16 @@ if ($DryRun) {
 } else {
     foreach ($hub in $hubs_alerts) {
 
-        $shared_source_subscription = $hub[0].subscriptionId
+        $shared_destination_subscription = $hub[0].subscriptionId
         $alert_name = $hub[0].name
-        $source_hub_rg = $hub[0].resourceGroup
+        $destination_hub_rg = $hub[0].resourceGroup
 
         if ($alert_name) {
             az monitor metrics alert update `
                 --enabled "false" `
                 --name $alert_name `
-                --resource-group $source_hub_rg `
-                --subscription $shared_source_subscription `
+                --resource-group $destination_hub_rg `
+                --subscription $shared_destination_subscription `
                 --output none `
                 --only-show-errors | Out-Null
             Write-Host "Disabled alert: $alert_name" -ForegroundColor Green
@@ -364,9 +364,9 @@ if ($DryRun) {
 } 
 
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would set cluster context to: $source_aks" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would set cluster context to: $destination_aks" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Would downscale blackbox monitoring in 'monitoring' namespace" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Would downscale deployments in '$sourceNamespace' namespace" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would downscale deployments in '$destinationNamespace' namespace" -ForegroundColor Gray
     Write-Host ""
     
     # Check if there were any validation failures during dry run
@@ -390,8 +390,8 @@ if ($DryRun) {
         exit 0
     }
 } else {
-    Set-ClusterContext -ClusterContext $source_aks
+    Set-ClusterContext -ClusterContext $destination_aks
     Downscale-BlackboxMonitoring -Namespace "monitoring"
-    Downscale-Deployments -Namespace $sourceNamespace
+    Downscale-Deployments -Namespace $destinationNamespace
 }
 

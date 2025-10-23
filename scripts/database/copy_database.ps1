@@ -708,12 +708,39 @@ $dest_subscription = $server[0].subscriptionId
 $dest_server = $server[0].name
 $dest_rg = $server[0].resourceGroup
 $dest_server_fqdn = $server[0].fqdn
-$dest_elasticpool = az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[0].name" -o tsv
+
+# Intelligent elastic pool selection logic
+Write-Host "🔍 Searching for appropriate elastic pool..." -ForegroundColor Cyan
+
+# Step 1: Try to find elastic pool with "-test-" that does NOT contain "replica"
+$all_pools = az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[].name" -o tsv
+
+if ([string]::IsNullOrWhiteSpace($all_pools)) {
+    $global:LASTEXITCODE = 1
+    throw "No elastic pools found on destination server: $dest_server"
+}
+
+$pools_array = $all_pools -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+Write-Host "  📋 Found $($pools_array.Count) elastic pool(s) on server" -ForegroundColor Gray
+
+# Try to find pool with "-test-" that doesn't contain "replica"
+$test_pool = $pools_array | Where-Object { 
+    $_ -match "-test-" -and $_ -notmatch "replica" 
+} | Select-Object -First 1
+
+if (-not [string]::IsNullOrWhiteSpace($test_pool)) {
+    $dest_elasticpool = $test_pool
+    Write-Host "  ✅ Selected test elastic pool: $dest_elasticpool" -ForegroundColor Green
+} else {
+    # Fallback: Use first available pool (original logic)
+    $dest_elasticpool = $pools_array[0]
+    Write-Host "  ⚠️  No test elastic pool found (with '-test-' and without 'replica')" -ForegroundColor Yellow
+    Write-Host "  ↪️  Falling back to first available pool: $dest_elasticpool" -ForegroundColor Yellow
+}
 
 if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
-    Write-Host "❌ No elastic pool found on destination server: $dest_server" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No elastic pool found on destination server: $dest_server"
+    throw "Failed to select an elastic pool on destination server: $dest_server"
 }
 
 # Query for secondary SQL server (for failover group support)
@@ -1058,7 +1085,7 @@ if ($DryRun) {
         Write-Host "🔧 Please resolve these issues before running in production mode" -ForegroundColor Yellow
         Write-Host ""
         $global:LASTEXITCODE = 1
-        exit 1
+        throw "Database copy workflow failed: $failCount out of $($results.Count) databases failed"
     } else {
         Write-Host "✅ DRY RUN COMPLETED SUCCESSFULLY - No issues detected" -ForegroundColor Green
         exit 0

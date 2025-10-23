@@ -70,11 +70,11 @@ if (-not $dbs) {
     throw "No databases found on server '$dest_server'"
 }
 
-if ($DestinationNamespace -eq "manufacturo") {
-    # Special handling for "manufacturo" - it doesn't include multitenant in the database name
-    $expectedName  = "core-$dest_environment-$dest_location"
-} else {
+if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
+}else{
+    $global:LASTEXITCODE = 1
+    throw "DestinationNamespace was empty"
 }
 
 if ($DryRun) {
@@ -107,10 +107,12 @@ if ($DryRun) {
 
 # Filter based on 'core' DB and customer prefix
 Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cyan
-foreach ($db in $dbs) {
+$matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
+
+foreach ($db in $matchingDbs) {
     $dbName = $db.name
 
-    if ($dbName -like "*$expectedName") {
+    if (($dbName -eq "db-mnfro-$expectedName") -or ($dbName -eq "db-mnfrotest-$expectedName")) {
         Write-Host "`nCleaning up DB: $dbName" -ForegroundColor Green
         try {
             Write-Host "Removing all CORS origins and redirect URIs containing '$FullEnvironmentToClean'"

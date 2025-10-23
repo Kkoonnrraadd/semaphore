@@ -152,13 +152,13 @@ function run_sql_query() {
     [Parameter(Mandatory = $true)][string] $Token
   )
   switch (az account show --query "environmentName" -o tsv) {
-    "AzureCloud" { $domain = "database.windows.net"; break }
-    "AzureUSGovernment" { $domain = "database.usgovcloudapi.net"; break }
+    "AzureCloud" { $sql_domain = "database.windows.net"; break }
+    "AzureUSGovernment" { $sql_domain = "database.usgovcloudapi.net"; break }
     Default { Write-Error "Cloud not found" }
   }
   :inner for ($retry_count = 3; $retry_count -gt 0; $retry_count--) {
     try {
-      Invoke-SqlCmd -ServerInstance "$Server.$domain" -Database "$Database" -AccessToken "$Token" -Query "$Query" -ErrorAction SilentlyContinue
+      Invoke-SqlCmd -ServerInstance "$Server.$sql_domain" -Database "$Database" -AccessToken "$Token" -Query "$Query" -ErrorAction SilentlyContinue
       break inner
     }
     catch {
@@ -351,11 +351,11 @@ $mi_access_map = @{
   'filehosting'         = @('filehosting')
 }
 switch (az account show --query "environmentName" -o tsv) {
-  "AzureCloud" { $domain = "database.windows.net"; break }
-  "AzureUSGovernment" { $domain = "database.usgovcloudapi.net"; break }
+  "AzureCloud" { $sql_domain = "database.windows.net"; break }
+  "AzureUSGovernment" { $sql_domain = "database.usgovcloudapi.net"; break }
   Default { Write-Error "Cloud not found" }
 }
-$token = az account get-access-token --resource "https://$domain" --query "accessToken" --output tsv
+$token = az account get-access-token --resource "https://$sql_domain" --query "accessToken" --output tsv
 $run_sql_query = ${function:run_sql_query}.ToString()
 $set_baseline = ${function:set_baseline}.ToString()
 # For dry run in revert mode, show summary before processing

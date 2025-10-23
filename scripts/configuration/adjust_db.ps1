@@ -61,13 +61,13 @@ if (-not $dbs) {
     throw "No databases found on server '$dest_server'"
 }
 
-if ($DestinationNamespace -eq "manufacturo") {
-    # Special handling for "manufacturo" - it doesn't include multitenant in the database name
-    $expectedName  = "core-$dest_environment-$dest_location"
-    $destinationAlias = "$destination"
-} else {
+if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
+    $int_expectedName = "integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
     $destinationAlias = "$destination-$DestinationNamespace"
+}else{
+    $global:LASTEXITCODE = 1
+    throw "DestinationNamespace was empty"
 }
 
 # Default empty CustomerAlias to destination if not provided
@@ -75,19 +75,14 @@ if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
     $CustomerAlias = $destinationAlias
     Write-Host "⚠️  CustomerAlias was empty, using destination '$CustomerAlias' as default" -ForegroundColor Yellow
 }
-if ($DestinationNamespace -eq "manufacturo") {
-    $int_expectedName = "integratorplus-$dest_environment-$dest_location"
-} else {
-    $int_expectedName = "integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
-}
     
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix..." -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Domain: $domain" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Expected database pattern: *$expectedName" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Expected database pattern: -$DestinationNamespace-$dest_environment-$dest_location" -ForegroundColor Gray
     
-    $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
+    $matchingDbs = $dbs | Where-Object { $_.name -like "*-$DestinationNamespace-$dest_environment-$dest_location" }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray
@@ -107,10 +102,12 @@ if ($DryRun) {
 
 # Filter based on 'core' DB and customer prefix
 Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cyan
-foreach ($db in $dbs) {
+$matchingDbs = $dbs | Where-Object { $_.name -like "*-$DestinationNamespace-$dest_environment-$dest_location" }
+
+foreach ($db in $matchingDbs) {
     $dbName = $db.name
 
-    if ($dbName -like "*$expectedName") {
+    if (($dbName -eq "db-mnfro-$expectedName") -or ($dbName -eq "db-mnfrotest-$expectedName")) {
         Write-Host "`nExecuting SQL on DB: $dbName" -ForegroundColor Green
         try {
 
@@ -249,7 +246,7 @@ foreach ($db in $dbs) {
         }
     }
 
-    if (($dbName -like "*$int_expectedName") -and (!$db.name.Contains("integratorplusext"))) {
+    if (($dbName -eq "db-mnfro-$int_expectedName") -or ($dbName -eq "db-mnfrotest-$int_expectedName") ) {
         Write-Host "`nExecuting SQL on DB: $dbName" -ForegroundColor Green
         try {
 

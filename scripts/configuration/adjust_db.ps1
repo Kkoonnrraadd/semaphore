@@ -82,7 +82,7 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Domain: $domain" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Expected database pattern: -$DestinationNamespace-$dest_environment-$dest_location" -ForegroundColor Gray
     
-    $matchingDbs = $dbs | Where-Object { $_.name -like "*-$DestinationNamespace-$dest_environment-$dest_location" }
+    $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" -or $_.name -like "*$int_expectedName" }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray
@@ -102,7 +102,7 @@ if ($DryRun) {
 
 # Filter based on 'core' DB and customer prefix
 Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cyan
-$matchingDbs = $dbs | Where-Object { $_.name -like "*-$DestinationNamespace-$dest_environment-$dest_location" }
+$matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" -or $_.name -like "*$int_expectedName" }
 
 foreach ($db in $matchingDbs) {
     $dbName = $db.name

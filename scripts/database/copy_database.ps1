@@ -713,14 +713,14 @@ $dest_server_fqdn = $server[0].fqdn
 Write-Host "🔍 Searching for appropriate elastic pool..." -ForegroundColor Cyan
 
 # Step 1: Try to find elastic pool with "-test-" that does NOT contain "replica"
-$all_pools = @(az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[].name" -o tsv)
+$all_pools = az sql elastic-pool list --subscription $dest_subscription --server $dest_server --resource-group $dest_rg --query "[].name" -o tsv
 
 if ([string]::IsNullOrWhiteSpace($all_pools)) {
     $global:LASTEXITCODE = 1
     throw "No elastic pools found on destination server: $dest_server"
 }
 
-$pools_array = $all_pools -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+$pools_array = @($all_pools -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 Write-Host "  📋 Found $($pools_array.Count) elastic pool(s) on server" -ForegroundColor Gray
 
 # Try to find pool with "-test-" that doesn't contain "replica"

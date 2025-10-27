@@ -43,7 +43,7 @@ function Upscale-BlackboxMonitoring {
     
     # Get list of all deployments in the namespace
     $deployments = Get-PodsInCluster -Namespace $Namespace
-    
+
     # Filter for blackbox monitoring deployments
     $blackboxDeployments = $deployments | Where-Object { 
         $_.metadata.name -like "*blackbox*"
@@ -71,6 +71,35 @@ function Downscale-Deployments {
 
     # Get list of all pods in the cluster
     $deployments = Get-PodsInCluster -Namespace $Namespace
+
+    # Filter for platform deployments
+    $platformDeployments = $deployments | Where-Object { 
+        $_.metadata.name -like "*platform*"
+    }
+    if ($platformDeployments.Count -eq 0) {
+        Write-Host "⚠️  WARNING: No platform monitoring deployments found in namespace: $Namespace"
+        return
+    }
+
+    # Filter for gateway deployments
+    $gatewayDeployments = $deployments | Where-Object { 
+        $_.metadata.name -like "*gateway*"
+    }
+    if ($gatewayDeployments.Count -eq 0) {
+        Write-Host "⚠️  WARNING: No gateway monitoring deployments found in namespace: $Namespace"
+        return
+    }
+
+    foreach ($deployment in $platformDeployments) {
+        $deploymentName = $deployment.metadata.name
+        Write-Host "✅ SUCCESS: Upscaled platform monitoring deployment: $deploymentName"
+        kubectl scale deployment/$deploymentName --replicas=1 -n $Namespace
+    }
+
+    $deployments = $deployments | Where-Object { 
+        $_.metadata.name -notlike "*platform*" -and $_.metadata.name -notlike "*gateway*"
+    }
+    # Scale up all other deployments to 1 replica
     foreach ($deployment in $deployments){
         $deployment = $deployment.metadata.name
         $count = 1
@@ -83,6 +112,15 @@ function Downscale-Deployments {
         Write-Host "✅ SCALING: Deployment $deployment to $count replicas"
         kubectl scale deployment/$deployment --replicas=$count -n $Namespace
     } 
+    
+    foreach ($deployment in $gatewayDeployments) {
+        $deploymentName = $deployment.metadata.name
+        Write-Host "✅ SUCCESS: Upscaled gateway monitoring deployment: $deploymentName"
+        kubectl scale deployment/$deploymentName --replicas=1 -n $Namespace
+    }
+    Write-Host "✅ SUCCESS: Gateway monitoring deployments upscaled. Gateway should be at the end to make sure the platform is up before the gateway."
+
+    Write-Host "✅ SUCCESS: All deployments upscaled. Check the environment to make sure it is running correctly."
 }
 
 function Set-ClusterContext {

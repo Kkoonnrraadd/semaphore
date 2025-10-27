@@ -84,45 +84,45 @@ Write-Host ""
 # STEP 0A: GRANT PERMISSIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    Write-Host ""
+    # Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    # Write-Host ""
     
-    if ($Parameters.ContainsKey("Source")) {
-        $targetEnv = $Parameters["Source"]
-    } else {
-        $targetEnv = ""
-    }
+    # if ($Parameters.ContainsKey("Source")) {
+    #     $targetEnv = $Parameters["Source"]
+    # } else {
+    #     $targetEnv = ""
+    # }
 
-    if ($targetEnv) {
-        Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
+    # if ($targetEnv) {
+    #     Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
         
-        try {
-            $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+    #     try {
+    #         $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
             
-            if (Test-Path $grantScript) {
-                $permResult = & $grantScript -Environment $targetEnv
-                $result.PermissionResult = $permResult
+    #         if (Test-Path $grantScript) {
+    #             $permResult = & $grantScript -Environment $targetEnv
+    #             $result.PermissionResult = $permResult
                 
-                if ($permResult.Success) {
-                    # Store propagation wait info for later (after authentication)
-                    $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
-                    $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
-                } else {
-                    Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
-                }
-            } else {
-                Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
-            }
-        } catch {
-            Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "   Continuing anyway..." -ForegroundColor Gray
-        }
-    } else {
-        Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
-        Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
-    }
+    #             if ($permResult.Success) {
+    #                 # Store propagation wait info for later (after authentication)
+    #                 $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+    #                 $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+    #             } else {
+    #                 Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
+    #             }
+    #         } else {
+    #             Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+    #         }
+    #     } catch {
+    #         Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
+    #         Write-Host "   Continuing anyway..." -ForegroundColor Gray
+    #     }
+    # } else {
+    #     Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
+    #     Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
+    # }
     
-    Write-Host ""
+    # Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 0B: AZURE AUTHENTICATION

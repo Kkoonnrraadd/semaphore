@@ -155,18 +155,6 @@ if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
     
 }
 
-
-# # Show what user provided (for debugging)
-# Write-Host "📋 User-provided parameters:" -ForegroundColor Cyan
-# Write-Host "   Source: $(if ([string]::IsNullOrWhiteSpace($Source)) { '<empty - will auto-detect>' } else { $Source + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   Destination: $(if ([string]::IsNullOrWhiteSpace($Destination)) { '<empty - will auto-detect>' } else { $Destination + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   SourceNamespace: $(if ([string]::IsNullOrWhiteSpace($SourceNamespace)) { '<empty - will auto-detect>' } else { $SourceNamespace + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   DestinationNamespace: $(if ([string]::IsNullOrWhiteSpace($DestinationNamespace)) { '<empty - will auto-detect>' } else { $DestinationNamespace + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<empty - will auto-detect>' } else { $Cloud + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   CustomerAlias: $(if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) { $script:CustomerAlias + ' (from INSTANCE_ALIAS env var) ✅' } else { $script:CustomerAlias + ' ✅' })" -ForegroundColor Gray
-# Write-Host "   CustomerAliasToRemove: $(if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) { $script:CustomerAliasToRemove + ' (from INSTANCE_ALIAS_TO_REMOVE env var) ✅' } else { $script:CustomerAliasToRemove + ' ✅' })" -ForegroundColor Gray
-# Write-Host "✅ Basic parameter validation completed" -ForegroundColor Green
-
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -279,7 +267,7 @@ function Perform-Migration {
         Write-Host "   Destination: '$($script:Destination)' ← USER PROVIDED ✅" -ForegroundColor Green
     } else {
         $script:Destination = $detectedParams.Destination
-        Write-Host "   Destination: '$($script:Destination)' ← Auto-detected (same as Source)" -ForegroundColor Yellow
+        Write-Host "   Destination: '$($script:Source)' ← Auto-detected (same as Source)" -ForegroundColor Yellow
     }
     
     # DestinationNamespace
@@ -350,36 +338,23 @@ function Perform-Migration {
             $Domain = 'us'
         }
         default {
-            $Domain = 'cloud'
+            $Domain = ''
         }
     }
 
-    Write-Host "🔍 Cloud: $script:Cloud" -ForegroundColor Gray
-    Write-Host "🔍 Source: $script:Source" -ForegroundColor Gray
-    Write-Host "🔍 Destination: $script:Destination" -ForegroundColor Gray
-    Write-Host "🔍 CustomerAlias: $script:CustomerAlias" -ForegroundColor Gray
-    Write-Host "🔍 CustomerAliasToRemove: $script:CustomerAliasToRemove" -ForegroundColor Gray
-    Write-Host "🔍 SourceNamespace: $script:SourceNamespace" -ForegroundColor Gray
-    Write-Host "🔍 DestinationNamespace: $script:DestinationNamespace" -ForegroundColor Gray
-    Write-Host "🔍 Domain: $Domain" -ForegroundColor Gray
-    Write-Host "🔍 RestoreDateTime: $script:RestoreDateTime" -ForegroundColor Gray
-    Write-Host "🔍 Timezone: $script:Timezone" -ForegroundColor Gray
-    Write-Host "🔍 MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Gray
-    Write-Host "🔍 DryRun: $DryRun" -ForegroundColor Gray
-
-    # Invoke-Migration `
-    #     -Cloud $script:Cloud `
-    #     -Source $script:Source `
-    #     -Destination $script:Destination `
-    #     -CustomerAlias $script:CustomerAlias `
-    #     -CustomerAliasToRemove $script:CustomerAliasToRemove `
-    #     -SourceNamespace $script:SourceNamespace `
-    #     -DestinationNamespace $script:DestinationNamespace `
-    #     -Domain $Domain `
-    #     -DryRun:($DryRun -eq $true) `
-    #     -MaxWaitMinutes $MaxWaitMinutes `
-    #     -RestoreDateTime $script:RestoreDateTime `
-    #     -Timezone $script:Timezone
+    Invoke-Migration `
+        -Cloud $script:Cloud `
+        -Source $script:Source `
+        -Destination $script:Destination `
+        -CustomerAlias $script:CustomerAlias `
+        -CustomerAliasToRemove $script:CustomerAliasToRemove `
+        -SourceNamespace $script:SourceNamespace `
+        -DestinationNamespace $script:DestinationNamespace `
+        -Domain $Domain `
+        -DryRun:($DryRun -eq $true) `
+        -MaxWaitMinutes $MaxWaitMinutes `
+        -RestoreDateTime $script:RestoreDateTime `
+        -Timezone $script:Timezone
 }
 
 function Invoke-Migration {
@@ -404,10 +379,13 @@ function Invoke-Migration {
     Write-Host "▶️ Source: $Source / $SourceNamespace" -ForegroundColor Gray
     Write-Host "▶️ Destination: $Destination / $DestinationNamespace" -ForegroundColor Gray
     Write-Host "☁️ Cloud: $Cloud" -ForegroundColor Gray
+    Write-Host "🌐 Domain: $Domain" -ForegroundColor Gray
     Write-Host "👤 Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "🗑️ Customer Alias to Remove: $CustomerAliasToRemove" -ForegroundColor Gray
     Write-Host "📅 Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
+    Write-Host "🕐 Timezone: $Timezone" -ForegroundColor Gray
     Write-Host "⏱️ Max Wait Time: $MaxWaitMinutes minutes" -ForegroundColor Gray
+    Write-Host "🔍 UseSasTokens: $UseSasTokens" -ForegroundColor Gray
     
     if ($DryRun) {
         Write-Host "🔍 DRY RUN MODE ENABLED - No actual changes will be made" -ForegroundColor Yellow

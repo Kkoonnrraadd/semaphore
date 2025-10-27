@@ -587,40 +587,40 @@ function Invoke-Migration {
         & $scriptPath -Source $Source 
     }
     
-    # Step 12: Remove Permissions
-    Write-Host "`n🔄 STEP 12: REMOVE PERMISSIONS" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
+    # # Step 12: Remove Permissions
+    # Write-Host "`n🔄 STEP 12: REMOVE PERMISSIONS" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
 
-        # Call the dedicated permission management script
-        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+    #     # Call the dedicated permission management script
+    #     $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+    #     $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
 
-        if (-not $permissionResult.Success) {
-            Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions" "ERROR"
-            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-            throw "Permission removal failed: $($permissionResult.Error)"
-        }
-        Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
+    #     if (-not $permissionResult.Success) {
+    #         Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions" "ERROR"
+    #         Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+    #         throw "Permission removal failed: $($permissionResult.Error)"
+    #     }
+    #     Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
 
-    } else {
-        Write-AutomationLog "🔐 Starting permission removal process..." "INFO"
+    # } else {
+    #     Write-AutomationLog "🔐 Starting permission removal process..." "INFO"
         
-        # Call the dedicated permission management script
-        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+    #     # Call the dedicated permission management script
+    #     $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+    #     $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
         
-        if (-not $permissionResult.Success) {
-            Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
-            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
-            Write-AutomationLog "💡 Permissions may need to be removed manually" "WARN"
-        } else {
-            Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
-        }
-    }
+    #     if (-not $permissionResult.Success) {
+    #         Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
+    #         Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
+    #         Write-AutomationLog "💡 Permissions may need to be removed manually" "WARN"
+    #     } else {
+    #         Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
+    #     }
+    # }
     
     # Final summary for dry run mode
     if ($DryRun) {

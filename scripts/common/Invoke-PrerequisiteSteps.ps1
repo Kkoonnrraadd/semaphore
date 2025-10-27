@@ -62,7 +62,7 @@ param(
     
     [string]$Cloud = "",
     
-    [switch]$SkipPermissions,
+    [switch]$SkipPermissions = $true,
     
     [switch]$SkipAuthentication,
     

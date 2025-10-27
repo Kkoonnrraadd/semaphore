@@ -1,5 +1,5 @@
 param (
-    [Parameter(Mandatory)] [string]$destination,
+    [Parameter(Mandatory)] [string]$Destination,
     [AllowEmptyString()][Parameter(Mandatory)][string]$CustomerAlias,
     [Parameter(Mandatory)] [string]$domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
@@ -17,26 +17,26 @@ if ($DryRun) {
 }
 
 Write-Host "Running with parameters:" -ForegroundColor Cyan
-Write-Host "  - destination: $destination" -ForegroundColor Gray
+Write-Host "  - Destination: $Destination" -ForegroundColor Gray
 Write-Host "  - CustomerAlias: $CustomerAlias" -ForegroundColor Gray
 Write-Host "  - domain: $domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host ""
 
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 Write-Host "Constructing Azure Resource Graph query..." -ForegroundColor Cyan
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$destination_lower'..." -ForegroundColor Cyan
+Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$Destination_lower'..." -ForegroundColor Cyan
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ FATAL ERROR: No primary SQL server found for environment '$destination_lower' using the graph query." -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: No primary SQL server found for environment '$Destination_lower' using the graph query." -ForegroundColor Red
     Write-Host "   Please check the 'Environment' and 'Type' tags on your SQL server resources." -ForegroundColor Yellow
     exit 1
 }
@@ -246,7 +246,7 @@ Write-Host "Found $($dbs.Count) database(s) on server '$dest_server'." -Foregrou
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "db-$dest_product-$dest_type-core-$DestinationNamespace-$dest_environment-$dest_location"
     $int_expectedName = "db-$dest_product-$dest_type-integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
-    $destinationAlias = "$destination-$DestinationNamespace"
+    $DestinationAlias = "$Destination-$DestinationNamespace"
     Write-Host "Constructed expected database name patterns:" -ForegroundColor Cyan
     Write-Host "  - Core DB: *$expectedName" -ForegroundColor Gray
     Write-Host "  - Integrator Plus DB: *$int_expectedName" -ForegroundColor Gray
@@ -255,10 +255,10 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     throw "DestinationNamespace was empty"
 }
 
-# Default empty CustomerAlias to destination if not provided
+# Default empty CustomerAlias to Destination if not provided
 if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
-    $CustomerAlias = $destinationAlias
-    Write-Host "⚠️  CustomerAlias was empty, using destination '$CustomerAlias' as default" -ForegroundColor Yellow
+    $CustomerAlias = $DestinationAlias
+    Write-Host "⚠️  CustomerAlias was empty, using Destination '$CustomerAlias' as default" -ForegroundColor Yellow
 }
     
 if ($DryRun) {
@@ -276,9 +276,9 @@ if ($DryRun) {
     Write-Host "  • https://api.$CustomerAlias.manufacturo.$domain" -ForegroundColor Gray
     Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
 
-    if ($destinationAlias -ne $CustomerAlias){
-        Write-Host "  • https://$destinationAlias.manufacturo.$domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$destinationAlias.manufacturo.$domain" -ForegroundColor Gray
+    if ($DestinationAlias -ne $CustomerAlias){
+        Write-Host "  • https://$DestinationAlias.manufacturo.$domain" -ForegroundColor Gray
+        Write-Host "  • https://api.$DestinationAlias.manufacturo.$domain" -ForegroundColor Gray
     }
 
     Write-Host "🔍 DRY RUN: Would delete from Integrator Plus: " -ForegroundColor Gray
@@ -309,9 +309,9 @@ foreach ($db in $matchingDbs) {
             # Add the primary customer alias
             Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $CustomerAlias -Domain $domain -AliasLabel "CustomerAlias"
             
-            # Add the destination alias if it's different from the customer alias
-            if ($destinationAlias -ne $CustomerAlias) {
-                Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $destinationAlias -Domain $domain -AliasLabel "DestinationAlias"
+            # Add the Destination alias if it's different from the customer alias
+            if ($DestinationAlias -ne $CustomerAlias) {
+                Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $domain -AliasLabel "DestinationAlias"
             }
 
             # Update organization.Site to clear license_customer_name

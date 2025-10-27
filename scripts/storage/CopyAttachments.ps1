@@ -1,6 +1,6 @@
 ﻿param (
-    [Parameter(Mandatory)][string]$source,
-    [Parameter(Mandatory)][string]$destination,
+    [Parameter(Mandatory)][string]$Source,
+    [Parameter(Mandatory)][string]$Destination,
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [Parameter(Mandatory)][string]$SourceNamespace,
     [switch]$DryRun,
@@ -130,8 +130,8 @@ Write-Host ""
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
 Write-Host "🔍 PARAMETER DIAGNOSTICS" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
-Write-Host "  Source: $source" -ForegroundColor Gray
-Write-Host "  Destination: $destination" -ForegroundColor Gray
+Write-Host "  Source: $Source" -ForegroundColor Gray
+Write-Host "  Destination: $Destination" -ForegroundColor Gray
 Write-Host "  SourceNamespace: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun (Type: $($DryRun.GetType().Name))" -ForegroundColor Gray
@@ -167,8 +167,8 @@ if ($DryRun) {
     Write-Host ""
 }
 
-$source_lower = (Get-Culture).TextInfo.ToLower($source)
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
+$Source_lower = (Get-Culture).TextInfo.ToLower($Source)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 # Detect source context
 if ($SourceNamespace -eq "manufacturo") {
@@ -176,7 +176,7 @@ if ($SourceNamespace -eq "manufacturo") {
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$source_lower' and tags.Type == 'Primary' and name contains 'samnfro'
+        | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'samnfro'
         | project name, resourceGroup, subscriptionId
     "
 } else {
@@ -184,7 +184,7 @@ if ($SourceNamespace -eq "manufacturo") {
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$source_lower' and tags.Type == 'Primary' and name contains 'sa$SourceNamespace'
+        | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'sa$SourceNamespace'
         | project name, resourceGroup, subscriptionId
     "
 }
@@ -193,23 +193,23 @@ $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 
 # Check if we got any results
 if (-not $src_sa -or $src_sa.Count -eq 0) {
-    Write-Host "❌ Error: No storage accounts found for source environment '$source' with multitenant '$SourceNamespace'" -ForegroundColor Red
+    Write-Host "❌ Error: No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
     $global:LASTEXITCODE = 1
-    throw "No storage accounts found for source environment '$source' with multitenant '$SourceNamespace'"
+    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'"
 }
 
-$source_subscription = $src_sa[0].subscriptionId
-$source_account = $src_sa[0].name
-$source_rg = $src_sa[0].resourceGroup
+$Source_subscription = $src_sa[0].subscriptionId
+$Source_account = $src_sa[0].name
+$Source_rg = $src_sa[0].resourceGroup
 
-# Detect destination context
+# Detect Destination context
 if ($DestinationNamespace -eq "manufacturo") {
     Write-Host "Detecting DESTINATION as Subscription..."
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$destination_lower' and tags.Type == 'Primary' and name contains 'samnfro'
+        | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary' and name contains 'samnfro'
         | project name, resourceGroup, subscriptionId
     "
 } else {
@@ -217,7 +217,7 @@ if ($DestinationNamespace -eq "manufacturo") {
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$destination_lower' and tags.Type == 'Primary' and name contains 'sa$DestinationNamespace'
+        | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary' and name contains 'sa$DestinationNamespace'
         | project name, resourceGroup, subscriptionId
     "
 }
@@ -226,10 +226,10 @@ $dst_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 
 # Check if we got any results
 if (-not $dst_sa -or $dst_sa.Count -eq 0) {
-    Write-Host "❌ Error: No storage accounts found for destination environment '$destination' with multitenant '$DestinationNamespace'" -ForegroundColor Red
+    Write-Host "❌ Error: No storage accounts found for Destination environment '$Destination' with multitenant '$DestinationNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
     $global:LASTEXITCODE = 1
-    throw "No storage accounts found for destination environment '$destination' with multitenant '$DestinationNamespace'"
+    throw "No storage accounts found for Destination environment '$Destination' with multitenant '$DestinationNamespace'"
 }
 
 $dest_subscription = $dst_sa[0].subscriptionId
@@ -248,7 +248,7 @@ $containers = @(
 # Use azcopy with azcli login
 $env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"
 
-Write-Host "Source Storage Account: $($source_account) (Resource Group: $($source_rg))" -ForegroundColor Green
+Write-Host "Source Storage Account: $($Source_account) (Resource Group: $($Source_rg))" -ForegroundColor Green
 Write-Host "Destination Storage Account: $($dest_account) (Resource Group: $($dest_rg))" -ForegroundColor Green
 
 if ($DryRun) {
@@ -274,13 +274,13 @@ if ($DryRun) {
     }
 
     az storage account update `
-        --resource-group $source_rg `
-        --name $source_account `
-        --subscription $source_subscription `
+        --resource-group $Source_rg `
+        --name $Source_account `
+        --subscription $Source_subscription `
         --default-action Allow -o none
 
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "Opening firewall rules for storage accounts... $source_account" -ForegroundColor Cyan
+        Write-Host "Opening firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
     } else {
         Write-Host "Opening firewall rules failed" -ForegroundColor Red
     }
@@ -288,11 +288,11 @@ if ($DryRun) {
     Write-Host "Waiting 30 seconds for firewall rules to take effect..." -ForegroundColor Yellow
     Start-Sleep -Seconds 30
 
-    $source_blob_endpoint = az storage account show --name "$source_account" --subscription "$source_subscription" --query "primaryEndpoints.blob" -o tsv
+    $Source_blob_endpoint = az storage account show --name "$Source_account" --subscription "$Source_subscription" --query "primaryEndpoints.blob" -o tsv
     $dest_blob_endpoint = az storage account show --name "$dest_account" --subscription "$dest_subscription" --query "primaryEndpoints.blob" -o tsv 
 
     # Determine storage resource URL for token refresh
-    $storageResourceUrl = Get-StorageResourceUrl -BlobEndpoint $source_blob_endpoint
+    $storageResourceUrl = Get-StorageResourceUrl -BlobEndpoint $Source_blob_endpoint
     Write-Host "Detected Azure Cloud: $storageResourceUrl" -ForegroundColor Gray
     Write-Host ""
 
@@ -316,17 +316,17 @@ if ($DryRun) {
         Write-Host "📦 Copying container: $containerName" -ForegroundColor Cyan
         Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
         
-        $sourceUrl = ""
+        $SourceUrl = ""
         $destUrl = ""
         
         if ($UseSasTokens) {
             # Generate SAS tokens for source and destination
             Write-Host "  🔑 Generating SAS tokens for container..." -ForegroundColor Gray
             
-            $sourceSas = New-ContainerSasToken `
-                -StorageAccount $source_account `
-                -ResourceGroup $source_rg `
-                -SubscriptionId $source_subscription `
+            $SourceSas = New-ContainerSasToken `
+                -StorageAccount $Source_account `
+                -ResourceGroup $Source_rg `
+                -SubscriptionId $Source_subscription `
                 -ContainerName $containerName `
                 -ExpiryHours 8
             
@@ -337,8 +337,8 @@ if ($DryRun) {
                 -ContainerName $containerName `
                 -ExpiryHours 8
             
-            if ($sourceSas -and $destSas) {
-                $sourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
+            if ($SourceSas -and $destSas) {
+                $SourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
                 $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
                 Write-Host "  ✅ SAS tokens generated successfully (valid for 8 hours)" -ForegroundColor Green
             } else {
@@ -350,7 +350,7 @@ if ($DryRun) {
         if (-not $UseSasTokens) {
             # Use Azure CLI authentication with token refresh
             Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
-            $sourceUrl = "${source_blob_endpoint}${containerName}"
+            $SourceUrl = "${source_blob_endpoint}${containerName}"
             $destUrl = "${dest_blob_endpoint}${containerName}"
         }
 
@@ -366,10 +366,10 @@ if ($DryRun) {
         if ($UseSasTokens) {
             # When using SAS tokens, don't use AZCLI auto-login
             $env:AZCOPY_AUTO_LOGIN_TYPE = ""
-            azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+            azcopy copy $SourceUrl $destUrl --recursive --log-level INFO
             $env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"  # Restore for potential fallback
         } else {
-            azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
+            azcopy copy $SourceUrl $destUrl --recursive --log-level INFO
         }
         
         $copyElapsed = (Get-Date) - $copyStartTime
@@ -451,13 +451,13 @@ if ($DryRun) {
     }
 
     az storage account update `
-        --resource-group $source_rg `
-        --name $source_account `
-        --subscription $source_subscription `
+        --resource-group $Source_rg `
+        --name $Source_account `
+        --subscription $Source_subscription `
         --default-action Deny -o none
 
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "Closing firewall rules for storage accounts... $source_account" -ForegroundColor Cyan
+        Write-Host "Closing firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
     } else {
         Write-Host "Closing firewall rules failed" -ForegroundColor Red
     }

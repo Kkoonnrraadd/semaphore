@@ -1,5 +1,5 @@
 ﻿param (
-    [Parameter(Mandatory)][string]$source,
+    [Parameter(Mandatory)][string]$Source,
     [AllowEmptyString()][string]$SourceNamespace,
     [Parameter(Mandatory)][string]$RestoreDateTime,
     [Parameter(Mandatory)][string]$Timezone,
@@ -231,7 +231,7 @@ function Test-ExistingRestoredDatabases {
             Write-Host ""
         }
         Write-Host "   Option 3: Run the cleanup script:"
-        Write-Host "   ./scripts/database/delete_restored_db.ps1 -source $source"
+        Write-Host "   ./scripts/database/delete_restored_db.ps1 -source $Source"
         Write-Host ""
         Write-Host "🛑 Canceling restore operation..."
         Write-Host ""
@@ -603,35 +603,35 @@ Write-Host "`n🔍 Finding source SQL server..."
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$source' and tags.Type == 'Primary'
+  | where tags.Environment == '$Source' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No SQL server found for environment: $source"
+    Write-Host "❌ No SQL server found for environment: $Source"
     $global:LASTEXITCODE = 1
-    throw "No SQL server found for environment: $source"
+    throw "No SQL server found for environment: $Source"
 }
 
-$source_subscription = $server[0].subscriptionId
-$source_server = $server[0].name
-$source_rg = $server[0].resourceGroup
-$source_fqdn = $server[0].fqdn
+$Source_subscription = $server[0].subscriptionId
+$Source_server = $server[0].name
+$Source_rg = $server[0].resourceGroup
+$Source_fqdn = $server[0].fqdn
 
 # Determine resource URL
-if ($source_fqdn -match "database.windows.net") {
+if ($Source_fqdn -match "database.windows.net") {
     $resourceUrl = "https://database.windows.net"
 } else {
     $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
 # Parse server name components
-$source_split = $source_server -split "-"
-$source_product = $source_split[1]
-$source_location = $source_split[-1]
-$source_type = $source_split[2]
-$source_environment = $source_split[3]
+$Source_split = $Source_server -split "-"
+$Source_product = $Source_split[1]
+$Source_location = $Source_split[-1]
+$Source_type = $Source_split[2]
+$Source_environment = $Source_split[3]
 
 # Get access token
 $AccessToken = (az account get-access-token --resource="$resourceUrl" --query accessToken --output tsv)
@@ -639,8 +639,8 @@ $AccessToken = (az account get-access-token --resource="$resourceUrl" --query ac
 # Display configuration
 Write-Host "📋 RESTORE CONFIGURATION"
 Write-Host "========================"
-Write-Host "🖥️  Source Server: $source_server"
-Write-Host "🌍 Source Environment: $source"
+Write-Host "🖥️  Source Server: $Source_server"
+Write-Host "🌍 Source Environment: $Source"
 Write-Host "📦 Source Namespace: $SourceNamespace"
 Write-Host "⏰ Restore Point: $($restore_point_in_timezone.ToString('yyyy-MM-dd HH:mm:ss')) ($Timezone)"
 Write-Host "   UTC Time: $($restore_point_utc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
@@ -652,15 +652,15 @@ Write-Host "🔍 Fetching databases from source server..."
 if ($SourceNamespace -eq "manufacturo") {
     # Special handling for "manufacturo" - get all databases (no ClientName filtering)
     $dbs = az sql db list `
-        --subscription $source_subscription `
-        --resource-group $source_rg `
-        --server $source_server `
+        --subscription $Source_subscription `
+        --resource-group $Source_rg `
+        --server $Source_server `
         --query "[?tags.ClientName == '']" | ConvertFrom-Json
 } else {
     $dbs = az sql db list `
-        --subscription $source_subscription `
-        --resource-group $source_rg `
-        --server $source_server `
+        --subscription $Source_subscription `
+        --resource-group $Source_rg `
+        --server $Source_server `
         --query "[?tags.ClientName == '$SourceNamespace']" | ConvertFrom-Json
 }
 
@@ -705,10 +705,10 @@ foreach ($db in $dbs) {
         -DatabaseName $db.name `
         -Service $service `
         -SourceNamespace $SourceNamespace `
-        -SourceProduct $source_product `
-        -SourceType $source_type `
-        -SourceEnvironment $source_environment `
-        -SourceLocation $source_location
+        -SourceProduct $Source_product `
+        -SourceType $Source_type `
+        -SourceEnvironment $Source_environment `
+        -SourceLocation $Source_location
     
     if ($matchesPattern) {
         Write-Host "    ✅ Will restore to: $($db.name)-restored"
@@ -742,9 +742,9 @@ $validationResult = Test-RestorePointValidity `
     -RestorePointUtc $restore_point_utc `
     -RestorePointInTimezone $restore_point_in_timezone `
     -Timezone $Timezone `
-    -SourceSubscription $source_subscription `
-    -SourceResourceGroup $source_rg `
-    -SourceServer $source_server
+    -SourceSubscription $Source_subscription `
+    -SourceResourceGroup $Source_rg `
+    -SourceServer $Source_server
 
 if (-not $validationResult.IsValid) {
     Write-Host "❌ Cannot proceed: Restore point validation failed"
@@ -766,9 +766,9 @@ if ($validationResult.NeedsAdjustment) {
 
 $conflictCheck = Test-ExistingRestoredDatabases `
     -DatabasesToRestore $databasesToRestore `
-    -SourceSubscription $source_subscription `
-    -SourceResourceGroup $source_rg `
-    -SourceServer $source_server
+    -SourceSubscription $Source_subscription `
+    -SourceResourceGroup $Source_rg `
+    -SourceServer $Source_server
 
 if ($conflictCheck.HasConflicts) {
     if ($DryRun) {
@@ -840,9 +840,9 @@ Write-Host ""
 # Start all restore operations in parallel
 Write-Host "🔄 Initiating restore operations..."
 $restored_dbs = $databasesToRestore | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
-    $source_subscription = $using:source_subscription
-    $source_rg = $using:source_rg
-    $source_server = $using:source_server
+    $Source_subscription = $using:source_subscription
+    $Source_rg = $using:source_rg
+    $Source_server = $using:source_server
     $restore_point_utc = $using:restore_point_utc
     $Timezone = $using:Timezone
     $restore_point_in_timezone = $using:restore_point_in_timezone
@@ -860,9 +860,9 @@ $restored_dbs = $databasesToRestore | ForEach-Object -ThrottleLimit $ThrottleLim
         --dest-name $db_name `
         --edition Standard `
         --name $db.name `
-        --resource-group $source_rg `
-        --server $source_server `
-        --subscription $source_subscription `
+        --resource-group $Source_rg `
+        --server $Source_server `
+        --subscription $Source_subscription `
         --service-objective S3 `
         --time $($restore_point_utc.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')) `
         --no-wait
@@ -877,10 +877,10 @@ Write-Host ""
 
 # Monitor all restore operations in parallel
 $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
-    $source_subscription = $using:source_subscription
-    $source_server = $using:source_server
-    $source_rg = $using:source_rg
-    $source_fqdn = $using:source_fqdn
+    $Source_subscription = $using:source_subscription
+    $Source_server = $using:source_server
+    $Source_rg = $using:source_rg
+    $Source_fqdn = $using:source_fqdn
     $AccessToken = $using:AccessToken
     $db_name = $_
     $start_time = Get-Date
@@ -901,9 +901,9 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
         try {
             $az_result = az sql db show `
                 --name $db_name `
-                --resource-group $source_rg `
-                --server $source_server `
-                --subscription $source_subscription `
+                --resource-group $Source_rg `
+                --server $Source_server `
+                --subscription $Source_subscription `
                 --query "status" `
                 --output tsv 2>$null
             
@@ -921,7 +921,7 @@ $results = $restored_dbs | ForEach-Object -ThrottleLimit $ThrottleLimit -Paralle
         try {
             $result = Invoke-Sqlcmd `
                 -AccessToken $AccessToken `
-                -ServerInstance $source_fqdn `
+                -ServerInstance $Source_fqdn `
                 -Query "SELECT state_desc FROM sys.databases WHERE name = '$db_name'" `
                 -ConnectionTimeout 15 `
                 -QueryTimeout 30 `

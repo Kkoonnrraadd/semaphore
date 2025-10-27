@@ -1,6 +1,6 @@
 param (
-    [Parameter(Mandatory)] [string]$destination,
-    [Parameter(Mandatory)] [string]$source,
+    [Parameter(Mandatory)] [string]$Destination,
+    [Parameter(Mandatory)] [string]$Source,
     [Parameter(Mandatory)] [string]$domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
     [AllowEmptyString()][string]$SourceNamespace,
@@ -19,30 +19,30 @@ if ($DryRun) {
 }
 
 Write-Host "Running with parameters:" -ForegroundColor Cyan
-Write-Host "  - destination: $destination" -ForegroundColor Gray
-Write-Host "  - EnvironmentToClean: $source" -ForegroundColor Gray
+Write-Host "  - Destination: $Destination" -ForegroundColor Gray
+Write-Host "  - EnvironmentToClean: $Source" -ForegroundColor Gray
 Write-Host "  - domain: $domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  - MultitenantToRemove: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  - CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
 Write-Host ""
 
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 Write-Host "Constructing Azure Resource Graph query..." -ForegroundColor Cyan
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$destination_lower'..." -ForegroundColor Cyan
+Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$Destination_lower'..." -ForegroundColor Cyan
 Write-Host "Query: $graph_query" -ForegroundColor Gray
 
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ FATAL ERROR: No primary SQL server found for environment '$destination_lower' using the graph query." -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: No primary SQL server found for environment '$Destination_lower' using the graph query." -ForegroundColor Red
     Write-Host "   Please check the 'Environment' and 'Type' tags on your SQL server resources." -ForegroundColor Yellow
     exit 1
 }
@@ -75,9 +75,9 @@ Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
 # Construct the full environment name to clean up
 $FullEnvironmentToClean = if ($SourceNamespace -eq "manufacturo") {
     # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
-    $source
+    $Source
 } else {
-    "$source-$SourceNamespace"
+    "$Source-$SourceNamespace"
 }
 
 Write-Host "Cleaning up configuration for environment: $FullEnvironmentToClean"

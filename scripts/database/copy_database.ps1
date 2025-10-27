@@ -1,6 +1,6 @@
 ﻿param (
-    [Parameter(Mandatory)] [string]$source,
-    [Parameter(Mandatory)] [string]$destination,
+    [Parameter(Mandatory)] [string]$Source,
+    [Parameter(Mandatory)] [string]$Destination,
     [Parameter(Mandatory)][string]$SourceNamespace, 
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [switch]$DryRun
@@ -92,10 +92,10 @@ function Get-ServiceFromDatabase {
     
     # For restored databases, get service from the corresponding source database
     if ($Database.name.Contains("restored")) {
-        $sourceDbName = $Database.name -replace "-restored$", ""
-        $sourceDb = $AllDatabases | Where-Object { $_.name -eq $sourceDbName }
-        if ($sourceDb) {
-            return $sourceDb.tags.Service
+        $SourceDbName = $Database.name -replace "-restored$", ""
+        $SourceDb = $AllDatabases | Where-Object { $_.name -eq $SourceDbName }
+        if ($SourceDb) {
+            return $SourceDb.tags.Service
         }
         return ""
     }
@@ -165,22 +165,22 @@ function Get-DestinationDatabaseName {
     )
     
     # Remove -restored suffix for pattern matching
-    $sourceDbNameClean = $SourceDatabaseName -replace "-restored$", ""
+    $SourceDbNameClean = $SourceDatabaseName -replace "-restored$", ""
     
     if ($SourceNamespace -eq "manufacturo") {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceEnvironment-$SourceLocation"
         
-        if (-not $sourceDbNameClean.Contains($expectedPattern)) {
+        if (-not $SourceDbNameClean.Contains($expectedPattern)) {
             return $null
         }
         
         if ($DestinationNamespace -eq "manufacturo") {
-            return $sourceDbNameClean `
+            return $SourceDbNameClean `
                 -replace [regex]::Escape($SourceEnvironment), $DestEnvironment `
                 -replace [regex]::Escape($SourceLocation), $DestLocation `
                 -replace [regex]::Escape($SourceType), $DestType
         } else {
-            return $sourceDbNameClean `
+            return $SourceDbNameClean `
                 -replace [regex]::Escape($SourceEnvironment), "$DestinationNamespace-$DestEnvironment" `
                 -replace [regex]::Escape($SourceLocation), $DestLocation `
                 -replace [regex]::Escape($SourceType), $DestType
@@ -188,17 +188,17 @@ function Get-DestinationDatabaseName {
     } else {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
         
-        if (-not $sourceDbNameClean.Contains($expectedPattern)) {
+        if (-not $SourceDbNameClean.Contains($expectedPattern)) {
             return $null
         }
         
         if ($DestinationNamespace -eq "manufacturo") {
-            return $sourceDbNameClean `
+            return $SourceDbNameClean `
                 -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), $DestEnvironment `
                 -replace [regex]::Escape($SourceLocation), $DestLocation `
                 -replace [regex]::Escape($SourceType), $DestType
         } else {
-            return $sourceDbNameClean `
+            return $SourceDbNameClean `
                 -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), "$DestinationNamespace-$DestEnvironment" `
                 -replace [regex]::Escape($SourceLocation), $DestLocation `
                 -replace [regex]::Escape($SourceType), $DestType
@@ -318,8 +318,8 @@ function Test-ElasticPoolCapacity {
     Write-Host "     Total Source Size: $([math]::Round($totalSourceSizeGB, 2)) GB" -ForegroundColor White
     Write-Host ""
     
-    # Calculate total size of destination databases (the ones we're REMOVING)
-    Write-Host "  📊 Calculating destination database sizes (to be removed)..." -ForegroundColor Gray
+    # Calculate total size of Destination databases (the ones we're REMOVING)
+    Write-Host "  📊 Calculating Destination database sizes (to be removed)..." -ForegroundColor Gray
     $totalDestSizeGB = 0
     
     foreach ($dbName in $DestinationDatabases) {
@@ -494,7 +494,7 @@ function Copy-SingleDatabase {
         Write-Host "  ⚠️  Warning during primary deletion: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
-    # Delete existing destination database (secondary first, then primary)
+    # Delete existing Destination database (secondary first, then primary)
     if ($ServerSecondary -and $DestServerSecondary) {
         Write-Host "  🗑️  Deleting existing database from secondary server: $DestinationDatabaseName" -ForegroundColor Yellow
         try {
@@ -659,49 +659,49 @@ if ($DryRun) {
     Write-Host "====================================`n" -ForegroundColor Cyan
 }
 
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
-$source_lower = (Get-Culture).TextInfo.ToLower($source)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
+$Source_lower = (Get-Culture).TextInfo.ToLower($Source)
 
 # Query for source SQL server
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$source_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$Source_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No source SQL server found for environment: $source_lower" -ForegroundColor Red
+    Write-Host "❌ No source SQL server found for environment: $Source_lower" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No source SQL server found for environment: $source_lower"
+    throw "No source SQL server found for environment: $Source_lower"
 }
 
-$source_subscription = $server[0].subscriptionId
-$source_server = $server[0].name
-$source_rg = $server[0].resourceGroup
-$source_fqdn = $server[0].fqdn
-$source_server_fqdn = $server[0].fqdn
+$Source_subscription = $server[0].subscriptionId
+$Source_server = $server[0].name
+$Source_rg = $server[0].resourceGroup
+$Source_fqdn = $server[0].fqdn
+$Source_server_fqdn = $server[0].fqdn
 
-if ($source_fqdn -match "database.windows.net") {
+if ($Source_fqdn -match "database.windows.net") {
   $resourceUrl = "https://database.windows.net"
 } else {
   $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
-# Query for destination SQL server
+# Query for Destination SQL server
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No destination SQL server found for environment: $destination_lower" -ForegroundColor Red
+    Write-Host "❌ No Destination SQL server found for environment: $Destination_lower" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No destination SQL server found for environment: $destination_lower"
+    throw "No Destination SQL server found for environment: $Destination_lower"
 }
 
 $dest_subscription = $server[0].subscriptionId
@@ -717,7 +717,7 @@ $all_pools = az sql elastic-pool list --subscription $dest_subscription --server
 
 if ([string]::IsNullOrWhiteSpace($all_pools)) {
     $global:LASTEXITCODE = 1
-    throw "No elastic pools found on destination server: $dest_server"
+    throw "No elastic pools found on Destination server: $dest_server"
 }
 
 $pools_array = @($all_pools -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -740,7 +740,7 @@ if (-not [string]::IsNullOrWhiteSpace($test_pool)) {
 
 if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
     $global:LASTEXITCODE = 1
-    throw "Failed to select an elastic pool on destination server: $dest_server"
+    throw "Failed to select an elastic pool on Destination server: $dest_server"
 }
 
 # Query for secondary SQL server (for failover group support)
@@ -749,7 +749,7 @@ Write-Host "🔍 Checking for failover group configuration..." -ForegroundColor 
 $graph_query_secondary = "
   resources
   | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$destination_lower' and tags.Type == 'Secondary'
+  | where tags.Environment == '$Destination_lower' and tags.Type == 'Secondary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
 
@@ -789,7 +789,7 @@ if ($server_secondary -and $server_secondary.Count -gt 0) {
 # Display summary
 Write-Host "📋 COPY SUMMARY" -ForegroundColor Cyan
 Write-Host "===============" -ForegroundColor Cyan
-Write-Host "Source: $source_server_fqdn" -ForegroundColor Yellow
+Write-Host "Source: $Source_server_fqdn" -ForegroundColor Yellow
 Write-Host "Destination: $dest_server_fqdn" -ForegroundColor Yellow
 Write-Host "Elastic Pool: $dest_elasticpool" -ForegroundColor Yellow
 Write-Host "Source Namespace: $SourceNamespace" -ForegroundColor Yellow
@@ -802,11 +802,11 @@ if ($server_secondary) {
 Write-Host ""
 
 # Parse server name components
-$source_split = $source_server -split "-"
-$source_product     = $source_split[1]
-$source_location    = $source_split[-1]
-$source_type        = $source_split[2]
-$source_environment = $source_split[3]
+$Source_split = $Source_server -split "-"
+$Source_product     = $Source_split[1]
+$Source_location    = $Source_split[-1]
+$Source_type        = $Source_split[2]
+$Source_environment = $Source_split[3]
 
 $dest_split = $dest_server -split "-"
 $dest_location    = $dest_split[-1]
@@ -816,7 +816,7 @@ $dest_environment = $dest_split[3]
 $AccessToken = (az account get-access-token --resource "$resourceUrl" --query accessToken -o tsv)
 
 # Get databases to copy
-$dbs = az sql db list --subscription $source_subscription --resource-group $source_rg --server $source_server | ConvertFrom-Json
+$dbs = az sql db list --subscription $Source_subscription --resource-group $Source_rg --server $Source_server | ConvertFrom-Json
 
 if (-not $dbs) {
     Write-Host "❌ No databases found on source server." -ForegroundColor Red
@@ -828,36 +828,36 @@ if (-not $dbs) {
 Write-Host "🔍 PRE-FLIGHT PERMISSION VALIDATION" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 
-$sameServer = ($source_server -eq $dest_server)
+$sameServer = ($Source_server -eq $dest_server)
 if ($sameServer) {
-    Write-Host "🔍 Same server detected: $source_server" -ForegroundColor Gray
+    Write-Host "🔍 Same server detected: $Source_server" -ForegroundColor Gray
     Write-Host "   • Same-server copy operation" -ForegroundColor Gray
 }
 
 if ($sameServer) {
     Write-Host "🔍 Testing server permissions..." -ForegroundColor Gray
-    $serverPermissionsOK = Test-DatabasePermissions -ServerFQDN $source_server_fqdn -AccessToken $AccessToken
+    $serverPermissionsOK = Test-DatabasePermissions -ServerFQDN $Source_server_fqdn -AccessToken $AccessToken
     if (-not $serverPermissionsOK) {
         Write-Host "❌ Server permission validation failed" -ForegroundColor Red
-        Write-Host "💡 Please ensure you have sufficient permissions on server: $source_server_fqdn" -ForegroundColor Yellow
+        Write-Host "💡 Please ensure you have sufficient permissions on server: $Source_server_fqdn" -ForegroundColor Yellow
         $global:LASTEXITCODE = 1
-        throw "Server permission validation failed for: $source_server_fqdn"
+        throw "Server permission validation failed for: $Source_server_fqdn"
     }
 } else {
     Write-Host "🔍 Testing source server permissions..." -ForegroundColor Gray
-    $sourcePermissionsOK = Test-DatabasePermissions -ServerFQDN $source_server_fqdn -AccessToken $AccessToken
-    if (-not $sourcePermissionsOK) {
+    $SourcePermissionsOK = Test-DatabasePermissions -ServerFQDN $Source_server_fqdn -AccessToken $AccessToken
+    if (-not $SourcePermissionsOK) {
         Write-Host "❌ Source server permission validation failed" -ForegroundColor Red
-        Write-Host "💡 Please ensure you have sufficient permissions on source server: $source_server_fqdn" -ForegroundColor Yellow
+        Write-Host "💡 Please ensure you have sufficient permissions on source server: $Source_server_fqdn" -ForegroundColor Yellow
         $global:LASTEXITCODE = 1
-        throw "Source server permission validation failed for: $source_server_fqdn"
+        throw "Source server permission validation failed for: $Source_server_fqdn"
     }
 
-    Write-Host "🔍 Testing destination server permissions..." -ForegroundColor Gray
+    Write-Host "🔍 Testing Destination server permissions..." -ForegroundColor Gray
     $destPermissionsOK = Test-DatabasePermissions -ServerFQDN $dest_server_fqdn -AccessToken $AccessToken
     if (-not $destPermissionsOK) {
         Write-Host "❌ Destination server permission validation failed" -ForegroundColor Red
-        Write-Host "💡 Please ensure you have sufficient permissions on destination server: $dest_server_fqdn" -ForegroundColor Yellow
+        Write-Host "💡 Please ensure you have sufficient permissions on Destination server: $dest_server_fqdn" -ForegroundColor Yellow
         $global:LASTEXITCODE = 1
         throw "Destination server permission validation failed for: $dest_server_fqdn"
     }
@@ -942,10 +942,10 @@ $databasesToProcess = @()
         -Service $service `
         -SourceNamespace $SourceNamespace `
         -DestinationNamespace $DestinationNamespace `
-        -SourceProduct $source_product `
-        -SourceType $source_type `
-        -SourceEnvironment $source_environment `
-        -SourceLocation $source_location `
+        -SourceProduct $Source_product `
+        -SourceType $Source_type `
+        -SourceEnvironment $Source_environment `
+        -SourceLocation $Source_location `
         -DestType $dest_type `
         -DestEnvironment $dest_environment `
         -DestLocation $dest_location
@@ -953,7 +953,7 @@ $databasesToProcess = @()
     if ($dest_dbName) {
         Write-Host "    ✅ Will copy to: $dest_dbName" -ForegroundColor Green
         
-        # Save existing tags from destination
+        # Save existing tags from Destination
         $savedTags = Save-DatabaseTags `
             -Server $dest_server `
             -ResourceGroup $dest_rg `
@@ -985,32 +985,32 @@ Write-Host ""
 if ($databasesToProcess.Count -gt 0) {
     Write-Host ""
     
-    # Prepare arrays of source and destination database names
-    $sourceDatabaseNames = @()
-    $destinationDatabaseNames = @()
+    # Prepare arrays of source and Destination database names
+    $SourceDatabaseNames = @()
+    $DestinationDatabaseNames = @()
     
     foreach ($dbInfo in $databasesToProcess) {
-        $sourceDatabaseNames += $dbInfo.SourceName
-        $destinationDatabaseNames += $dbInfo.DestinationName
+        $SourceDatabaseNames += $dbInfo.SourceName
+        $DestinationDatabaseNames += $dbInfo.DestinationName
     }
     
-    # Determine which server to check (source for same-server copy, destination for cross-server copy)
-    $sameServer = ($source_server -eq $dest_server)
+    # Determine which server to check (source for same-server copy, Destination for cross-server copy)
+    $sameServer = ($Source_server -eq $dest_server)
     if ($sameServer) {
-        # Same server copy - check source server (which is also the destination)
+        # Same server copy - check source server (which is also the Destination)
         $storageCheckPassed = Test-ElasticPoolCapacity `
-            -Server $source_server `
-            -ResourceGroup $source_rg `
-            -SubscriptionId $source_subscription `
+            -Server $Source_server `
+            -ResourceGroup $Source_rg `
+            -SubscriptionId $Source_subscription `
             -ElasticPoolName $dest_elasticpool `
-            -ServerFQDN $source_server_fqdn `
+            -ServerFQDN $Source_server_fqdn `
             -AccessToken $AccessToken `
-            -SourceDatabases $sourceDatabaseNames `
-            -DestinationDatabases $destinationDatabaseNames `
+            -SourceDatabases $SourceDatabaseNames `
+            -DestinationDatabases $DestinationDatabaseNames `
             -IsDryRun $DryRun
     }
     else {
-        # Cross-server copy - check destination server
+        # Cross-server copy - check Destination server
         $storageCheckPassed = Test-ElasticPoolCapacity `
             -Server $dest_server `
             -ResourceGroup $dest_rg `
@@ -1018,8 +1018,8 @@ if ($databasesToProcess.Count -gt 0) {
             -ElasticPoolName $dest_elasticpool `
             -ServerFQDN $dest_server_fqdn `
             -AccessToken $AccessToken `
-            -SourceDatabases $sourceDatabaseNames `
-            -DestinationDatabases $destinationDatabaseNames `
+            -SourceDatabases $SourceDatabaseNames `
+            -DestinationDatabases $DestinationDatabaseNames `
             -IsDryRun $DryRun
     }
     
@@ -1035,13 +1035,13 @@ if ($databasesToProcess.Count -gt 0) {
             Write-Host ""
             # Track this failure for final dry run summary
             $script:DryRunHasFailures = $true
-            $script:DryRunFailureReasons += "Insufficient storage capacity on destination elastic pool"
+            $script:DryRunFailureReasons += "Insufficient storage capacity on Destination elastic pool"
         }
         else {
             Write-Host "🛑 ABORTING: Cannot proceed due to insufficient storage capacity" -ForegroundColor Red
             Write-Host ""
             $global:LASTEXITCODE = 1
-            throw "Storage validation failed: Insufficient storage capacity on destination elastic pool"
+            throw "Storage validation failed: Insufficient storage capacity on Destination elastic pool"
         }
     }
     
@@ -1109,7 +1109,7 @@ foreach ($dbInfo in $databasesToProcess) {
     $result = Copy-SingleDatabase `
         -SourceDatabaseName $dbInfo.SourceName `
         -DestinationDatabaseName $dbInfo.DestinationName `
-        -SourceServer $source_server `
+        -SourceServer $Source_server `
         -DestServer $dest_server `
         -DestServerFQDN $dest_server_fqdn `
         -DestResourceGroup $dest_rg `

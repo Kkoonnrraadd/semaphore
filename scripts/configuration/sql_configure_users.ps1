@@ -81,7 +81,7 @@ param(
   [Parameter()][int] $ThrottleLimit = 10,
   [Parameter()][switch] $DryRun = $false,
   [Parameter()][switch] $Revert = $false,
-  [AllowEmptyString()][string] $EnvironmentToRevert = "",
+  [AllowEmptyString()][string] $Source = "",
   [AllowEmptyString()][string] $SourceNamespace = ""
 )
 
@@ -120,14 +120,14 @@ if ($Revert) {
     if ($DryRun) {
         Write-Host "`n🔍 DRY RUN - REVERT MODE - SQL Configure Users" -ForegroundColor Yellow
         Write-Host "===============================================" -ForegroundColor Yellow
-        Write-Host "Would remove SQL user configurations for environment: $EnvironmentToRevert" -ForegroundColor Yellow
+        Write-Host "Would remove SQL user configurations for environment: $Source" -ForegroundColor Yellow
         if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) {
             Write-Host "Multitenant: $SourceNamespace" -ForegroundColor Yellow
         }
         Write-Host "No actual SQL user removal will be performed" -ForegroundColor Yellow
     } else {
         Write-Host "`n🔄 REVERT MODE - SQL Configure Users" -ForegroundColor Cyan
-        Write-Host "Environment: $EnvironmentToRevert$(if ($SourceNamespace) {" | Multitenant: $SourceNamespace"})" -ForegroundColor Cyan
+        Write-Host "Environment: $Source$(if ($SourceNamespace) {" | Multitenant: $SourceNamespace"})" -ForegroundColor Cyan
     }
 } elseif ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - SQL Configure Users" -ForegroundColor Yellow
@@ -364,13 +364,13 @@ $set_baseline = ${function:set_baseline}.ToString()
 if ($DryRun -and $Revert) {
   Write-Host "`n🔍 DRY RUN SUMMARY - REVERT OPERATIONS" -ForegroundColor Yellow
   Write-Host "=======================================" -ForegroundColor Yellow
-  Write-Host "Environment to revert: $EnvironmentToRevert" -ForegroundColor Gray
+  Write-Host "Environment to revert: $Source" -ForegroundColor Gray
   Write-Host "Multitenant: $SourceNamespace" -ForegroundColor Gray
   Write-Host "Databases to process: $count" -ForegroundColor Gray
   Write-Host "`nOperations that would be performed:" -ForegroundColor Yellow
-  Write-Host "  • Remove AAD group users: $EnvironmentToRevert-DBContributors, $EnvironmentToRevert-DBReaders" -ForegroundColor Gray
+  Write-Host "  • Remove AAD group users: $Source-DBContributors, $Source-DBReaders" -ForegroundColor Gray
   Write-Host "  • Remove replica user: replicaReader" -ForegroundColor Gray
-  Write-Host "  • Remove all users containing '$($EnvironmentToRevert.ToLower())'" -ForegroundColor Gray
+  Write-Host "  • Remove all users containing '$($Source.ToLower())'" -ForegroundColor Gray
   Write-Host "  • Remove static replica users (where applicable)" -ForegroundColor Gray
   Write-Host "`nProcessing databases..." -ForegroundColor Yellow
 }
@@ -387,7 +387,7 @@ if ($DryRun -and $Revert) {
   $count = $using:count
   $mi_access_map = $using:mi_access_map
   $Revert = $using:Revert
-  $EnvironmentToRevert = $using:EnvironmentToRevert
+  $Source = $using:Source
   $SourceNamespace = $using:SourceNamespace
   $DryRun = $using:DryRun
   $sub = $dbs[$_].subscriptionId
@@ -419,9 +419,9 @@ if ($DryRun -and $Revert) {
     # Construct the full environment name to revert
     $FullEnvironmentToRevert = if ($SourceNamespace -eq "manufacturo") {
         # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
-        $EnvironmentToRevert
+        $Source
     } else {
-        "$EnvironmentToRevert-$SourceNamespace"
+        "$Source-$SourceNamespace"
     }
     
     # For revert mode, construct static replica user name based on the environment being reverted
@@ -502,7 +502,7 @@ if ($DryRun -and $Revert) {
     }
 
      # DYNAMIC: Get all users containing the environment name from database and remove them
-     $environmentPattern = $EnvironmentToRevert.ToLower()
+     $environmentPattern = $Source.ToLower()
      if (-not $DryRun) {
        
        # Get all users containing the environment name from database

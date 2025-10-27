@@ -441,10 +441,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+        & $scriptPath  $Destination Namespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -Cloud $Cloud 
+        & $scriptPath  $Destination Namespace $DestinationNamespace -Cloud $Cloud 
     }
     
     # Step 3: Copy Attachments
@@ -453,7 +453,7 @@ function Invoke-Migration {
     # Build parameter hashtable for CopyAttachments
     $copyParams = @{
         source = $Source
-        destination = $Destination
+        Destination = $Destination
         SourceNamespace = $SourceNamespace
         DestinationNamespace = $DestinationNamespace
     }
@@ -478,10 +478,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would copy database" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath -source $Source  $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-        & $scriptPath -source $Source -destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
+        & $scriptPath -source $Source  $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
     }
     
     # Step 5: Cleanup Environment Configuration
@@ -498,10 +498,10 @@ function Invoke-Migration {
             Write-Host "🔍 DRY RUN: No customer alias specified for removal" -ForegroundColor Gray
         }
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath  $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
+        & $scriptPath  $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
     }
     
     # Step 6: Revert SQL Users
@@ -511,10 +511,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -Revert -EnvironmentToRevert $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
+        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -Revert -source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -Revert -EnvironmentToRevert $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure
+        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -Revert -source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure
     }
     
     # Step 7: Adjust Resources
@@ -522,10 +522,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias  $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias -destination $Destination -DestinationNamespace $DestinationNamespace 
+        & $scriptPath -domain $Domain -CustomerAlias $CustomerAlias  $Destination -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 8: Delete Replicas
@@ -533,10 +533,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would delete and recreate replicas" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
-        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath  $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
-        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+        & $scriptPath  $Destination -source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 9: Configure Users
@@ -549,10 +549,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
+        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
     } else {
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
+        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
     }
     
     # Step 10: Start Environment
@@ -566,10 +566,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would enable backend health alerts" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would restore monitoring and alerting" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
-        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath  $Destination Namespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
-        & $scriptPath -destination $Destination -destinationNamespace $DestinationNamespace
+        & $scriptPath  $Destination Namespace $DestinationNamespace
     }
     
     # Step 11: Cleanup

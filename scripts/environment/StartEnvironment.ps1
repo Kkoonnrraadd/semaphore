@@ -1,6 +1,6 @@
 ﻿param (
-    [string]$destination,
-    [AllowEmptyString()][string]$destinationNamespace,
+    [string]$Destination,
+    [AllowEmptyString()][string]$DestinationNamespace,
     [string]$Cloud,
     [switch]$DryRun
 )
@@ -96,12 +96,12 @@ function Set-ClusterContext {
     Write-Host "Cluster context set to $ClusterContext"
 }
 
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 $graph_query = "
   resources
   | where type =~ 'microsoft.containerservice/managedclusters'
-  | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
+  | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId
 "
 $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
@@ -115,56 +115,56 @@ if (-not $recources -or $recources.Count -eq 0) {
     Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
     Write-Host "═══════════════════════════════════════════════"
     Write-Host ""
-    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$destination'"
-    Write-Host "   └─ Query returned no results for tags.Environment='$destination_lower' and tags.Type='Primary'"
+    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$Destination'"
+    Write-Host "   └─ Query returned no results for tags.Environment='$Destination_lower' and tags.Type='Primary'"
     Write-Host ""
     Write-Host "💡 SOLUTIONS:"
-    Write-Host "   1. Verify environment name is correct (provided: '$destination')"
+    Write-Host "   1. Verify environment name is correct (provided: '$Destination')"
     Write-Host "   2. Check if AKS cluster exists in Azure Portal"
     Write-Host "   3. Verify cluster has required tags:"
-    Write-Host "      • Environment = '$destination_lower'"
+    Write-Host "      • Environment = '$Destination_lower'"
     Write-Host "      • Type = 'Primary'"
     Write-Host ""
     
     if ($DryRun) {
-        Write-Host "⚠️  DRY RUN WARNING: No AKS cluster found for destination environment" -ForegroundColor Yellow
+        Write-Host "⚠️  DRY RUN WARNING: No AKS cluster found for Destination environment" -ForegroundColor Yellow
         Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
         Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
         Write-Host ""
         # Track this failure for final dry run summary
         $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "No AKS cluster found for destination environment '$destination'"
+        $script:DryRunFailureReasons += "No AKS cluster found for Destination environment '$Destination'"
         # Skip to end for dry run summary
         return
     } else {
         Write-Host "🛑 ABORTING: Cannot start environment without cluster information"
         Write-Host ""
         $global:LASTEXITCODE = 1
-        throw "No AKS cluster found for destination environment - cannot start environment without cluster information"
+        throw "No AKS cluster found for Destination environment - cannot start environment without cluster information"
     }
 }
 
-$destination_subscription = $recources[0].subscriptionId
-$destination_aks = $recources[0].name
-$destination_rg = $recources[0].resourceGroup
+$Destination_subscription = $recources[0].subscriptionId
+$Destination_aks = $recources[0].name
+$Destination_rg = $recources[0].resourceGroup
 
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN: DISCOVERING ENVIRONMENT STARTUP OPERATIONS"
     Write-Host "=================================================="
     
-    Write-Host "🔍 DRY RUN: Environment: $destination"
-    Write-Host "   └─ AKS Cluster: $destination_aks"
-    Write-Host "   └─ Resource Group: $destination_rg"
-    Write-Host "   └─ Subscription: $destination_subscription"
+    Write-Host "🔍 DRY RUN: Environment: $Destination"
+    Write-Host "   └─ AKS Cluster: $Destination_aks"
+    Write-Host "   └─ Resource Group: $Destination_rg"
+    Write-Host "   └─ Subscription: $Destination_subscription"
     
-    Write-Host "🔍 DRY RUN: Would set cluster context to: $destination_aks"
+    Write-Host "🔍 DRY RUN: Would set cluster context to: $Destination_aks"
     Write-Host "🔍 DRY RUN: Would upscale blackbox monitoring in 'monitoring' namespace"
-    Write-Host "🔍 DRY RUN: Would scale up deployments in '$destinationNamespace' namespace"
+    Write-Host "🔍 DRY RUN: Would scale up deployments in '$DestinationNamespace' namespace"
     
     # Discover what deployments would be scaled
     try {
         Write-Host "🔍 DRY RUN: Would scale these deployments to 1 replica:"
-        Write-Host "   • All deployments in namespace '$destinationNamespace'"
+        Write-Host "   • All deployments in namespace '$DestinationNamespace'"
         Write-Host "   • Special case: eworkin-plus-nonconformance-backend (3 replicas)"
         Write-Host "   • Special case: eworkin-plus-backend (3 replicas)"
     }
@@ -177,7 +177,7 @@ if ($DryRun) {
     Write-Host "`n🔍 DRY RUN: Would enable Application Insights web tests:"
     if ($Cloud -eq "AzureCloud") {
         $webtests = az monitor app-insights web-test list `
-            --subscription $destination_subscription `
+            --subscription $Destination_subscription `
             --only-show-errors `
             --output json | ConvertFrom-Json
         
@@ -191,8 +191,8 @@ if ($DryRun) {
         }
     } else {
         $webtests = az resource list `
-            --subscription $destination_subscription `
-            --resource-group $destination_rg `
+            --subscription $Destination_subscription `
+            --resource-group $Destination_rg `
             --resource-type "Microsoft.Insights/webtests" `
             --output json `
             --only-show-errors | ConvertFrom-Json
@@ -209,10 +209,10 @@ if ($DryRun) {
     
     # Discover alerts that would be enabled
     Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:"
-    if ($destinationNamespace -eq "manufacturo") {
-        $backend_health_alert = "${destination_lower}_backend_health"
+    if ($DestinationNamespace -eq "manufacturo") {
+        $backend_health_alert = "${Destination_lower}_backend_health"
     } else {
-        $backend_health_alert = "${destination_lower}-${destinationNamespace}_backend_health"
+        $backend_health_alert = "${Destination_lower}-${DestinationNamespace}_backend_health"
     }
     
     $graph_query = "
@@ -240,9 +240,9 @@ if ($DryRun) {
 
 
 
-Set-ClusterContext -ClusterContext $destination_aks
+Set-ClusterContext -ClusterContext $Destination_aks
 Upscale-BlackboxMonitoring -Namespace "monitoring"
-Downscale-Deployments -Namespace $destinationNamespace
+Downscale-Deployments -Namespace $DestinationNamespace
 
 
 Write-Host "`nEnabling Application Insights web tests..."
@@ -254,7 +254,7 @@ if ($Cloud -eq "AzureCloud") {
     
     # Fetch all web tests once using classic method
     $webtests = az monitor app-insights web-test list `
-        --subscription $destination_subscription `
+        --subscription $Destination_subscription `
         --only-show-errors `
         --output json | ConvertFrom-Json
 
@@ -267,9 +267,9 @@ if ($Cloud -eq "AzureCloud") {
     $webtests | ForEach-Object -Parallel {
         az monitor app-insights web-test update `
             --name $_.name `
-            --resource-group $using:destination_rg `
+            --resource-group $using:Destination_rg `
             --enabled true `
-            --subscription $using:destination_subscription `
+            --subscription $using:Destination_subscription `
             --output none `
             --only-show-errors | Out-Null
 
@@ -281,8 +281,8 @@ else {
     
     # Use az resource list for government cloud compatibility
     $webtests = az resource list `
-        --subscription $destination_subscription `
-        --resource-group $destination_rg `
+        --subscription $Destination_subscription `
+        --resource-group $Destination_rg `
         --resource-type "Microsoft.Insights/webtests" `
         --output json `
         --only-show-errors | ConvertFrom-Json
@@ -315,10 +315,10 @@ else {
 }
 
 
-if ($destinationNamespace -eq "manufacturo") {
-    $backend_health_alert = "${destination_lower}_backend_health"
+if ($DestinationNamespace -eq "manufacturo") {
+    $backend_health_alert = "${Destination_lower}_backend_health"
 }else{
-    $backend_health_alert = "${destination_lower}-${destinationNamespace}_backend_health"
+    $backend_health_alert = "${Destination_lower}-${DestinationNamespace}_backend_health"
 }
 
 $graph_query = "
@@ -335,13 +335,13 @@ foreach ($hub in $hubs_alerts) {
 
     $shared_source_subscription = $hub[0].subscriptionId
     $alert_name = $hub[0].name
-    $destination_hub_rg = $hub[0].resourceGroup
+    $Destination_hub_rg = $hub[0].resourceGroup
 
     if ($alert_name) {
         az monitor metrics alert update `
             --enabled "true" `
             --name $alert_name `
-            --resource-group $destination_hub_rg `
+            --resource-group $Destination_hub_rg `
             --subscription $shared_source_subscription `
             --only-show-errors
         Write-Host "✅ ENABLED: Alert $alert_name"

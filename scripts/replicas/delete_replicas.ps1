@@ -1,6 +1,6 @@
 param (
-    [Parameter(Mandatory)] [string]$source,
-    [Parameter(Mandatory)] [string]$destination,
+    [Parameter(Mandatory)] [string]$Source,
+    [Parameter(Mandatory)] [string]$Destination,
     [Parameter(Mandatory)][string]$SourceNamespace, 
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [switch]$DryRun
@@ -34,7 +34,7 @@ try {
     throw "Azure CLI not found - please install it first"
 }
 
-$destination_lower = (Get-Culture).TextInfo.ToLower($destination)
+$Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 # Global variable to store replica configurations for recreation
 $script:ReplicaConfigurations = @()
@@ -638,11 +638,11 @@ function Recreate-AllReplicas {
 }
 
 # Main execution
-Write-Host "Processing destination environment: $destination" -ForegroundColor Yellow
+Write-Host "Processing Destination environment: $Destination" -ForegroundColor Yellow
 Write-Host "NOTE: Source environment replicas will be preserved" -ForegroundColor Green
 
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would delete and recreate replicas for destination environment" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would delete and recreate replicas for Destination environment" -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
@@ -655,13 +655,13 @@ if ($DryRun) {
     $graph_query = "
       resources
       | where type =~ 'microsoft.sql/servers'
-      | where tags.Environment == '$destination_lower' and tags.Type == 'Replica'
+      | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
       | project name, resourceGroup, subscriptionId, location
     "
     $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
     if (-not $replicas -or $replicas.Count -eq 0) {
-        Write-Host "🔍 DRY RUN: No SQL Server replicas found in destination environment" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: No SQL Server replicas found in Destination environment" -ForegroundColor Yellow
     } else {
         Write-Host "🔍 DRY RUN: Found $($replicas.Count) SQL Server replica(s) to process:" -ForegroundColor Yellow
         
@@ -761,7 +761,7 @@ if ($DryRun) {
 }
 
 # Step 1: Delete replicas and save configurations
-Delete-ReplicasForEnvironment -Environment $destination_lower -EnvironmentName "destination ($destination)"
+Delete-ReplicasForEnvironment -Environment $Destination_lower -EnvironmentName "Destination ($Destination)"
 
 # Step 2: Recreate replicas
 Recreate-AllReplicas

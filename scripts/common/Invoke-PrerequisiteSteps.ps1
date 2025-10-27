@@ -47,11 +47,7 @@
 #>
 
 param(
-    [string]$TargetEnvironment = "",
-    
-    [hashtable]$Parameters = @{},
-    
-    [string]$Cloud = ""
+    [hashtable]$Parameters = @{}    
     )
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -62,43 +58,6 @@ $scriptDir = if ($global:ScriptBaseDir) {
     $global:ScriptBaseDir
 } else {
     Split-Path -Parent $PSScriptRoot
-}
-
-# ═══════════════════════════════════════════════════════════════════════════
-# HELPER FUNCTION: Determine Target Environment
-# ═══════════════════════════════════════════════════════════════════════════
-
-function Get-TargetEnvironment {
-    param([hashtable]$Params)
-    
-    # Priority order:
-    # 1. Explicit TargetEnvironment parameter
-    # 2. Source from Parameters
-    # 3. Destination from Parameters
-    # 4. Environment from Parameters
-    # 5. ENVIRONMENT variable
-    
-    if (-not [string]::IsNullOrWhiteSpace($TargetEnvironment)) {
-        return $TargetEnvironment
-    }
-    
-    if ($Params.ContainsKey("Source") -and -not [string]::IsNullOrWhiteSpace($Params["Source"])) {
-        return $Params["Source"]
-    }
-    
-    if ($Params.ContainsKey("Destination") -and -not [string]::IsNullOrWhiteSpace($Params["Destination"])) {
-        return $Params["Destination"]
-    }
-    
-    if ($Params.ContainsKey("Environment") -and -not [string]::IsNullOrWhiteSpace($Params["Environment"])) {
-        return $Params["Environment"]
-    }
-    
-    if (-not [string]::IsNullOrWhiteSpace($env:ENVIRONMENT)) {
-        return $env:ENVIRONMENT
-    }
-    
-    return $null
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -125,41 +84,45 @@ Write-Host ""
 # STEP 0A: GRANT PERMISSIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-    # Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    # Write-Host ""
+    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-Host ""
     
-    # $targetEnv = Get-TargetEnvironment -Params $Parameters
-    
-    # if ($targetEnv) {
-    #     Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
+    if ($Parameters.ContainsKey("Source")) {
+        $targetEnv = $Parameters["Source"]
+    } else {
+        $targetEnv = ""
+    }
+
+    if ($targetEnv) {
+        Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
         
-    #     try {
-    #         $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+        try {
+            $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
             
-    #         if (Test-Path $grantScript) {
-    #             $permResult = & $grantScript -Environment $targetEnv
-    #             $result.PermissionResult = $permResult
+            if (Test-Path $grantScript) {
+                $permResult = & $grantScript -Environment $targetEnv
+                $result.PermissionResult = $permResult
                 
-    #             if ($permResult.Success) {
-    #                 # Store propagation wait info for later (after authentication)
-    #                 $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
-    #                 $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
-    #             } else {
-    #                 Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
-    #             }
-    #         } else {
-    #             Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
-    #         }
-    #     } catch {
-    #         Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
-    #         Write-Host "   Continuing anyway..." -ForegroundColor Gray
-    #     }
-    # } else {
-    #     Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
-    #     Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
-    # }
+                if ($permResult.Success) {
+                    # Store propagation wait info for later (after authentication)
+                    $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+                    $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+                } else {
+                    Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "   Continuing anyway..." -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
+        Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
+    }
     
-    # Write-Host ""
+    Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 0B: AZURE AUTHENTICATION
@@ -174,13 +137,10 @@ Write-Host ""
         if (Test-Path $authScript) {
             Write-Host "   🔑 Authenticating to Azure..." -ForegroundColor Gray
             
-            # Use Cloud parameter if provided (either directly or from Parameters hashtable)
-            $cloudParam = if (-not [string]::IsNullOrWhiteSpace($Cloud)) {
-                $Cloud
-            } elseif ($Parameters.ContainsKey("Cloud") -and -not [string]::IsNullOrWhiteSpace($Parameters["Cloud"])) {
-                $Parameters["Cloud"]
+            if ($Parameters.ContainsKey("Cloud")) {
+                $cloudParam = $Parameters["Cloud"]
             } else {
-                ""
+                $cloudParam = ""
             }
             
             if (-not [string]::IsNullOrWhiteSpace($cloudParam)) {
@@ -279,6 +239,12 @@ Write-Host ""
             if ($Parameters.ContainsKey("DestinationNamespace")) {
                 $detectionParams["DestinationNamespace"] = $Parameters["DestinationNamespace"]
             }
+            if ($Parameters.ContainsKey("RestoreDateTime")) {
+                $detectionParams["RestoreDateTime"] = $Parameters["RestoreDateTime"]
+            }
+            if ($Parameters.ContainsKey("Timezone")) {
+                $detectionParams["Timezone"] = $Parameters["Timezone"]
+            }
             
             $detectedParams = & $azureParamsScript @detectionParams
             
@@ -337,4 +303,3 @@ Write-Host "══════════════════════�
 Write-Host ""
 
 return $result
-

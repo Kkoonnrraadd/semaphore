@@ -37,7 +37,9 @@ param(
     [AllowEmptyString()][string]$Source,
     [AllowEmptyString()][string]$Destination,
     [AllowEmptyString()][string]$SourceNamespace,
-    [AllowEmptyString()][string]$DestinationNamespace
+    [AllowEmptyString()][string]$DestinationNamespace,
+    [AllowEmptyString()][string]$RestoreDateTime,
+    [AllowEmptyString()][string]$Timezone
 )
 
 function Get-NamespaceFromEnvironment {
@@ -78,26 +80,6 @@ if (-not $Cloud) {
 }
 Write-Host "☁️  Cloud from Azure CLI context: $Cloud" -ForegroundColor Green
 
-# 2. Get Source from ENVIRONMENT variable or parameter
-if ([string]::IsNullOrWhiteSpace($Source)) {
-    # Get from ENVIRONMENT variable (required)
-    if ($env:ENVIRONMENT) {
-        $Source = $env:ENVIRONMENT.ToLower()
-        Write-Host "🎯 Source from ENVIRONMENT variable: $Source" -ForegroundColor Green
-    } else {
-        Write-Host "" -ForegroundColor Red
-        Write-Host "❌ FATAL ERROR: Source environment not provided and ENVIRONMENT variable not set" -ForegroundColor Red
-        Write-Host "   Please either:" -ForegroundColor Yellow
-        Write-Host "   1. Set ENVIRONMENT variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
-        Write-Host "   2. Provide the Source parameter explicitly (e.g., -Source 'gov001')" -ForegroundColor Gray
-        Write-Host "" -ForegroundColor Red
-        throw "Source environment must be provided via ENVIRONMENT variable or -Source parameter."
-    }
-} else {
-    # User explicitly provided Source - respect their choice
-    Write-Host "🎯 Using USER-PROVIDED source: $Source" -ForegroundColor Yellow
-    $Source = $Source.ToLower()
-}
 
 # 3. Detect Source Namespace (if not provided)
 if ([string]::IsNullOrWhiteSpace($SourceNamespace)) {
@@ -105,16 +87,6 @@ if ([string]::IsNullOrWhiteSpace($SourceNamespace)) {
     # Already logged in function
 } else {
     Write-Host "🏷️ Using provided source namespace: $SourceNamespace" -ForegroundColor Yellow
-}
-
-# 4. Detect Destination (if not provided)
-if ([string]::IsNullOrWhiteSpace($Destination)) {
-    $Destination = $Source  # Same as source by default
-    Write-Host "🎯 Auto-detected destination: $Destination (same as source)" -ForegroundColor Green
-} else {
-    # User explicitly provided Destination - respect their choice
-    Write-Host "🎯 Using USER-PROVIDED destination: $Destination" -ForegroundColor Yellow
-    $Destination = $Destination.ToLower()
 }
 
 # 5. Detect Destination Namespace (if not provided)
@@ -143,20 +115,24 @@ $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_
 if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
     $DefaultTimezone = $envTimezone
     Write-Host "🕐 Set default timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $DefaultTimezone" -ForegroundColor Green
+} 
+elseif (-not [string]::IsNullOrWhiteSpace($Timezone)) {
+    $DefaultTimezone = $Timezone
+    Write-Host "🕐 Set default timezone from Timezone parameter: $DefaultTimezone" -ForegroundColor Green
 } else {
-    # FAIL: Timezone is required to prevent incorrect data exports
     Write-Host "" -ForegroundColor Red
-    Write-Host "❌ FATAL ERROR: SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: Timezone is not provided and SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set" -ForegroundColor Red
     Write-Host "   This is required to prevent incorrect timezone assumptions." -ForegroundColor Yellow
-    Write-Host "   Please set SEMAPHORE_SCHEDULE_TIMEZONE in docker-compose.yaml" -ForegroundColor Yellow
+    Write-Host "   Please set SEMAPHORE_SCHEDULE_TIMEZONE in docker-compose.yaml or provide the Timezone parameter explicitly" -ForegroundColor Yellow
     Write-Host "   Example: SEMAPHORE_SCHEDULE_TIMEZONE: 'UTC'" -ForegroundColor Gray
     Write-Host "" -ForegroundColor Red
-    throw "SEMAPHORE_SCHEDULE_TIMEZONE environment variable must be set. No default will be assumed to prevent data errors."
+    throw "Timezone is not provided and SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set. No default will be assumed to prevent data errors."
 }
 
 # Calculate default restore time in the configured timezone
 # Use backup propagation delay (10 minutes) to ensure backups are ready
 try {
+
     $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($DefaultTimezone)
     # Get current UTC time
     $utcNow = [DateTime]::UtcNow
@@ -164,7 +140,11 @@ try {
     $currentTimeInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $timezoneInfo)
     # Subtract 10 minutes (Azure SQL backup propagation delay)
     $BackupPropagationDelayMinutes = 10
-    $DefaultRestoreDateTime = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+    if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
+        $DefaultRestoreDateTime = $RestoreDateTime
+    } else {
+        $DefaultRestoreDateTime = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+    }
     Write-Host "🕐 Set default restore time: $DefaultRestoreDateTime ($BackupPropagationDelayMinutes minutes ago in $DefaultTimezone)" -ForegroundColor Green
     Write-Host "   (Safe buffer for Azure SQL backup propagation)" -ForegroundColor Gray
 } catch {
@@ -173,7 +153,8 @@ try {
     Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Yellow
     Write-Host "   Please use a valid IANA timezone identifier" -ForegroundColor Yellow
     Write-Host "" -ForegroundColor Red
-    throw "Invalid timezone configuration: $DefaultTimezone"
+    $global:LASTEXITCODE = 1
+    throw "Invalid timezone configuration: $DefaultTimezone. Please use a valid IANA timezone identifier."
 }
 
 Write-Host "✅ Parameter detection completed" -ForegroundColor Green

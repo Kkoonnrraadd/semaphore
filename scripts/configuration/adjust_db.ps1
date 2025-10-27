@@ -104,13 +104,20 @@ function Add-DatabaseAlias {
         @ApiId NVARCHAR(255),
         @insertedCors INT = 0,
         @insertedRedirects INT = 0,
-        @insertedPostLogout INT = 0;
+        @insertedPostLogout INT = 0,
+        @coreOrigin NVARCHAR(500),
+        @coreSilentRefresh NVARCHAR(500),
+        @coreV2Origin NVARCHAR(500),
+        @coreV2SilentRefresh NVARCHAR(500),
+        @apiOrigin NVARCHAR(500),
+        @apiSigninRedirect NVARCHAR(500);
 
         -- Core V1 Client
         SELECT @CoreId = Id FROM dbo.Clients WHERE ClientId = 'AndeaCore';
-        IF (@CoreId IS NOT NULL) {
-            DECLARE @coreOrigin NVARCHAR(500) = FORMATMESSAGE('https://%s.manufacturo.%s', @alias, @domain),
-            @coreSilentRefresh NVARCHAR(500) = FORMATMESSAGE('https://%s.manufacturo.%s/assets/auth/silent-refresh.html', @alias, @domain);
+        IF @CoreId IS NOT NULL
+        BEGIN
+            SET @coreOrigin = FORMATMESSAGE('https://%s.manufacturo.%s', @alias, @domain);
+            SET @coreSilentRefresh = FORMATMESSAGE('https://%s.manufacturo.%s/assets/auth/silent-refresh.html', @alias, @domain);
 
             IF NOT EXISTS(SELECT 1 FROM dbo.ClientCorsOrigins WHERE Origin = @coreOrigin AND ClientId = @CoreId)
             BEGIN
@@ -132,13 +139,14 @@ function Add-DatabaseAlias {
                 INSERT dbo.ClientPostLogoutRedirectUris(PostLogoutRedirectUri, ClientId) VALUES(@coreOrigin, @CoreId);
                 SET @insertedPostLogout = @insertedPostLogout + @@ROWCOUNT;
             END
-        }
+        END
 
         -- Core V2 Client
         SELECT @CoreV2Id = Id FROM dbo.Clients WHERE ClientId = 'AndeaCore_v2';
-        IF (@CoreV2Id IS NOT NULL) {
-            DECLARE @coreV2Origin NVARCHAR(500) = FORMATMESSAGE('https://%s.manufacturo.%s', @alias, @domain),
-            @coreV2SilentRefresh NVARCHAR(500) = FORMATMESSAGE('https://%s.manufacturo.%s/assets/auth/silent-refresh.html', @alias, @domain);
+        IF @CoreV2Id IS NOT NULL
+        BEGIN
+            SET @coreV2Origin = FORMATMESSAGE('https://%s.manufacturo.%s', @alias, @domain);
+            SET @coreV2SilentRefresh = FORMATMESSAGE('https://%s.manufacturo.%s/assets/auth/silent-refresh.html', @alias, @domain);
 
             IF NOT EXISTS(SELECT 1 FROM dbo.ClientCorsOrigins WHERE Origin = @coreV2Origin AND ClientId = @CoreV2Id)
             BEGIN
@@ -160,13 +168,14 @@ function Add-DatabaseAlias {
                 INSERT dbo.ClientPostLogoutRedirectUris(PostLogoutRedirectUri, ClientId) VALUES(@coreV2Origin, @CoreV2Id);
                 SET @insertedPostLogout = @insertedPostLogout + @@ROWCOUNT;
             END
-        }
+        END
         
         -- API Docs Client
         SELECT @ApiId = Id FROM dbo.Clients WHERE ClientId = 'apiDocs';
-        IF (@ApiId IS NOT NULL) {
-            DECLARE @apiOrigin NVARCHAR(500) = FORMATMESSAGE('https://api.%s.manufacturo.%s', @alias, @domain),
-            @apiSigninRedirect NVARCHAR(500) = FORMATMESSAGE('https://api.%s.manufacturo.%s/signin-oidc', @alias, @domain);
+        IF @ApiId IS NOT NULL
+        BEGIN
+            SET @apiOrigin = FORMATMESSAGE('https://api.%s.manufacturo.%s', @alias, @domain);
+            SET @apiSigninRedirect = FORMATMESSAGE('https://api.%s.manufacturo.%s/signin-oidc', @alias, @domain);
 
             IF NOT EXISTS(SELECT 1 FROM dbo.ClientCorsOrigins WHERE Origin = @apiOrigin AND ClientId = @ApiId)
             BEGIN
@@ -188,7 +197,7 @@ function Add-DatabaseAlias {
                 INSERT dbo.ClientPostLogoutRedirectUris(PostLogoutRedirectUri, ClientId) VALUES(@apiOrigin, @ApiId);
                 SET @insertedPostLogout = @insertedPostLogout + @@ROWCOUNT;
             END
-        }
+        END
 
         SELECT 'Alias Update Results' as Status, 
                 @insertedCors as CORS_Origins_Added,

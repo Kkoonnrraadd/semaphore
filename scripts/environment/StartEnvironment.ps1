@@ -175,21 +175,21 @@ if ($DryRun) {
     
     # Discover web tests that would be enabled
     Write-Host "`n🔍 DRY RUN: Would enable Application Insights web tests:"
-    if ($Cloud -eq "AzureCloud") {
-        $webtests = az monitor app-insights web-test list `
-            --subscription $Destination_subscription `
-            --only-show-errors `
-            --output json | ConvertFrom-Json
+    # if ($Cloud -eq "AzureCloud") {
+    #     $webtests = az monitor app-insights web-test list `
+    #         --subscription $Destination_subscription `
+    #         --only-show-errors `
+    #         --output json | ConvertFrom-Json
         
-        if ($webtests.Count -gt 0) {
-            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
-            $webtests | ForEach-Object {
-                Write-Host "  • $($_.name)"
-            }
-        } else {
-            Write-Host "🔍 DRY RUN: No web tests found to enable"
-        }
-    } else {
+    #     if ($webtests.Count -gt 0) {
+    #         Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
+    #         $webtests | ForEach-Object {
+    #             Write-Host "  • $($_.name)"
+    #         }
+    #     } else {
+    #         Write-Host "🔍 DRY RUN: No web tests found to enable"
+    #     }
+    # } else {
         $webtests = az resource list `
             --subscription $Destination_subscription `
             --resource-group $Destination_rg `
@@ -205,7 +205,7 @@ if ($DryRun) {
         } else {
             Write-Host "🔍 DRY RUN: No web tests found to enable"
         }
-    }
+    # }
     
     # Discover alerts that would be enabled
     Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:"
@@ -249,34 +249,34 @@ Write-Host "`nEnabling Application Insights web tests..."
 
 Write-Host "Using Azure cloud: $Cloud"
 
-if ($Cloud -eq "AzureCloud") {
-    Write-Host "Using classic Azure CLI web test commands for Commercial cloud..."
+# if ($Cloud -eq "AzureCloud") {
+#     Write-Host "Using classic Azure CLI web test commands for Commercial cloud..."
     
-    # Fetch all web tests once using classic method
-    $webtests = az monitor app-insights web-test list `
-        --subscription $Destination_subscription `
-        --only-show-errors `
-        --output json | ConvertFrom-Json
+#     # Fetch all web tests once using classic method
+#     $webtests = az monitor app-insights web-test list `
+#         --subscription $Destination_subscription `
+#         --only-show-errors `
+#         --output json | ConvertFrom-Json
 
-    if ($webtests.Count -eq 0) {
-        Write-Host "No web tests found."
-        return
-    }
+#     if ($webtests.Count -eq 0) {
+#         Write-Host "No web tests found."
+#         return
+#     }
 
-    # Enable in parallel with a throttle limit of 10 using classic method
-    $webtests | ForEach-Object -Parallel {
-        az monitor app-insights web-test update `
-            --name $_.name `
-            --resource-group $using:Destination_rg `
-            --enabled true `
-            --subscription $using:Destination_subscription `
-            --output none `
-            --only-show-errors | Out-Null
+#     # Enable in parallel with a throttle limit of 10 using classic method
+#     $webtests | ForEach-Object -Parallel {
+#         az monitor app-insights web-test update `
+#             --name $_.name `
+#             --resource-group $using:Destination_rg `
+#             --enabled true `
+#             --subscription $using:Destination_subscription `
+#             --output none `
+#             --only-show-errors | Out-Null
 
-        Write-Host "✅ ENABLED: Web test $($_.name)"
-    } -ThrottleLimit 10
-}
-else {
+#         Write-Host "✅ ENABLED: Web test $($_.name)"
+#     } -ThrottleLimit 10
+# }
+# else {
     Write-Host "Using generic Azure resource commands for Government/Other clouds..."
     
     # Use az resource list for government cloud compatibility
@@ -312,7 +312,7 @@ else {
             Write-Host "❌ FAILED: Could not enable web test $webtestName"
         }
     } -ThrottleLimit 10
-}
+# }
 
 
 if ($DestinationNamespace -eq "manufacturo") {

@@ -205,24 +205,24 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would disable Application Insights web tests..." -ForegroundColor Yellow
     Write-Host "Using Azure cloud: $Cloud" -ForegroundColor Gray
     
-    if ($Cloud -eq "AzureCloud") {
-        Write-Host "🔍 DRY RUN: Would use classic Azure CLI web test commands for Commercial cloud..." -ForegroundColor Yellow
+    # if ($Cloud -eq "AzureCloud") {
+    #     Write-Host "🔍 DRY RUN: Would use classic Azure CLI web test commands for Commercial cloud..." -ForegroundColor Yellow
         
-        # Retrieve tests once using classic method
-        $webtests = az monitor app-insights web-test list `
-            --subscription $Destination_subscription `
-            --output json | ConvertFrom-Json
+    #     # Retrieve tests once using classic method
+    #     $webtests = az monitor app-insights web-test list `
+    #         --subscription $Destination_subscription `
+    #         --output json | ConvertFrom-Json
 
-        if ($webtests.Count -eq 0) {
-            Write-Host "No web tests found." -ForegroundColor Yellow
-            return
-        }
+    #     if ($webtests.Count -eq 0) {
+    #         Write-Host "No web tests found." -ForegroundColor Yellow
+    #         return
+    #     }
 
-        Write-Host "🔍 DRY RUN: Would disable $($webtests.Count) web tests:" -ForegroundColor Yellow
-        $webtests | ForEach-Object {
-            Write-Host "  • $($_.name)" -ForegroundColor Gray
-        }
-    } else {
+    #     Write-Host "🔍 DRY RUN: Would disable $($webtests.Count) web tests:" -ForegroundColor Yellow
+    #     $webtests | ForEach-Object {
+    #         Write-Host "  • $($_.name)" -ForegroundColor Gray
+    #     }
+    # } else {
         Write-Host "🔍 DRY RUN: Would use generic Azure resource commands for Government/Other clouds..." -ForegroundColor Yellow
         
         # Use az resource list for government cloud compatibility
@@ -242,38 +242,38 @@ if ($DryRun) {
         $webtests | ForEach-Object {
             Write-Host "  • $($_.name)" -ForegroundColor Gray
         }
-    }
+    # }
 } else {
     Write-Host "Disabling Application Insights web tests..."
 
     Write-Host "Using Azure cloud: $Cloud" -ForegroundColor Gray
 
-    if ($Cloud -eq "AzureCloud") {
-        Write-Host "Using classic Azure CLI web test commands for Commercial cloud..." -ForegroundColor Cyan
+    # if ($Cloud -eq "AzureCloud") {
+    #     Write-Host "Using classic Azure CLI web test commands for Commercial cloud..." -ForegroundColor Cyan
         
-        # Retrieve tests once using classic method
-        $webtests = az monitor app-insights web-test list `
-            --subscription $Destination_subscription `
-            --output json | ConvertFrom-Json
+    #     # Retrieve tests once using classic method
+    #     $webtests = az monitor app-insights web-test list `
+    #         --subscription $Destination_subscription `
+    #         --output json | ConvertFrom-Json
 
-        if ($webtests.Count -eq 0) {
-            Write-Host "No web tests found." -ForegroundColor Yellow
-            return
-        }
+    #     if ($webtests.Count -eq 0) {
+    #         Write-Host "No web tests found." -ForegroundColor Yellow
+    #         return
+    #     }
 
-        # Disable web tests in parallel using classic method
-        $webtests | ForEach-Object -Parallel {
-            az monitor app-insights web-test update `
-                --name $_.name `
-                --resource-group $using:Destination_rg `
-                --enabled false `
-                --subscription $using:Destination_subscription `
-                --output none `
-                --only-show-errors | Out-Null
+    #     # Disable web tests in parallel using classic method
+    #     $webtests | ForEach-Object -Parallel {
+    #         az monitor app-insights web-test update `
+    #             --name $_.name `
+    #             --resource-group $using:Destination_rg `
+    #             --enabled false `
+    #             --subscription $using:Destination_subscription `
+    #             --output none `
+    #             --only-show-errors | Out-Null
 
-            Write-Host "Disabled web test: $($_.name)" -ForegroundColor Green
-        } -ThrottleLimit 10
-    } else {
+    #         Write-Host "Disabled web test: $($_.name)" -ForegroundColor Green
+    #     } -ThrottleLimit 10
+    # } else {
         Write-Host "Using generic Azure resource commands for Government/Other clouds..." -ForegroundColor Cyan
         
         # Use az resource list for government cloud compatibility
@@ -309,7 +309,7 @@ if ($DryRun) {
                 Write-Host "Failed to disable web test: $webtestName" -ForegroundColor Red
             }
         } -ThrottleLimit 10
-    }
+    # }
 }
 
 

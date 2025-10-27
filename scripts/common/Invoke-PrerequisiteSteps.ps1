@@ -22,15 +22,6 @@
     Azure cloud environment (AzureCloud or AzureUSGovernment)
     If not provided, will auto-detect during authentication
     
-.PARAMETER SkipPermissions
-    Skip the permission grant step (Step 0A)
-    
-.PARAMETER SkipAuthentication
-    Skip the authentication step (Step 0B) - assumes already authenticated
-    
-.PARAMETER SkipParameterDetection
-    Skip the parameter detection step (Step 0C)
-    
 .OUTPUTS
     Hashtable with:
     - Success: Boolean indicating if all steps succeeded
@@ -60,14 +51,8 @@ param(
     
     [hashtable]$Parameters = @{},
     
-    [string]$Cloud = "",
-    
-    [switch]$SkipPermissions = $true,
-    
-    [switch]$SkipAuthentication,
-    
-    [switch]$SkipParameterDetection
-)
+    [string]$Cloud = ""
+    )
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DETERMINE SCRIPT DIRECTORY
@@ -140,52 +125,46 @@ Write-Host ""
 # STEP 0A: GRANT PERMISSIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-if (-not $SkipPermissions) {
-    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    Write-Host ""
+    # Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    # Write-Host ""
     
-    $targetEnv = Get-TargetEnvironment -Params $Parameters
+    # $targetEnv = Get-TargetEnvironment -Params $Parameters
     
-    if ($targetEnv) {
-        Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
+    # if ($targetEnv) {
+    #     Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
         
-        try {
-            $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+    #     try {
+    #         $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
             
-            if (Test-Path $grantScript) {
-                $permResult = & $grantScript -Environment $targetEnv
-                $result.PermissionResult = $permResult
+    #         if (Test-Path $grantScript) {
+    #             $permResult = & $grantScript -Environment $targetEnv
+    #             $result.PermissionResult = $permResult
                 
-                if ($permResult.Success) {
-                    # Store propagation wait info for later (after authentication)
-                    $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
-                    $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
-                } else {
-                    Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
-                }
-            } else {
-                Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
-            }
-        } catch {
-            Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "   Continuing anyway..." -ForegroundColor Gray
-        }
-    } else {
-        Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
-        Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
-    }
+    #             if ($permResult.Success) {
+    #                 # Store propagation wait info for later (after authentication)
+    #                 $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+    #                 $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+    #             } else {
+    #                 Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
+    #             }
+    #         } else {
+    #             Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+    #         }
+    #     } catch {
+    #         Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
+    #         Write-Host "   Continuing anyway..." -ForegroundColor Gray
+    #     }
+    # } else {
+    #     Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
+    #     Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
+    # }
     
-    Write-Host ""
-} else {
-    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS (SKIPPED)" -ForegroundColor DarkGray
-    Write-Host ""
-}
+    # Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 0B: AZURE AUTHENTICATION
 # ═══════════════════════════════════════════════════════════════════════════
 
-if (-not $SkipAuthentication) {
     Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
     Write-Host ""
     
@@ -271,16 +250,11 @@ if (-not $SkipAuthentication) {
     }
     
     Write-Host ""
-} else {
-    Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION (SKIPPED)" -ForegroundColor DarkGray
-    Write-Host ""
-}
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 0C: AUTO-DETECT PARAMETERS
 # ═══════════════════════════════════════════════════════════════════════════
 
-if (-not $SkipParameterDetection) {
     Write-Host "🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
     Write-Host ""
     
@@ -352,10 +326,6 @@ if (-not $SkipParameterDetection) {
     }
     
     Write-Host ""
-} else {
-    Write-Host "🔧 STEP 0C: AUTO-DETECT PARAMETERS (SKIPPED)" -ForegroundColor DarkGray
-    Write-Host ""
-}
 
 # ═══════════════════════════════════════════════════════════════════════════
 # COMPLETION

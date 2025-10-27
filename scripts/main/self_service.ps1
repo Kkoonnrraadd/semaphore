@@ -498,10 +498,10 @@ function Invoke-Migration {
             Write-Host "🔍 DRY RUN: No customer alias specified for removal" -ForegroundColor Gray
         }
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -destination $Destination -EnvironmentToClean $Source -MultitenantToRemove $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
+        & $scriptPath -destination $Destination -source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -domain $Domain -DestinationNamespace $DestinationNamespace
     }
     
     # Step 6: Revert SQL Users
@@ -511,10 +511,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
+        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -Revert -EnvironmentToRevert $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -Revert -EnvironmentToRevert $Source -MultitenantToRevert $SourceNamespace -AutoApprove -StopOnFailure
+        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -Revert -EnvironmentToRevert $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure
     }
     
     # Step 7: Adjust Resources
@@ -549,10 +549,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
+        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
     } else {
         $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Environments $Destination -Clients $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
+        & $scriptPath -destination $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
     }
     
     # Step 10: Start Environment

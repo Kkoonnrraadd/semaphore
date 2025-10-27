@@ -67,11 +67,11 @@ sql_database_config.ps1 -BaselinesMode Only -FirstRun On
 Runs only baselines setup including "First Run Mode" steps
 #> 
 param(
-  [Parameter()][object] $Environments = "All",
+  [Parameter()][object] $Destination = "",
   [Parameter()][object] $EnvironmentsExclude = "",
   [Parameter()][object] $Databases = "All",
   [Parameter()][object] $DatabasesExclude = "",
-  [Parameter()][object] $Clients = "",
+  [Parameter()][object] $DestinationNamespace = "",
   [Parameter()][ValidateSet("Both", "Primary", "Replica")] $Type = "Both",
   [Parameter()][ValidateSet("On", "Off", "Only")] $BaselinesMode = "On",
   [Parameter()][ValidateSet("On", "Off", "Only")] $FirstRun = "Off",
@@ -82,7 +82,7 @@ param(
   [Parameter()][switch] $DryRun = $false,
   [Parameter()][switch] $Revert = $false,
   [AllowEmptyString()][string] $EnvironmentToRevert = "",
-  [AllowEmptyString()][string] $MultitenantToRevert = ""
+  [AllowEmptyString()][string] $SourceNamespace = ""
 )
 
 # Helper function for quiet logging (only shows important messages in production)
@@ -110,8 +110,10 @@ function Write-ScriptLog {
     Write-Host $Message -ForegroundColor $color
 }
 
-if ($Clients -eq "manufacturo") {
-    $Clients = ""
+if ($DestinationNamespace -eq "manufacturo") {
+    $global:LASTEXITCODE = 1
+    throw "DestinationNamespace can not be PROD"
+    # $DestinationNamespace = ""
 }
 
 if ($Revert) {
@@ -119,13 +121,13 @@ if ($Revert) {
         Write-Host "`n🔍 DRY RUN - REVERT MODE - SQL Configure Users" -ForegroundColor Yellow
         Write-Host "===============================================" -ForegroundColor Yellow
         Write-Host "Would remove SQL user configurations for environment: $EnvironmentToRevert" -ForegroundColor Yellow
-        if (-not [string]::IsNullOrWhiteSpace($MultitenantToRevert)) {
-            Write-Host "Multitenant: $MultitenantToRevert" -ForegroundColor Yellow
+        if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) {
+            Write-Host "Multitenant: $SourceNamespace" -ForegroundColor Yellow
         }
         Write-Host "No actual SQL user removal will be performed" -ForegroundColor Yellow
     } else {
         Write-Host "`n🔄 REVERT MODE - SQL Configure Users" -ForegroundColor Cyan
-        Write-Host "Environment: $EnvironmentToRevert$(if ($MultitenantToRevert) {" | Multitenant: $MultitenantToRevert"})" -ForegroundColor Cyan
+        Write-Host "Environment: $EnvironmentToRevert$(if ($SourceNamespace) {" | Multitenant: $SourceNamespace"})" -ForegroundColor Cyan
     }
 } elseif ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - SQL Configure Users" -ForegroundColor Yellow
@@ -133,7 +135,7 @@ if ($Revert) {
     Write-Host "No actual SQL user configuration will be performed" -ForegroundColor Yellow
 } else {
     Write-Host "`n🔧 SQL Configure Users" -ForegroundColor Cyan
-    Write-Host "Environment: $Environments | Client: $Clients" -ForegroundColor Cyan
+    Write-Host "Environment: $Destination | Client: $DestinationNamespace" -ForegroundColor Cyan
 }
 
 if ($Help) {
@@ -192,16 +194,16 @@ function set_baseline() {
 $Type = [cultureinfo]::GetCultureInfo("en-US").TextInfo.ToTitleCase($Type)
 $BaselinesMode = [cultureinfo]::GetCultureInfo("en-US").TextInfo.ToTitleCase($BaselinesMode)
 $FirstRun = [cultureinfo]::GetCultureInfo("en-US").TextInfo.ToTitleCase($FirstRun)
-if ($Environments -eq "All") { $env_regex = ".*" } else { $env_regex = ".*($($Environments -join "|")).*" }
+if ($Destination -eq "All") { $env_regex = ".*" } else { $env_regex = ".*($($Destination -join "|")).*" }
 if ($EnvironmentsExclude -eq "") { $env_exclude_regex = "^$" } else { $env_exclude_regex = ".*($($EnvironmentsExclude -join "|")).*" }
 if ($Databases -eq "All") { $db_regex = ".*" } else { $db_regex = "$($Databases -join "|")" }
 if ($DatabasesExclude -eq "") { $db_exclude_regex = "^$" } else { $db_exclude_regex = "$($DatabasesExclude -join "|")" }
 if ($Type -eq "Replica") { $kind = "inner" } else { $kind = "leftouter" }
 # Build ClientName filter based on namespace convention
-$client_filter = if ($Clients -eq "") {
+$client_filter = if ($DestinationNamespace -eq "") {
     "tags.ClientName == ''"
 } else {
-    "tags.ClientName == '$Clients'"
+    "tags.ClientName == '$DestinationNamespace'"
 }
 
 $graph_query = "
@@ -363,7 +365,7 @@ if ($DryRun -and $Revert) {
   Write-Host "`n🔍 DRY RUN SUMMARY - REVERT OPERATIONS" -ForegroundColor Yellow
   Write-Host "=======================================" -ForegroundColor Yellow
   Write-Host "Environment to revert: $EnvironmentToRevert" -ForegroundColor Gray
-  Write-Host "Multitenant: $MultitenantToRevert" -ForegroundColor Gray
+  Write-Host "Multitenant: $SourceNamespace" -ForegroundColor Gray
   Write-Host "Databases to process: $count" -ForegroundColor Gray
   Write-Host "`nOperations that would be performed:" -ForegroundColor Yellow
   Write-Host "  • Remove AAD group users: $EnvironmentToRevert-DBContributors, $EnvironmentToRevert-DBReaders" -ForegroundColor Gray
@@ -386,7 +388,7 @@ if ($DryRun -and $Revert) {
   $mi_access_map = $using:mi_access_map
   $Revert = $using:Revert
   $EnvironmentToRevert = $using:EnvironmentToRevert
-  $MultitenantToRevert = $using:MultitenantToRevert
+  $SourceNamespace = $using:SourceNamespace
   $DryRun = $using:DryRun
   $sub = $dbs[$_].subscriptionId
   $name = $dbs[$_].name
@@ -415,17 +417,17 @@ if ($DryRun -and $Revert) {
   # REVERT MODE: Remove SQL user configurations
   if ($Revert) {
     # Construct the full environment name to revert
-    $FullEnvironmentToRevert = if ($MultitenantToRevert -eq "manufacturo") {
+    $FullEnvironmentToRevert = if ($SourceNamespace -eq "manufacturo") {
         # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
         $EnvironmentToRevert
     } else {
-        "$EnvironmentToRevert-$MultitenantToRevert"
+        "$EnvironmentToRevert-$SourceNamespace"
     }
     
     # For revert mode, construct static replica user name based on the environment being reverted
     # This ensures we remove the old configuration, not the new one being configured
     $revertStaticReplicaUserName = "${baseUserName}-replica"
-    if ($MultitenantToRevert -ne "manufacturo") {
+    if ($SourceNamespace -ne "manufacturo") {
         $revertStaticReplicaUserName = "${MultitenantToRevert}-${revertStaticReplicaUserName}"
     }
 

@@ -1,9 +1,9 @@
 param (
     [Parameter(Mandatory)] [string]$destination,
-    [Parameter(Mandatory)] [string]$EnvironmentToClean,
+    [Parameter(Mandatory)] [string]$source,
     [Parameter(Mandatory)] [string]$domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
-    [AllowEmptyString()][string]$MultitenantToRemove,
+    [AllowEmptyString()][string]$SourceNamespace,
     [AllowEmptyString()][string]$CustomerAliasToRemove,
     [switch]$DryRun
 )
@@ -20,10 +20,10 @@ if ($DryRun) {
 
 Write-Host "Running with parameters:" -ForegroundColor Cyan
 Write-Host "  - destination: $destination" -ForegroundColor Gray
-Write-Host "  - EnvironmentToClean: $EnvironmentToClean" -ForegroundColor Gray
+Write-Host "  - EnvironmentToClean: $source" -ForegroundColor Gray
 Write-Host "  - domain: $domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
-Write-Host "  - MultitenantToRemove: $MultitenantToRemove" -ForegroundColor Gray
+Write-Host "  - MultitenantToRemove: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  - CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
 Write-Host ""
 
@@ -73,11 +73,11 @@ if ($dest_fqdn -match "database.windows.net") {
 Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
 
 # Construct the full environment name to clean up
-$FullEnvironmentToClean = if ($MultitenantToRemove -eq "manufacturo") {
+$FullEnvironmentToClean = if ($SourceNamespace -eq "manufacturo") {
     # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
-    $EnvironmentToClean
+    $source
 } else {
-    "$EnvironmentToClean-$MultitenantToRemove"
+    "$source-$SourceNamespace"
 }
 
 Write-Host "Cleaning up configuration for environment: $FullEnvironmentToClean"

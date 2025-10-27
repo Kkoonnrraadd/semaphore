@@ -282,7 +282,7 @@ if ($DryRun) {
             Write-Host "  • $alert_name" -ForegroundColor Gray
         }
     } else {
-        Write-Host "No matching alerts $alert_name found in Shared subscription." -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: No matching alerts $backend_health_alert found in Shared subscription." -ForegroundColor Yellow
     }
 } else {
     foreach ($hub in $hubs_alerts) {
@@ -301,7 +301,7 @@ if ($DryRun) {
                 --only-show-errors | Out-Null
             Write-Host "Disabled alert: $alert_name" -ForegroundColor Green
         } else {
-            Write-Host "No matching alert $alert_name found in Shared subscription." -ForegroundColor Yellow
+            Write-Host "🔍 DRY RUN: No matching alert $backend_health_alert found in Shared subscription." -ForegroundColor Yellow
         }
     }
 } 

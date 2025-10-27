@@ -252,7 +252,7 @@ if ($DryRun) {
             Write-Host "  • $alert_name"
         }
     } else {
-        Write-Host "🔍 DRY RUN: No alerts found to enable"
+        Write-Host "🔍 DRY RUN: No alerts found to enable $backend_health_alert"
     }
     
     Write-Host "`n🔍 DRY RUN: Environment startup preview completed."

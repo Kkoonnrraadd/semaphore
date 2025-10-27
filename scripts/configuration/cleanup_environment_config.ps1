@@ -18,20 +18,52 @@ if ($DryRun) {
     Write-Host "===========================`n" -ForegroundColor Cyan
 }
 
+Write-Host "Running with parameters:" -ForegroundColor Cyan
+Write-Host "  - destination: $destination" -ForegroundColor Gray
+Write-Host "  - EnvironmentToClean: $EnvironmentToClean" -ForegroundColor Gray
+Write-Host "  - domain: $domain" -ForegroundColor Gray
+Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
+Write-Host "  - MultitenantToRemove: $MultitenantToRemove" -ForegroundColor Gray
+Write-Host "  - CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
+Write-Host ""
+
 $destination_lower = (Get-Culture).TextInfo.ToLower($destination)
 
+Write-Host "Constructing Azure Resource Graph query..." -ForegroundColor Cyan
 $graph_query = "
   resources
   | where type =~ 'microsoft.sql/servers'
   | where tags.Environment == '$destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
+Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$destination_lower'..." -ForegroundColor Cyan
+Write-Host "Query: $graph_query" -ForegroundColor Gray
+
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+if (-not $server -or $server.Count -eq 0) {
+    Write-Host "❌ FATAL ERROR: No primary SQL server found for environment '$destination_lower' using the graph query." -ForegroundColor Red
+    Write-Host "   Please check the 'Environment' and 'Type' tags on your SQL server resources." -ForegroundColor Yellow
+    exit 1
+}
+
+if ($server.Count -gt 1) {
+    Write-Host "⚠️  WARNING: Found $($server.Count) primary SQL servers. Using the first one found: $($server[0].name)" -ForegroundColor Yellow
+}
+
+Write-Host "✅ Found primary SQL server: $($server[0].name)" -ForegroundColor Green
+Write-Host "Server details (JSON): $($server[0] | ConvertTo-Json -Depth 3)" -ForegroundColor Gray
+
 
 $dest_subscription = $server[0].subscriptionId
 $dest_server = $server[0].name
 $dest_rg = $server[0].resourceGroup
 $dest_fqdn = $server[0].fqdn
+if ([string]::IsNullOrWhiteSpace($dest_subscription) -or [string]::IsNullOrWhiteSpace($dest_server) -or [string]::IsNullOrWhiteSpace($dest_rg) -or [string]::IsNullOrWhiteSpace($dest_fqdn)) {
+    Write-Host "❌ FATAL ERROR: The discovered server object is missing required properties (subscriptionId, name, resourceGroup, fqdn)." -ForegroundColor Red
+    exit 1
+}
+
 if ($dest_fqdn -match "database.windows.net") {
   $resourceUrl = "https://database.windows.net"
 } else {
@@ -51,11 +83,24 @@ $FullEnvironmentToClean = if ($MultitenantToRemove -eq "manufacturo") {
 Write-Host "Cleaning up configuration for environment: $FullEnvironmentToClean"
 
 $dest_split = $dest_rg -split "-"
+if ($dest_split.Count -lt 4) {
+    Write-Host "❌ FATAL ERROR: Resource group name '$dest_rg' does not follow the expected format '...-environment-location'." -ForegroundColor Red
+    exit 1
+}
 $dest_location    = $dest_split[-1]
 $dest_environment = $dest_split[3]
+Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
+Write-Host "  - Location: $dest_location" -ForegroundColor Gray
+Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
 
 # Get access token
+Write-Host "`nRequesting access token for resource '$resourceUrl'..." -ForegroundColor Cyan
 $AccessToken = (az account get-access-token --resource="$resourceUrl" --query accessToken --output tsv)
+if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+    Write-Host "❌ FATAL ERROR: Failed to get access token for resource '$resourceUrl'." -ForegroundColor Red
+    exit 1
+}
+Write-Host "✅ Access token retrieved successfully." -ForegroundColor Green
 
 # Get list of SQL DBs
 Write-Host "`nRetrieving databases from: $dest_server" -ForegroundColor Cyan
@@ -69,9 +114,11 @@ if (-not $dbs) {
     $global:LASTEXITCODE = 1
     throw "No databases found on server '$dest_server'"
 }
+Write-Host "Found $($dbs.Count) database(s) on server '$dest_server'." -ForegroundColor Green
 
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
+    Write-Host "Constructed expected database name pattern: *$expectedName" -ForegroundColor Cyan
 }else{
     $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty"
@@ -109,6 +156,12 @@ if ($DryRun) {
 Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cyan
 $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
 
+if ($matchingDbs.Count -eq 0) {
+    Write-Host "⚠️  No databases found matching the pattern '*$expectedName'. No cleanup will be performed." -ForegroundColor Yellow
+} else {
+    Write-Host "Found $($matchingDbs.Count) database(s) matching the pattern. Now checking for exact core DB names..." -ForegroundColor Green
+}
+
 foreach ($db in $matchingDbs) {
     $dbName = $db.name
 
@@ -117,7 +170,7 @@ foreach ($db in $matchingDbs) {
         try {
             Write-Host "Removing all CORS origins and redirect URIs containing '$FullEnvironmentToClean'"
 
-            Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$dest_fqdn" -Database $dbName -Query @"
+            $cleanupResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$dest_fqdn" -Database $dbName -Query @"
 
             DECLARE @environmentToClean NVARCHAR(255) = '$FullEnvironmentToClean';
             DECLARE @deletedCors INT = 0;
@@ -144,12 +197,19 @@ foreach ($db in $matchingDbs) {
 
 ;
 "@
+            if ($cleanupResult) {
+                Write-Host "  - CORS Origins Removed: $($cleanupResult.CORS_Origins_Removed)" -ForegroundColor Gray
+                Write-Host "  - Redirect URIs Removed: $($cleanupResult.Redirect_URIs_Removed)" -ForegroundColor Gray
+                Write-Host "  - Post-Logout URIs Removed: $($cleanupResult.PostLogout_URIs_Removed)" -ForegroundColor Gray
+            } else {
+                Write-Host "  - No results returned from cleanup query for '$FullEnvironmentToClean'." -ForegroundColor Yellow
+            }
 
             # Also remove customer alias if specified (but not if it's the same as environment to clean)
             if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -ne $FullEnvironmentToClean) {
                 Write-Host "Removing all CORS origins and redirect URIs containing customer alias: $CustomerAliasToRemove"
 
-                Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$dest_fqdn" -Database $dbName -Query @"
+                $aliasCleanupResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$dest_fqdn" -Database $dbName -Query @"
 
                 DECLARE @customerAliasToRemove NVARCHAR(255) = '$CustomerAliasToRemove';
                 DECLARE @deletedCorsAlias INT = 0;
@@ -176,6 +236,13 @@ foreach ($db in $matchingDbs) {
 
 ;
 "@
+                if ($aliasCleanupResult) {
+                    Write-Host "  - CORS Origins Removed (Alias): $($aliasCleanupResult.CORS_Origins_Removed)" -ForegroundColor Gray
+                    Write-Host "  - Redirect URIs Removed (Alias): $($aliasCleanupResult.Redirect_URIs_Removed)" -ForegroundColor Gray
+                    Write-Host "  - Post-Logout URIs Removed (Alias): $($aliasCleanupResult.PostLogout_URIs_Removed)" -ForegroundColor Gray
+                } else {
+                    Write-Host "  - No results returned from alias cleanup query for '$CustomerAliasToRemove'." -ForegroundColor Yellow
+                }
             } elseif (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -eq $FullEnvironmentToClean) {
                 Write-Host "⚠️  Skipping customer alias cleanup - same as environment to clean ($CustomerAliasToRemove)" -ForegroundColor Yellow
             }
@@ -184,6 +251,8 @@ foreach ($db in $matchingDbs) {
         } catch {
             Write-Host "Error cleaning up $dbName : $_" -ForegroundColor Red
         }
+    } else {
+        Write-Host "  - Skipping DB '$dbName' as it does not match the exact core database names ('db-mnfro-...' or 'db-mnfrotest-...')." -ForegroundColor DarkGray
     }
 }
 

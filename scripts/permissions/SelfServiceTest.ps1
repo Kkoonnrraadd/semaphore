@@ -9,7 +9,7 @@ $ServiceAccount = $body.ServiceAccount ?? "SelfServiceRefresh"
 $Action = $body.Action ?? "Remove"
 
 # Validate Action parameter
-if ($Action -notin @("Grant", "Remove")) {
+if ($Action -notin @("Grant", "Remove", "ProdSecurity")) {
     Write-Host "  ❌ Action not found" -ForegroundColor Red
     $body = "Action not found: $Action"
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
@@ -77,7 +77,15 @@ try {
 # Get all groups matching the environment pattern
 Write-Host "`n📋 Finding groups matching environment: $Environment" -ForegroundColor Yellow
 $targetGroups = @()
-$groupSuffixes = @("Contributors", "DBAdmins")
+# $groupSuffixes = @("Contributors", "DBAdmins")
+
+if ($Action -eq "ProdSecurity") {
+    $filter =   "$Environment-$suffix"
+    $groupSuffixes = @("DBAdmins")
+} else {
+    $filter =   "*-$suffix"
+    $groupSuffixes = @("Contributors", "DBAdmins")
+}
 
 try {
     # Search for all groups starting with the environment prefix
@@ -91,7 +99,7 @@ try {
             $matchesSuffix = $false
             foreach ($suffix in $groupSuffixes) {
                 # Check if group name ends with -Contributors or -DBAdmin
-                if ($group.DisplayName -like "*-$suffix") {
+                if ($group.DisplayName -like "$filter") {
                     $matchesSuffix = $true
                     break
                 }
@@ -181,6 +189,21 @@ try {
                 }
             }
         } elseif ($Action -eq "Remove") {
+            if (-not $isMember) {
+                Write-Host "`n⚠️  [$($group.DisplayName)] Not a member - skipping" -ForegroundColor Yellow
+                $skipCount++
+            } else {
+                try {
+                    Write-Host "`n➖ [$($group.DisplayName)] Removing from group..." -ForegroundColor Yellow
+                    Remove-MgGroupMemberDirectoryObjectByRef -GroupId $group.Id -DirectoryObjectId $sp.Id
+                    Write-Host "  ✅ Successfully removed" -ForegroundColor Green
+                    $successCount++
+                } catch {
+                    Write-Host "  ❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+                    $errorCount++
+                }
+            }
+        } elseif ($Action -eq "ProdSecurity") {
             if (-not $isMember) {
                 Write-Host "`n⚠️  [$($group.DisplayName)] Not a member - skipping" -ForegroundColor Yellow
                 $skipCount++

@@ -396,9 +396,9 @@ function Invoke-Migration {
     Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would execute restore point in time" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Timezone: $Timezone" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Source: $Source / $SourceNamespace" -ForegroundColor Gray
+        # Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
+        # Write-Host "🔍 DRY RUN: Timezone: $Timezone" -ForegroundColor Gray
+        # Write-Host "🔍 DRY RUN: Source: $Source / $SourceNamespace" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
@@ -461,14 +461,6 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would cleanup source environment configurations" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Removing CORS origins and redirect URIs for: $Source" -ForegroundColor Gray
-        if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) {
-            Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
-        }
-        if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) {
-            Write-Host "🔍 DRY RUN: Customer alias to remove: $CustomerAliasToRemove" -ForegroundColor Gray
-        } else {
-            Write-Host "🔍 DRY RUN: No customer alias specified for removal" -ForegroundColor Gray
-        }
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
         & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
@@ -515,8 +507,8 @@ function Invoke-Migration {
     Write-Host "`n🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would configure SQL users" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
+        # Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
+        # Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would configure user permissions and roles" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray

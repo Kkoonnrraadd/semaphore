@@ -212,38 +212,21 @@ if ($DryRun) {
 
     
     # Discover web tests that would be enabled
-    Write-Host "`n🔍 DRY RUN: Would enable Application Insights web tests:"
-    # if ($Cloud -eq "AzureCloud") {
-    #     $webtests = az monitor app-insights web-test list `
-    #         --subscription $Destination_subscription `
-    #         --only-show-errors `
-    #         --output json | ConvertFrom-Json
-        
-    #     if ($webtests.Count -gt 0) {
-    #         Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
-    #         $webtests | ForEach-Object {
-    #             Write-Host "  • $($_.name)"
-    #         }
-    #     } else {
-    #         Write-Host "🔍 DRY RUN: No web tests found to enable"
-    #     }
-    # } else {
-        $webtests = az resource list `
-            --subscription $Destination_subscription `
-            --resource-group $Destination_rg `
-            --resource-type "Microsoft.Insights/webtests" `
-            --output json `
-            --only-show-errors | ConvertFrom-Json
-        
-        if ($webtests.Count -gt 0) {
-            Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
-            $webtests | ForEach-Object {
-                Write-Host "  • $($_.name)"
-            }
-        } else {
-            Write-Host "🔍 DRY RUN: No web tests found to enable"
+    $webtests = az resource list `
+        --subscription $Destination_subscription `
+        --resource-group $Destination_rg `
+        --resource-type "Microsoft.Insights/webtests" `
+        --output json `
+        --only-show-errors | ConvertFrom-Json
+    
+    if ($webtests.Count -gt 0) {
+        Write-Host "🔍 DRY RUN: Would enable $($webtests.Count) web tests:"
+        $webtests | ForEach-Object {
+            Write-Host "  • $($_.name)"
         }
-    # }
+    } else {
+        Write-Host "🔍 DRY RUN: No web tests found to enable"
+    }
     
     # Discover alerts that would be enabled
     Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:"
@@ -285,72 +268,39 @@ Downscale-Deployments -Namespace $DestinationNamespace
 
 Write-Host "`nEnabling Application Insights web tests..."
 
-Write-Host "Using Azure cloud: $Cloud"
+# Use az resource list for government cloud compatibility
+$webtests = az resource list `
+    --subscription $Destination_subscription `
+    --resource-group $Destination_rg `
+    --resource-type "Microsoft.Insights/webtests" `
+    --output json `
+    --only-show-errors | ConvertFrom-Json
 
-# if ($Cloud -eq "AzureCloud") {
-#     Write-Host "Using classic Azure CLI web test commands for Commercial cloud..."
+if ($webtests.Count -eq 0) {
+    Write-Host "No web tests found."
+    return
+}
+
+Write-Host "Found $($webtests.Count) web tests to enable"
+
+# Enable using az resource update for government cloud compatibility
+$webtests | ForEach-Object -Parallel {
+    $webtest = $_
+    $webtestName = $webtest.name
+    $webtestId = $webtest.id
     
-#     # Fetch all web tests once using classic method
-#     $webtests = az monitor app-insights web-test list `
-#         --subscription $Destination_subscription `
-#         --only-show-errors `
-#         --output json | ConvertFrom-Json
-
-#     if ($webtests.Count -eq 0) {
-#         Write-Host "No web tests found."
-#         return
-#     }
-
-#     # Enable in parallel with a throttle limit of 10 using classic method
-#     $webtests | ForEach-Object -Parallel {
-#         az monitor app-insights web-test update `
-#             --name $_.name `
-#             --resource-group $using:Destination_rg `
-#             --enabled true `
-#             --subscription $using:Destination_subscription `
-#             --output none `
-#             --only-show-errors | Out-Null
-
-#         Write-Host "✅ ENABLED: Web test $($_.name)"
-#     } -ThrottleLimit 10
-# }
-# else {
-    Write-Host "Using generic Azure resource commands for Government/Other clouds..."
+    az resource update `
+        --ids $webtestId `
+        --set properties.enabled=true `
+        --output none `
+        --only-show-errors | Out-Null
     
-    # Use az resource list for government cloud compatibility
-    $webtests = az resource list `
-        --subscription $Destination_subscription `
-        --resource-group $Destination_rg `
-        --resource-type "Microsoft.Insights/webtests" `
-        --output json `
-        --only-show-errors | ConvertFrom-Json
-
-    if ($webtests.Count -eq 0) {
-        Write-Host "No web tests found."
-        return
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Enabled web test: $webtestName"
+    } else {
+        Write-Host "❌ FAILED: Could not enable web test $webtestName"
     }
-
-    Write-Host "Found $($webtests.Count) web tests to enable"
-
-    # Enable using az resource update for government cloud compatibility
-    $webtests | ForEach-Object -Parallel {
-        $webtest = $_
-        $webtestName = $webtest.name
-        $webtestId = $webtest.id
-        
-        az resource update `
-            --ids $webtestId `
-            --set properties.enabled=true `
-            --output none `
-            --only-show-errors | Out-Null
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "Enabled web test: $webtestName"
-        } else {
-            Write-Host "❌ FAILED: Could not enable web test $webtestName"
-        }
-    } -ThrottleLimit 10
-# }
+} -ThrottleLimit 10
 
 
 if ($DestinationNamespace -eq "manufacturo") {
@@ -384,7 +334,7 @@ foreach ($hub in $hubs_alerts) {
             --only-show-errors
         Write-Host "✅ ENABLED: Alert $alert_name"
     } else {
-        Write-Host "⚠️  WARNING: No matching alert found in Shared subscription"
+        Write-Host "⚠️  WARNING: No matching alert $alert_name found in Shared subscription"
     }
 } 
 

@@ -16,12 +16,12 @@ if ($DryRun) {
     Write-Host "===========================`n" -ForegroundColor Cyan
 }
 
-Write-Host "Running with parameters:" -ForegroundColor Cyan
-Write-Host "  - Destination: $Destination" -ForegroundColor Gray
-Write-Host "  - CustomerAlias: $CustomerAlias" -ForegroundColor Gray
-Write-Host "  - Domain: $Domain" -ForegroundColor Gray
-Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
-Write-Host ""
+# Write-Host "Running with parameters:" -ForegroundColor Cyan
+# Write-Host "  - Destination: $Destination" -ForegroundColor Gray
+# Write-Host "  - CustomerAlias: $CustomerAlias" -ForegroundColor Gray
+# Write-Host "  - Domain: $Domain" -ForegroundColor Gray
+# Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
+# Write-Host ""
 
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
@@ -62,7 +62,7 @@ if ($dest_fqdn -match "database.windows.net") {
   $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
-Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
+# Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
 
 $dest_split = $dest_rg -split "-"
 if ($dest_split.Count -lt 4) {
@@ -73,11 +73,11 @@ $dest_product     = $dest_split[1]
 $dest_location    = $dest_split[-1]
 $dest_type        = $dest_split[2]
 $dest_environment = $dest_split[3]
-Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
-Write-Host "  - Product: $dest_product" -ForegroundColor Gray
-Write-Host "  - Type: $dest_type" -ForegroundColor Gray
-Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
-Write-Host "  - Location: $dest_location" -ForegroundColor Gray
+# Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
+# Write-Host "  - Product: $dest_product" -ForegroundColor Gray
+# Write-Host "  - Type: $dest_type" -ForegroundColor Gray
+# Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
+# Write-Host "  - Location: $dest_location" -ForegroundColor Gray
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -248,8 +248,8 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $int_expectedName = "db-$dest_product-$dest_type-integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
     $DestinationAlias = "$Destination-$DestinationNamespace"
     Write-Host "Constructed expected database name patterns:" -ForegroundColor Cyan
-    Write-Host "  - Core DB: *$expectedName" -ForegroundColor Gray
-    Write-Host "  - Integrator Plus DB: *$int_expectedName" -ForegroundColor Gray
+    Write-Host "  - Core DB: $expectedName" -ForegroundColor Gray
+    Write-Host "  - Integrator Plus DB: $int_expectedName" -ForegroundColor Gray
 }else{
     $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty"
@@ -266,7 +266,7 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Customer Alias: $CustomerAlias" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
     
-    $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" -or $_.name -like "*$int_expectedName" }
+    $matchingDbs = $dbs | Where-Object { $_.name -eq $expectedName -or $_.name -eq $int_expectedName }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray

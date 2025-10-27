@@ -787,8 +787,9 @@ if ($server_secondary -and $server_secondary.Count -gt 0) {
 }
 
 # Display summary
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "📋 COPY SUMMARY" -ForegroundColor Cyan
-Write-Host "===============" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "Source: $Source_server_fqdn" -ForegroundColor Yellow
 Write-Host "Destination: $dest_server_fqdn" -ForegroundColor Yellow
 Write-Host "Elastic Pool: $dest_elasticpool" -ForegroundColor Yellow

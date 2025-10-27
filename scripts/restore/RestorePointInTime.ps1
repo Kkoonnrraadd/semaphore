@@ -593,7 +593,6 @@ Write-Host "🔄 Restore Point In Time"
 Write-Host "============================`n"
 
 # Convert datetime to UTC
-Write-Host "🕐 Using timezone: $Timezone"
 $timeConversion = Convert-ToUTCRestorePoint -RestoreDateTime $RestoreDateTime -Timezone $Timezone
 $restore_point_in_timezone = $timeConversion.RestorePointInTimezone
 $restore_point_utc = $timeConversion.RestorePointUtc
@@ -639,11 +638,11 @@ $AccessToken = (az account get-access-token --resource="$resourceUrl" --query ac
 # Display configuration
 Write-Host "📋 RESTORE CONFIGURATION"
 Write-Host "========================"
-Write-Host "🖥️  Source Server: $Source_server"
+Write-Host "🖥️ Source Server: $Source_server"
 Write-Host "🌍 Source Environment: $Source"
 Write-Host "📦 Source Namespace: $SourceNamespace"
 Write-Host "⏰ Restore Point: $($restore_point_in_timezone.ToString('yyyy-MM-dd HH:mm:ss')) ($Timezone)"
-Write-Host "   UTC Time: $($restore_point_utc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
+Write-Host " -> UTC Time: $($restore_point_utc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
 Write-Host ""
 
 # Get list of databases from source SQL server

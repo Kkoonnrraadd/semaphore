@@ -18,7 +18,9 @@ if ($DryRun) {
     Write-Host "===========================`n" -ForegroundColor Cyan
 }
 
-Write-Host "Running with parameters:" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "📋 CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  - Destination: $Destination" -ForegroundColor Gray
 Write-Host "  - EnvironmentToClean: $Source" -ForegroundColor Gray
 Write-Host "  - Domain: $Domain" -ForegroundColor Gray
@@ -36,8 +38,8 @@ $graph_query = "
   | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$Destination_lower'..." -ForegroundColor Cyan
-Write-Host "Query: $graph_query" -ForegroundColor Gray
+# Write-Host "Executing Azure Resource Graph query to find primary SQL server for environment '$Destination_lower'..." -ForegroundColor Cyan
+# Write-Host "Query: $graph_query" -ForegroundColor Gray
 
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
@@ -52,7 +54,7 @@ if ($server.Count -gt 1) {
 }
 
 Write-Host "✅ Found primary SQL server: $($server[0].name)" -ForegroundColor Green
-Write-Host "Server details (JSON): $($server[0] | ConvertTo-Json -Depth 3)" -ForegroundColor Gray
+# Write-Host "Server details (JSON): $($server[0] | ConvertTo-Json -Depth 3)" -ForegroundColor Gray
 
 
 $dest_subscription = $server[0].subscriptionId
@@ -70,7 +72,7 @@ if ($dest_fqdn -match "database.windows.net") {
   $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
-Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
+# Write-Host "Destination: $dest_subscription, $dest_server, $dest_rg, $dest_fqdn"
 
 # Construct the full environment name to clean up
 $FullEnvironmentToClean = if ($SourceNamespace -eq "manufacturo") {
@@ -80,7 +82,6 @@ $FullEnvironmentToClean = if ($SourceNamespace -eq "manufacturo") {
     "$Source-$SourceNamespace"
 }
 
-Write-Host "Cleaning up configuration for environment: $FullEnvironmentToClean"
 
 $dest_split = $dest_rg -split "-"
 if ($dest_split.Count -lt 4) {
@@ -91,11 +92,11 @@ $dest_location    = $dest_split[-1]
 $dest_environment = $dest_split[3]
 $dest_product = $dest_split[1]
 $dest_type = $dest_split[2]
-Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
-Write-Host "  - Location: $dest_location" -ForegroundColor Gray
-Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
-Write-Host "  - Product: $dest_product" -ForegroundColor Gray
-Write-Host "  - Type: $dest_type" -ForegroundColor Gray
+# Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
+# Write-Host "  - Location: $dest_location" -ForegroundColor Gray
+# Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
+# Write-Host "  - Product: $dest_product" -ForegroundColor Gray
+# Write-Host "  - Type: $dest_type" -ForegroundColor Gray
 # Get access token
 Write-Host "`nRequesting access token for resource '$resourceUrl'..." -ForegroundColor Cyan
 $AccessToken = (az account get-access-token --resource="$resourceUrl" --query accessToken --output tsv)
@@ -121,7 +122,7 @@ Write-Host "Found $($dbs.Count) database(s) on server '$dest_server'." -Foregrou
 
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     $expectedName  = "db-$dest_product-$dest_type-core-$DestinationNamespace-$dest_environment-$dest_location"
-    Write-Host "Constructed expected database name pattern: *$expectedName" -ForegroundColor Cyan
+    Write-Host "Constructed expected database name pattern: $expectedName" -ForegroundColor Cyan
 }else{
     $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty"
@@ -130,9 +131,9 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would clean up environment '$FullEnvironmentToClean' from databases..." -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Expected database pattern: *$expectedName" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Expected database pattern: $expectedName" -ForegroundColor Gray
     
-    $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
+    $matchingDbs = $dbs | Where-Object { $_.name -like "$expectedName" }
     Write-Host "🔍 DRY RUN: Would clean up $($matchingDbs.Count) databases:" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray
@@ -157,10 +158,10 @@ if ($DryRun) {
 
 # Filter based on 'core' DB and customer prefix
 Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cyan
-$matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
+$matchingDbs = $dbs | Where-Object { $_.name -like "$expectedName" }
 
 if ($matchingDbs.Count -eq 0) {
-    Write-Host "⚠️  No databases found matching the pattern '*$expectedName'. No cleanup will be performed." -ForegroundColor Yellow
+    Write-Host "⚠️  No databases found matching the pattern '$expectedName'. No cleanup will be performed." -ForegroundColor Yellow
 } else {
     Write-Host "Found $($matchingDbs.Count) database(s) matching the pattern. Now checking for exact core DB names..." -ForegroundColor Green
 }

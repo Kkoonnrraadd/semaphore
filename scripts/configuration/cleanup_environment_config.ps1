@@ -89,10 +89,13 @@ if ($dest_split.Count -lt 4) {
 }
 $dest_location    = $dest_split[-1]
 $dest_environment = $dest_split[3]
+$dest_product = $dest_split[1]
+$dest_type = $dest_split[2]
 Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
 Write-Host "  - Location: $dest_location" -ForegroundColor Gray
 Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
-
+Write-Host "  - Product: $dest_product" -ForegroundColor Gray
+Write-Host "  - Type: $dest_type" -ForegroundColor Gray
 # Get access token
 Write-Host "`nRequesting access token for resource '$resourceUrl'..." -ForegroundColor Cyan
 $AccessToken = (az account get-access-token --resource="$resourceUrl" --query accessToken --output tsv)
@@ -117,7 +120,7 @@ if (-not $dbs) {
 Write-Host "Found $($dbs.Count) database(s) on server '$dest_server'." -ForegroundColor Green
 
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
-    $expectedName  = "core-$DestinationNamespace-$dest_environment-$dest_location"
+    $expectedName  = "db-$dest_product-$dest_type-core-$DestinationNamespace-$dest_environment-$dest_location"
     Write-Host "Constructed expected database name pattern: *$expectedName" -ForegroundColor Cyan
 }else{
     $global:LASTEXITCODE = 1
@@ -165,7 +168,7 @@ if ($matchingDbs.Count -eq 0) {
 foreach ($db in $matchingDbs) {
     $dbName = $db.name
 
-    if (($dbName -eq "db-mnfro-$expectedName") -or ($dbName -eq "db-mnfrotest-$expectedName")) {
+    if ($dbName -eq "$expectedName") {
         Write-Host "`nCleaning up DB: $dbName" -ForegroundColor Green
         try {
             Write-Host "Removing all CORS origins and redirect URIs containing '$FullEnvironmentToClean'"

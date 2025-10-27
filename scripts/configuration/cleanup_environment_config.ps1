@@ -1,7 +1,7 @@
 param (
     [Parameter(Mandatory)] [string]$Destination,
     [Parameter(Mandatory)] [string]$Source,
-    [Parameter(Mandatory)] [string]$domain,
+    [Parameter(Mandatory)] [string]$Domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
     [AllowEmptyString()][string]$SourceNamespace,
     [AllowEmptyString()][string]$CustomerAliasToRemove,
@@ -21,7 +21,7 @@ if ($DryRun) {
 Write-Host "Running with parameters:" -ForegroundColor Cyan
 Write-Host "  - Destination: $Destination" -ForegroundColor Gray
 Write-Host "  - EnvironmentToClean: $Source" -ForegroundColor Gray
-Write-Host "  - domain: $domain" -ForegroundColor Gray
+Write-Host "  - Domain: $Domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  - MultitenantToRemove: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  - CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
@@ -129,7 +129,7 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
 
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would clean up environment '$FullEnvironmentToClean' from databases..." -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Domain: $domain" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Expected database pattern: *$expectedName" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" }
@@ -139,13 +139,13 @@ if ($DryRun) {
     }
     
     Write-Host "🔍 DRY RUN: Would remove CORS origins and redirect URIs for:" -ForegroundColor Yellow
-    Write-Host "  • https://$FullEnvironmentToClean.manufacturo.$domain" -ForegroundColor Gray
-    Write-Host "  • https://api.$FullEnvironmentToClean.manufacturo.$domain" -ForegroundColor Gray
+    Write-Host "  • https://$FullEnvironmentToClean.manufacturo.$Domain" -ForegroundColor Gray
+    Write-Host "  • https://api.$FullEnvironmentToClean.manufacturo.$Domain" -ForegroundColor Gray
     Write-Host "  • Any URLs containing '$FullEnvironmentToClean' (including swagger URLs)" -ForegroundColor Gray
     
     if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -ne $FullEnvironmentToClean) {
-        Write-Host "  • https://$CustomerAliasToRemove.manufacturo.$domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$CustomerAliasToRemove.manufacturo.$domain" -ForegroundColor Gray
+        Write-Host "  • https://$CustomerAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
+        Write-Host "  • https://api.$CustomerAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
         Write-Host "  • Any URLs containing '$CustomerAliasToRemove' (including swagger URLs)" -ForegroundColor Gray
     } elseif ($CustomerAliasToRemove -eq $FullEnvironmentToClean) {
         Write-Host "  ⚠️  Skipping customer alias removal - same as environment to clean ($CustomerAliasToRemove)" -ForegroundColor Yellow

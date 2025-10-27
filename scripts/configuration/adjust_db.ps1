@@ -1,7 +1,7 @@
 param (
     [Parameter(Mandatory)] [string]$Destination,
     [AllowEmptyString()][Parameter(Mandatory)][string]$CustomerAlias,
-    [Parameter(Mandatory)] [string]$domain,
+    [Parameter(Mandatory)] [string]$Domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
     [switch]$DryRun
 )
@@ -19,7 +19,7 @@ if ($DryRun) {
 Write-Host "Running with parameters:" -ForegroundColor Cyan
 Write-Host "  - Destination: $Destination" -ForegroundColor Gray
 Write-Host "  - CustomerAlias: $CustomerAlias" -ForegroundColor Gray
-Write-Host "  - domain: $domain" -ForegroundColor Gray
+Write-Host "  - Domain: $Domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host ""
 
@@ -264,7 +264,7 @@ if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix..." -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Customer Alias: $CustomerAlias" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Domain: $domain" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -like "*$expectedName" -or $_.name -like "*$int_expectedName" }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
@@ -272,13 +272,13 @@ if ($DryRun) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray
     }
     Write-Host "🔍 DRY RUN: Would add CORS origins and redirect URIs for:" -ForegroundColor Yellow
-    Write-Host "  • https://$CustomerAlias.manufacturo.$domain" -ForegroundColor Gray
-    Write-Host "  • https://api.$CustomerAlias.manufacturo.$domain" -ForegroundColor Gray
+    Write-Host "  • https://$CustomerAlias.manufacturo.$Domain" -ForegroundColor Gray
+    Write-Host "  • https://api.$CustomerAlias.manufacturo.$Domain" -ForegroundColor Gray
     Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
 
     if ($DestinationAlias -ne $CustomerAlias){
-        Write-Host "  • https://$DestinationAlias.manufacturo.$domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$DestinationAlias.manufacturo.$domain" -ForegroundColor Gray
+        Write-Host "  • https://$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
+        Write-Host "  • https://api.$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
     }
 
     Write-Host "🔍 DRY RUN: Would delete from Integrator Plus: " -ForegroundColor Gray
@@ -307,11 +307,11 @@ foreach ($db in $matchingDbs) {
         Write-Host "`nExecuting SQL on DB: $dbName" -ForegroundColor Green
         try {
             # Add the primary customer alias
-            Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $CustomerAlias -Domain $domain -AliasLabel "CustomerAlias"
+            Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $CustomerAlias -Domain $Domain -AliasLabel "CustomerAlias"
             
             # Add the Destination alias if it's different from the customer alias
             if ($DestinationAlias -ne $CustomerAlias) {
-                Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $domain -AliasLabel "DestinationAlias"
+                Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $Domain -AliasLabel "DestinationAlias"
             }
 
             # Update organization.Site to clear license_customer_name

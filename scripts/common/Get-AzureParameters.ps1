@@ -112,13 +112,13 @@ if ($Source -eq $Destination -and $SourceNamespace -eq $DestinationNamespace) {
 # 6. Set default values for time-sensitive parameters
 # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable (required for safety)
 $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
-if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
-    $DefaultTimezone = $envTimezone
-    Write-Host "🕐 Set default timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $DefaultTimezone" -ForegroundColor Green
-} 
-elseif (-not [string]::IsNullOrWhiteSpace($Timezone)) {
+if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
     $DefaultTimezone = $Timezone
-    Write-Host "🕐 Set default timezone from Timezone parameter: $DefaultTimezone" -ForegroundColor Green
+    Write-Host "🕐 Set timezone from Timezone parameter: $DefaultTimezone" -ForegroundColor Green
+}
+elseif (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
+    $DefaultTimezone = $envTimezone
+    Write-Host "🕐 Set timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $DefaultTimezone" -ForegroundColor Green
 } else {
     Write-Host "" -ForegroundColor Red
     Write-Host "❌ FATAL ERROR: Timezone is not provided and SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set" -ForegroundColor Red
@@ -126,6 +126,7 @@ elseif (-not [string]::IsNullOrWhiteSpace($Timezone)) {
     Write-Host "   Please set SEMAPHORE_SCHEDULE_TIMEZONE in docker-compose.yaml or provide the Timezone parameter explicitly" -ForegroundColor Yellow
     Write-Host "   Example: SEMAPHORE_SCHEDULE_TIMEZONE: 'UTC'" -ForegroundColor Gray
     Write-Host "" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
     throw "Timezone is not provided and SEMAPHORE_SCHEDULE_TIMEZONE environment variable is not set. No default will be assumed to prevent data errors."
 }
 
@@ -175,3 +176,4 @@ return @{
     DefaultTimezone = $DefaultTimezone
     DefaultRestoreDateTime = $DefaultRestoreDateTime
 }
+

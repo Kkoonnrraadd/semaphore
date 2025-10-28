@@ -76,6 +76,7 @@ function Downscale-Deployments {
     $platformDeployments = $deployments | Where-Object { 
         $_.metadata.name -like "*platform*"
     }
+    
     if ($platformDeployments.Count -eq 0) {
         Write-Host "⚠️  WARNING: No platform monitoring deployments found in namespace: $Namespace"
         return

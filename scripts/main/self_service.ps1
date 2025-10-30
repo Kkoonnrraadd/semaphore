@@ -18,11 +18,11 @@
 .PARAMETER Destination
     Destination environment name (default: "qa2")
 
-.PARAMETER CustomerAlias
-    Customer alias for resource configuration (defaults to INSTANCE_ALIAS environment variable if not provided)
+.PARAMETER InstanceAlias
+    Instance alias for resource configuration (defaults to INSTANCE_ALIAS environment variable if not provided)
 
-.PARAMETER CustomerAliasToRemove
-    Customer alias to remove from source environment during cleanup
+.PARAMETER InstanceAliasToRemove
+    Instance alias to remove from source environment during cleanup
 
 .PARAMETER Cloud
     Azure cloud environment: AzureCloud or AzureUSGovernment (default: "AzureCloud")
@@ -42,7 +42,7 @@
     .\self_service.ps1 -Source "qa2" -Destination "dev" -MaxWaitMinutes 15
 
 .EXAMPLE
-    .\self_service.ps1 -Source "qa2" -Destination "dev" -CustomerAlias "dev" -CustomerAliasToRemove "qa2" -DryRun
+    .\self_service.ps1 -Source "qa2" -Destination "dev" -InstanceAlias "dev" -InstanceAliasToRemove "qa2" -DryRun
 
 .NOTES
     - Default restore point is 15 minutes ago in the current system timezone
@@ -56,8 +56,8 @@ param (
     [AllowEmptyString()][string]$Source,
     [AllowEmptyString()][string]$DestinationNamespace,
     [AllowEmptyString()][string]$Destination,
-    [AllowEmptyString()][string]$CustomerAlias,
-    [AllowEmptyString()][string]$CustomerAliasToRemove,
+    [AllowEmptyString()][string]$InstanceAlias,
+    [AllowEmptyString()][string]$InstanceAliasToRemove,
     [AllowEmptyString()][string]$Cloud,
     [switch]$DryRun=$true,
     [switch]$UseSasTokens=$false,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
@@ -92,43 +92,43 @@ if (-not (Test-Path $automationUtilitiesScript)) {
 # $script:OriginalSourceNamespace = $SourceNamespace
 # $script:OriginalDestinationNamespace = $DestinationNamespace
 # $script:OriginalCloud = $Cloud
-# $script:OriginalCustomerAlias = $CustomerAlias
-# $script:OriginalCustomerAliasToRemove = $CustomerAliasToRemove
+# $script:OriginalInstanceAlias = $InstanceAlias
+# $script:OriginalInstanceAliasToRemove = $InstanceAliasToRemove
 # $script:OriginalRestoreDateTime = $RestoreDateTime
 # $script:OriginalTimezone = $Timezone
 
 
-# if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) {
+# if ([string]::IsNullOrWhiteSpace($script:OriginalInstanceAliasToRemove)) {
 #     if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS_TO_REMOVE)) {
-#         $script:CustomerAliasToRemove = $env:INSTANCE_ALIAS_TO_REMOVE
-#         Write-Host "📋 CustomerAliasToRemove: '$($script:CustomerAliasToRemove)' ← From INSTANCE_ALIAS_TO_REMOVE environment variable" -ForegroundColor Yellow
+#         $script:InstanceAliasToRemove = $env:INSTANCE_ALIAS_TO_REMOVE
+#         Write-Host "📋 InstanceAliasToRemove: '$($script:InstanceAliasToRemove)' ← From INSTANCE_ALIAS_TO_REMOVE environment variable" -ForegroundColor Yellow
 #     } else {
-#         Write-Host "❌ FATAL ERROR: CustomerAliasToRemove is required" -ForegroundColor Red
+#         Write-Host "❌ FATAL ERROR: InstanceAliasToRemove is required" -ForegroundColor Red
 #         Write-Host "   Please either:" -ForegroundColor Yellow
-#         Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space')" -ForegroundColor Gray
+#         Write-Host "   1. Provide -InstanceAliasToRemove parameter (e.g., -InstanceAliasToRemove 'mil-space')" -ForegroundColor Gray
 #         Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space')" -ForegroundColor Gray
 #         $global:LASTEXITCODE = 1
-#         throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
+#         throw "InstanceAliasToRemove is required - provide -InstanceAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
 #     }
 # } else {
-#     $script:CustomerAliasToRemove = $script:OriginalCustomerAliasToRemove
+#     $script:InstanceAliasToRemove = $script:OriginalInstanceAliasToRemove
 # }
 
-# # Apply CustomerAlias with fallback to INSTANCE_ALIAS environment variable
-# if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
+# # Apply InstanceAlias with fallback to INSTANCE_ALIAS environment variable
+# if ([string]::IsNullOrWhiteSpace($script:OriginalInstanceAlias)) {
 #     if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS)) {
-#         $script:CustomerAlias = $env:INSTANCE_ALIAS
-#         Write-Host "📋 CustomerAlias: '$($script:CustomerAlias)' ← From INSTANCE_ALIAS environment variable" -ForegroundColor Yellow
+#         $script:InstanceAlias = $env:INSTANCE_ALIAS
+#         Write-Host "📋 InstanceAlias: '$($script:InstanceAlias)' ← From INSTANCE_ALIAS environment variable" -ForegroundColor Yellow
 #     } else {
-#         Write-Host "❌ FATAL ERROR: CustomerAlias is required" -ForegroundColor Red
+#         Write-Host "❌ FATAL ERROR: InstanceAlias is required" -ForegroundColor Red
 #         Write-Host "   Please either:" -ForegroundColor Yellow
-#         Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
+#         Write-Host "   1. Provide -InstanceAlias parameter (e.g., -InstanceAlias 'mil-space-dev')" -ForegroundColor Gray
 #         Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
 #         $global:LASTEXITCODE = 1
-#         throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
+#         throw "InstanceAlias is required - provide -InstanceAlias parameter or set INSTANCE_ALIAS environment variable"
 #     }
 # } else {
-#     $script:CustomerAlias = $script:OriginalCustomerAlias
+#     $script:InstanceAlias = $script:OriginalInstanceAlias
 # }
 
 
@@ -310,8 +310,8 @@ function Perform-Migration {
     Write-Host "   Source: $Source / $SourceNamespace" -ForegroundColor Gray
     Write-Host "   Destination: $Destination / $DestinationNamespace" -ForegroundColor Gray
     Write-Host "   Cloud: $Cloud" -ForegroundColor Gray
-    Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
-    Write-Host "   Customer Alias to Remove: $CustomerAliasToRemove" -ForegroundColor Gray
+    Write-Host "   Instance Alias: $InstanceAlias" -ForegroundColor Gray
+    Write-Host "   Instance Alias to Remove: $InstanceAliasToRemove" -ForegroundColor Gray
     Write-Host "   Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
     Write-Host "   DryRun: $DryRun" -ForegroundColor Gray
@@ -351,8 +351,8 @@ function Perform-Migration {
         -Cloud $Cloud `
         -Source $Source `
         -Destination $Destination `
-        -CustomerAlias $CustomerAlias `
-        -CustomerAliasToRemove $CustomerAliasToRemove `
+        -InstanceAlias $InstanceAlias `
+        -InstanceAliasToRemove $InstanceAliasToRemove `
         -SourceNamespace $SourceNamespace `
         -DestinationNamespace $DestinationNamespace `
         -Domain $Domain `
@@ -367,8 +367,8 @@ function Invoke-Migration {
         [string]$Cloud,
         [string]$Source,
         [string]$Destination,
-        [AllowEmptyString()][string]$CustomerAlias,
-        [AllowEmptyString()][string]$CustomerAliasToRemove,
+        [AllowEmptyString()][string]$InstanceAlias,
+        [AllowEmptyString()][string]$InstanceAliasToRemove,
         [string]$SourceNamespace,
         [string]$DestinationNamespace,
         [string]$Domain,
@@ -385,8 +385,8 @@ function Invoke-Migration {
     Write-Host "▶️ Destination: $Destination / $DestinationNamespace" -ForegroundColor Gray
     Write-Host "☁️ Cloud: $Cloud" -ForegroundColor Gray
     Write-Host "🌐 Domain: $Domain" -ForegroundColor Gray
-    Write-Host "👤 Customer Alias: $CustomerAlias" -ForegroundColor Gray
-    Write-Host "🗑️ Customer Alias to Remove: $CustomerAliasToRemove" -ForegroundColor Gray
+    Write-Host "👤 Instance Alias: $InstanceAlias" -ForegroundColor Gray
+    Write-Host "🗑️ Instance Alias to Remove: $InstanceAliasToRemove" -ForegroundColor Gray
     Write-Host "📅 Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "🕐 Timezone: $Timezone" -ForegroundColor Gray
     Write-Host "⏱️ Max Wait Time: $MaxWaitMinutes minutes" -ForegroundColor Gray
@@ -579,10 +579,10 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would cleanup source environment configurations" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Removing CORS origins and redirect URIs for: $Source" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -CustomerAliasToRemove $CustomerAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace
+        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace
     }
     
     # Step 6: Revert SQL Users
@@ -603,10 +603,10 @@ function Invoke-Migration {
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
         $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -Domain $Domain -CustomerAlias $CustomerAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+        & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
     } else {
         $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -Domain $Domain -CustomerAlias $CustomerAlias -Destination $Destination -DestinationNamespace $DestinationNamespace 
+        & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace 
     }
     
     # Step 8: Delete Replicas

@@ -327,14 +327,14 @@ create_main_templates() {
             {
                 "name": "RestoreDateTime",
                 "title": "Restore Date/Time (OPTIONAL)",
-                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 15 minutes ago. Script auto-detects if empty.",
+                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 10 minutes ago. Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Timezone",
                 "title": "Timezone (OPTIONAL)",
-                "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
+                "description": "Timezone for restore datetime (e.g., Europe/Warsaw or America/New_York). Script uses system timezone if empty.",
                 "default_value": "",
                 "required": false
             },
@@ -361,22 +361,22 @@ create_main_templates() {
             },
             {
                 "name": "Destination",
-                "title": "Destination Environment (OPTIONAL)",
+                "title": "Destination Environment (REQUIRED)",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": "",
-                "required": false
-            },
-            {
-                "name": "CustomerAlias",
-                "title": "Customer Alias (REQUIRED)",
-                "description": "Customer identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
                 "default_value": "",
                 "required": true
             },
             {
-                "name": "CustomerAliasToRemove",
-                "title": "Customer Alias To Remove (OPTIONAL)",
-                "description": "Customer alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
+                "name": "InstanceAlias",
+                "title": "Instance Alias (REQUIRED)",
+                "description": "Instance identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "default_value": "",
+                "required": true
+            },
+            {
+                "name": "InstanceAliasToRemove",
+                "title": "Instance Alias To Remove (OPTIONAL)",
+                "description": "Instance Alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
                 "default_value": "",
                 "required": false
             },
@@ -480,16 +480,16 @@ create_main_templates() {
                 "required": false
             },
             {
-                "name": "CustomerAlias",
-                "title": "Customer Alias (OPTIONAL)",
-                "description": "Customer identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "name": "InstanceAlias",
+                "title": "Instance Alias (OPTIONAL)",
+                "description": "Instance identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
                 "default_value": "",
                 "required": false
             },
             {
-                "name": "CustomerAliasToRemove",
-                "title": "Customer Alias To Remove (OPTIONAL)",
-                "description": "Customer alias to remove during cleanup. Script auto-calculates from CustomerAlias if empty.",
+                "name": "InstanceAliasToRemove",
+                "title": "Instance Alias To Remove (OPTIONAL)",
+                "description": "Instance Alias to remove during cleanup. Script auto-calculates from InstanceAlias if empty.",
                 "default_value": "",
                 "required": false
             },
@@ -640,13 +640,13 @@ create_task_templates() {
     # Task 5: Cleanup Environment Configuration
     log_info "Creating Task 5: Cleanup Environment Configuration..."
     create_template "Task 5: Cleanup Environment Configuration" \
-        "Clean up source environment configurations (CORS, redirect URIs). Parameters: Destination, EnvironmentToClean, MultitenantToRemove, CustomerAliasToRemove, Domain, DestinationNamespace (OPTIONAL)" \
+        "Clean up source environment configurations (CORS, redirect URIs). Parameters: Destination, EnvironmentToClean, MultitenantToRemove, InstanceAliasToRemove, Domain, DestinationNamespace (OPTIONAL)" \
         "configuration/cleanup_environment_config.ps1" \
         '[
             {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
             {"name":"EnvironmentToClean","title":"Environment To Clean (OPTIONAL)","description":"Source environment to clean. Auto: same as Source","default_value":"","required":false},
             {"name":"MultitenantToRemove","title":"Multitenant To Remove (OPTIONAL)","description":"Namespace to remove. Auto: '\''manufacturo'\''","default_value":"","required":false},
-            {"name":"CustomerAliasToRemove","title":"Customer Alias To Remove (OPTIONAL)","description":"Customer alias to remove. Auto-calculated","default_value":"","required":false},
+            {"name":"InstanceAliasToRemove","title":"Instance Alias To Remove (OPTIONAL)","description":"Instance Alias to remove. Auto-calculated","default_value":"","required":false},
             {"name":"Domain","title":"Domain (OPTIONAL)","description":"Domain (cloud/us). Auto-detected from Cloud","default_value":"","required":false},
             {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
             {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
@@ -671,11 +671,11 @@ create_task_templates() {
     # Task 7: Adjust Resources
     log_info "Creating Task 7: Adjust Resources..."
     create_template "Task 7: Adjust Database Resources" \
-        "Adjust database resources and configurations. Parameters: Domain, CustomerAlias, Destination, DestinationNamespace (OPTIONAL)" \
+        "Adjust database resources and configurations. Parameters: Domain, InstanceAlias, Destination, DestinationNamespace (OPTIONAL)" \
         "configuration/adjust_db.ps1" \
         '[
             {"name":"Domain","title":"Domain (OPTIONAL)","description":"Domain (cloud/us). Auto-detected from Cloud","default_value":"","required":false},
-            {"name":"CustomerAlias","title":"Customer Alias (OPTIONAL)","description":"Customer identifier. Auto: INSTANCE_ALIAS env var","default_value":"","required":false},
+            {"name":"InstanceAlias","title":"Instance Alias (OPTIONAL)","description":"Instance identifier. Auto: INSTANCE_ALIAS env var","default_value":"","required":false},
             {"name":"Destination","title":"Destination Environment (OPTIONAL)","description":"Destination environment. Auto-detected","default_value":"","required":false},
             {"name":"DestinationNamespace","title":"Destination Namespace (OPTIONAL)","description":"Destination namespace. Auto: '\''test'\''","default_value":"","required":false},
             {"name":"DryRun","title":"Dry Run Mode","description":"Preview only (true/false)","default_value":"true","required":true}
@@ -807,7 +807,7 @@ main() {
     get_or_create_resources
     create_views
     create_main_templates
-    create_task_templates
+    # create_task_templates - disabled for now due to refactor 
     
     # Final summary
     log_section "🎉 SETUP COMPLETE"

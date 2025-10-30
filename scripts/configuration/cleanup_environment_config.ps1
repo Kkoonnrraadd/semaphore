@@ -4,7 +4,7 @@ param (
     [Parameter(Mandatory)] [string]$Domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
     [AllowEmptyString()][string]$SourceNamespace,
-    [AllowEmptyString()][string]$CustomerAliasToRemove,
+    [AllowEmptyString()][string]$InstanceAliasToRemove,
     [switch]$DryRun
 )
 
@@ -26,7 +26,7 @@ Write-Host "  - EnvironmentToClean: $Source" -ForegroundColor Gray
 Write-Host "  - Domain: $Domain" -ForegroundColor Gray
 Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  - MultitenantToRemove: $SourceNamespace" -ForegroundColor Gray
-Write-Host "  - CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
+Write-Host "  - InstanceAliasToRemove: $InstanceAliasToRemove" -ForegroundColor Gray
 Write-Host ""
 
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
@@ -144,12 +144,12 @@ if ($DryRun) {
     Write-Host "  • https://api.$FullEnvironmentToClean.manufacturo.$Domain" -ForegroundColor Gray
     Write-Host "  • Any URLs containing '$FullEnvironmentToClean' (including swagger URLs)" -ForegroundColor Gray
     
-    if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -ne $FullEnvironmentToClean) {
-        Write-Host "  • https://$CustomerAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$CustomerAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
-        Write-Host "  • Any URLs containing '$CustomerAliasToRemove' (including swagger URLs)" -ForegroundColor Gray
-    } elseif ($CustomerAliasToRemove -eq $FullEnvironmentToClean) {
-        Write-Host "  ⚠️  Skipping customer alias removal - same as environment to clean ($CustomerAliasToRemove)" -ForegroundColor Yellow
+    if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove) -and $InstanceAliasToRemove -ne $FullEnvironmentToClean) {
+        Write-Host "  • https://$InstanceAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
+        Write-Host "  • https://api.$InstanceAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
+        Write-Host "  • Any URLs containing '$InstanceAliasToRemove' (including swagger URLs)" -ForegroundColor Gray
+    } elseif ($InstanceAliasToRemove -eq $FullEnvironmentToClean) {
+        Write-Host "  ⚠️  Skipping customer alias removal - same as environment to clean ($InstanceAliasToRemove)" -ForegroundColor Yellow
     }
     
     Write-Host "`n🔍 DRY RUN: Cleanup preview completed." -ForegroundColor Yellow
@@ -210,12 +210,12 @@ foreach ($db in $matchingDbs) {
             }
 
             # Also remove customer alias if specified (but not if it's the same as environment to clean)
-            if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -ne $FullEnvironmentToClean) {
-                Write-Host "Removing all CORS origins and redirect URIs containing customer alias: $CustomerAliasToRemove"
+            if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove) -and $InstanceAliasToRemove -ne $FullEnvironmentToClean) {
+                Write-Host "Removing all CORS origins and redirect URIs containing customer alias: $InstanceAliasToRemove"
 
                 $aliasCleanupResult = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance "$dest_fqdn" -Database $dbName -Query @"
 
-                DECLARE @customerAliasToRemove NVARCHAR(255) = '$CustomerAliasToRemove';
+                DECLARE @customerAliasToRemove NVARCHAR(255) = '$InstanceAliasToRemove';
                 DECLARE @deletedCorsAlias INT = 0;
                 DECLARE @deletedRedirectsAlias INT = 0;
                 DECLARE @deletedPostLogoutAlias INT = 0;
@@ -233,7 +233,7 @@ foreach ($db in $matchingDbs) {
                 SET @deletedPostLogoutAlias = @@ROWCOUNT;
 
                 -- Show results for customer alias
-                SELECT 'Customer Alias Cleanup Results' as Status, 
+                SELECT 'Instance Alias Cleanup Results' as Status, 
                        @deletedCorsAlias as CORS_Origins_Removed,
                        @deletedRedirectsAlias as Redirect_URIs_Removed,
                        @deletedPostLogoutAlias as PostLogout_URIs_Removed;
@@ -245,10 +245,10 @@ foreach ($db in $matchingDbs) {
                     Write-Host "  - Redirect URIs Removed (Alias): $($aliasCleanupResult.Redirect_URIs_Removed)" -ForegroundColor Gray
                     Write-Host "  - Post-Logout URIs Removed (Alias): $($aliasCleanupResult.PostLogout_URIs_Removed)" -ForegroundColor Gray
                 } else {
-                    Write-Host "  - No results returned from alias cleanup query for '$CustomerAliasToRemove'." -ForegroundColor Yellow
+                    Write-Host "  - No results returned from alias cleanup query for '$InstanceAliasToRemove'." -ForegroundColor Yellow
                 }
-            } elseif (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove) -and $CustomerAliasToRemove -eq $FullEnvironmentToClean) {
-                Write-Host "⚠️  Skipping customer alias cleanup - same as environment to clean ($CustomerAliasToRemove)" -ForegroundColor Yellow
+            } elseif (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove) -and $InstanceAliasToRemove -eq $FullEnvironmentToClean) {
+                Write-Host "⚠️  Skipping customer alias cleanup - same as environment to clean ($InstanceAliasToRemove)" -ForegroundColor Yellow
             }
 
 

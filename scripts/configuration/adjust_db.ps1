@@ -1,6 +1,6 @@
 param (
     [Parameter(Mandatory)] [string]$Destination,
-    [AllowEmptyString()][Parameter(Mandatory)][string]$CustomerAlias,
+    [AllowEmptyString()][Parameter(Mandatory)][string]$InstanceAlias,
     [Parameter(Mandatory)] [string]$Domain,
     [AllowEmptyString()][Parameter(Mandatory)][string]$DestinationNamespace,
     [switch]$DryRun
@@ -18,7 +18,7 @@ if ($DryRun) {
 
 # Write-Host "Running with parameters:" -ForegroundColor Cyan
 # Write-Host "  - Destination: $Destination" -ForegroundColor Gray
-# Write-Host "  - CustomerAlias: $CustomerAlias" -ForegroundColor Gray
+# Write-Host "  - InstanceAlias: $InstanceAlias" -ForegroundColor Gray
 # Write-Host "  - Domain: $Domain" -ForegroundColor Gray
 # Write-Host "  - DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 # Write-Host ""
@@ -255,15 +255,15 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     throw "DestinationNamespace was empty"
 }
 
-# Default empty CustomerAlias to Destination if not provided
-if ([string]::IsNullOrWhiteSpace($CustomerAlias)) {
-    $CustomerAlias = $DestinationAlias
-    Write-Host "⚠️  CustomerAlias was empty, using Destination '$CustomerAlias' as default" -ForegroundColor Yellow
+# Default empty InstanceAlias to Destination if not provided
+if ([string]::IsNullOrWhiteSpace($InstanceAlias)) {
+    $InstanceAlias = $DestinationAlias
+    Write-Host "⚠️  InstanceAlias was empty, using Destination '$InstanceAlias' as default" -ForegroundColor Yellow
 }
     
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix..." -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Customer Alias: $CustomerAlias" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Instance Alias: $InstanceAlias" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -eq $expectedName -or $_.name -eq $int_expectedName }
@@ -272,11 +272,11 @@ if ($DryRun) {
         Write-Host "  • $($db.name)" -ForegroundColor Gray
     }
     Write-Host "🔍 DRY RUN: Would add CORS origins and redirect URIs for:" -ForegroundColor Yellow
-    Write-Host "  • https://$CustomerAlias.manufacturo.$Domain" -ForegroundColor Gray
-    Write-Host "  • https://api.$CustomerAlias.manufacturo.$Domain" -ForegroundColor Gray
+    Write-Host "  • https://$InstanceAlias.manufacturo.$Domain" -ForegroundColor Gray
+    Write-Host "  • https://api.$InstanceAlias.manufacturo.$Domain" -ForegroundColor Gray
     Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
 
-    if ($DestinationAlias -ne $CustomerAlias){
+    if ($DestinationAlias -ne $InstanceAlias){
         Write-Host "  • https://$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
         Write-Host "  • https://api.$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
     }
@@ -307,10 +307,10 @@ foreach ($db in $matchingDbs) {
         Write-Host "`nExecuting SQL on DB: $dbName" -ForegroundColor Green
         try {
             # Add the primary customer alias
-            Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $CustomerAlias -Domain $Domain -AliasLabel "CustomerAlias"
+            Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $InstanceAlias -Domain $Domain -AliasLabel "InstanceAlias"
             
             # Add the Destination alias if it's different from the customer alias
-            if ($DestinationAlias -ne $CustomerAlias) {
+            if ($DestinationAlias -ne $InstanceAlias) {
                 Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $Domain -AliasLabel "DestinationAlias"
             }
 

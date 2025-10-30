@@ -24,11 +24,11 @@
 .PARAMETER Destination
     Destination environment (e.g., gov001)
 
-.PARAMETER CustomerAlias
-    Customer alias for this refresh
+.PARAMETER InstanceAlias
+    Instance alias for this refresh
 
-.PARAMETER CustomerAliasToRemove
-    Customer alias to remove (optional)
+.PARAMETER InstanceAliasToRemove
+    Instance alias to remove (optional)
 
 .PARAMETER Cloud
     Azure cloud environment
@@ -203,8 +203,8 @@ $SourceNamespace = if ($parsedParams.ContainsKey("SourceNamespace")) { $parsedPa
 $Source = if ($parsedParams.ContainsKey("Source")) { $parsedParams["Source"] } else { "" }
 $DestinationNamespace = if ($parsedParams.ContainsKey("DestinationNamespace")) { $parsedParams["DestinationNamespace"] } else { "" }
 $Destination = if ($parsedParams.ContainsKey("Destination")) { $parsedParams["Destination"] } else { "" }
-$CustomerAlias = if ($parsedParams.ContainsKey("CustomerAlias")) { $parsedParams["CustomerAlias"] } else { "" }
-$CustomerAliasToRemove = if ($parsedParams.ContainsKey("CustomerAliasToRemove")) { $parsedParams["CustomerAliasToRemove"] } else { "" }
+$InstanceAlias = if ($parsedParams.ContainsKey("InstanceAlias")) { $parsedParams["InstanceAlias"] } else { "" }
+$InstanceAliasToRemove = if ($parsedParams.ContainsKey("InstanceAliasToRemove")) { $parsedParams["InstanceAliasToRemove"] } else { "" }
 $Cloud = if ($parsedParams.ContainsKey("Cloud")) { $parsedParams["Cloud"] } else { "" }
 $DryRun = if ($parsedParams.ContainsKey("DryRun")) { 
     $dryRunValue = $parsedParams["DryRun"]
@@ -233,8 +233,8 @@ Write-Host "  SourceNamespace: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  Source: $Source" -ForegroundColor Gray
 Write-Host "  DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  Destination: $Destination" -ForegroundColor Gray
-Write-Host "  CustomerAlias: $CustomerAlias" -ForegroundColor Gray
-Write-Host "  CustomerAliasToRemove: $CustomerAliasToRemove" -ForegroundColor Gray
+Write-Host "  InstanceAlias: $InstanceAlias" -ForegroundColor Gray
+Write-Host "  InstanceAliasToRemove: $InstanceAliasToRemove" -ForegroundColor Gray
 Write-Host "  Cloud: $Cloud" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun" -ForegroundColor Gray
 Write-Host "  UseSasTokens: $UseSasTokens" -ForegroundColor Gray
@@ -465,41 +465,41 @@ if (-not [string]::IsNullOrWhiteSpace($Destination)) {
 }
 
 
-# Special handling for CustomerAlias - if not provided, try to get from ENVIRONMENT variable
-if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { 
-    $scriptParams['CustomerAlias'] = $CustomerAlias 
-    Write-Host "📋 Wrapper: Using provided CustomerAlias = $CustomerAlias" -ForegroundColor Cyan
+# Special handling for InstanceAlias - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($InstanceAlias)) { 
+    $scriptParams['InstanceAlias'] = $InstanceAlias 
+    Write-Host "📋 Wrapper: Using provided InstanceAlias = $InstanceAlias" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS")
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $scriptParams['CustomerAlias'] = $envVar
-        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as CustomerAlias = $envVar" -ForegroundColor Cyan
+        $scriptParams['InstanceAlias'] = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as InstanceAlias = $envVar" -ForegroundColor Cyan
     } else {
-        Write-Host "⚠️ Wrapper: No CustomerAlias provided and INSTANCE_ALIAS variable not set" -ForegroundColor Yellow
-        Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
+        Write-Host "⚠️ Wrapper: No InstanceAlias provided and INSTANCE_ALIAS variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -InstanceAlias parameter (e.g., -InstanceAlias 'mil-space-dev')" -ForegroundColor Gray
         Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
         $global:LASTEXITCODE = 1
-        throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
+        throw "InstanceAlias is required - provide -InstanceAlias parameter or set INSTANCE_ALIAS environment variable"
     }
 }
 
-# Special handling for CustomerAliasToRemove - if not provided, try to get from AZURE_CLOUD_NAME environment variable
-if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { 
-    $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove 
-    Write-Host "📋 Wrapper: Using provided CustomerAliasToRemove = $CustomerAliasToRemove" -ForegroundColor Cyan
+# Special handling for InstanceAliasToRemove - if not provided, try to get from AZURE_CLOUD_NAME environment variable
+if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove)) { 
+    $scriptParams['InstanceAliasToRemove'] = $InstanceAliasToRemove 
+    Write-Host "📋 Wrapper: Using provided InstanceAliasToRemove = $InstanceAliasToRemove" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS_TO_REMOVE")
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $scriptParams['CustomerAliasToRemove'] = $envVar
-        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as CustomerAliasToRemove = $envVar" -ForegroundColor Cyan
+        $scriptParams['InstanceAliasToRemove'] = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as InstanceAliasToRemove = $envVar" -ForegroundColor Cyan
     } else {
-        Write-Host "⚠️ Wrapper: No CustomerAliasToRemove provided and INSTANCE_ALIAS_TO_REMOVE variable not set" -ForegroundColor Yellow
-        Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space-dev')" -ForegroundColor Gray
+        Write-Host "⚠️ Wrapper: No InstanceAliasToRemove provided and INSTANCE_ALIAS_TO_REMOVE variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -InstanceAliasToRemove parameter (e.g., -InstanceAliasToRemove 'mil-space-dev')" -ForegroundColor Gray
         Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space-dev')" -ForegroundColor Gray
         $global:LASTEXITCODE = 1
-        throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
+        throw "InstanceAliasToRemove is required - provide -InstanceAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
     }
 }
 

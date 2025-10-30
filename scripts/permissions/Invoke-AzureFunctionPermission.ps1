@@ -40,7 +40,8 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Environment,
     
-    [string]$ServiceAccount = "SelfServiceRefresh",
+    # [string]$ServiceAccount = "SelfServiceRefresh",
+    [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
     
     [int]$TimeoutSeconds = 360,
     

@@ -31,10 +31,8 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_TENANT_ID -and $env:AZURE_FEDERATED_TOK
         
         # Try first cloud
         Write-Host "🌐 Trying $Cloud cloud..." -ForegroundColor Gray
-        az cloud set --name $Cloud
-        # az cloud set --name $Cloud 2>$null
-        # $result = az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
-        $result = az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 
+        az cloud set --name $Cloud 2>$null
+        $result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green

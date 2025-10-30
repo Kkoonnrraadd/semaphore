@@ -421,16 +421,17 @@ function Invoke-Migration {
             } else {
                 Write-Host "   ❌ Permission grant failed" -ForegroundColor Red
                 Write-Host "   📍 Error: $($permResult.Error)" -ForegroundColor Gray
-                Write-Host "   ⚠️  Continuing anyway..." -ForegroundColor Yellow
+                $global:LASTEXITCODE = 1
+                throw "Permission grant failed: $($permResult.Error)"
             }
         } else {
-            Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+            $global:LASTEXITCODE = 1
+            throw "Permission script not found: $grantScript"
         }
     } catch {
-        Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "   Continuing anyway..." -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "Permission grant error: $($_.Exception.Message)"
     }
-
 
     # ═══════════════════════════════════════════════════════════════════════════
     # STEP 0B: AZURE AUTHENTICATION

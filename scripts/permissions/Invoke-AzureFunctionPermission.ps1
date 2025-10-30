@@ -50,8 +50,8 @@ param(
 )
 
 # Azure Function Configuration
-# $functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
-$functionBaseUrl = "https://triggerimportondemand.azurewebsites.net/api/SelfServiceTest"
+$functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
+# $functionBaseUrl = "https://triggerimportondemand.azurewebsites.net/api/SelfServiceTest"
 $functionCode = $env:AZURE_FUNCTION_APP_SECRET
 
 # Validate that the Azure Function secret is configured

@@ -313,7 +313,7 @@ if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
     Write-Host "🕐 Using user-provided timezone: $Timezone" -ForegroundColor Yellow
 } else {
     # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable
-    $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
+    $envTimezone = $env:SEMAPHORE_SCHEDULE_TIMEZONE
     if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
         $scriptParams['Timezone'] = $envTimezone
         Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $envTimezone" -ForegroundColor Green
@@ -393,7 +393,7 @@ if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) {
     Write-Host "📋 Wrapper: Using provided SourceNamespace = $SourceNamespace" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("SOURCE_NAMESPACE")
+    $envVar = $env:SOURCE_NAMESPACE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['SourceNamespace'] = $envVar
         Write-Host "📋 Wrapper: Using SOURCE_NAMESPACE variable as SourceNamespace = $envVar" -ForegroundColor Cyan
@@ -412,7 +412,7 @@ if (-not [string]::IsNullOrWhiteSpace($Source)) {
     Write-Host "📋 Wrapper: Using provided Source = $Source" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
+    $envVar = $env:ENVIRONMENT
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['Source'] = $envVar
         Write-Host "📋 Wrapper: Using ENVIRONMENT variable as Source = $envVar" -ForegroundColor Cyan
@@ -431,7 +431,7 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     Write-Host "📋 Wrapper: Using provided DestinationNamespace = $DestinationNamespace" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("DESTINATION_NAMESPACE")
+    $envVar = $env:DESTINATION_NAMESPACE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['DestinationNamespace'] = $envVar
         Write-Host "📋 Wrapper: Using DESTINATION_NAMESPACE variable as DestinationNamespace = $envVar" -ForegroundColor Cyan
@@ -451,7 +451,7 @@ if (-not [string]::IsNullOrWhiteSpace($Destination)) {
     Write-Host "📋 Wrapper: Using provided Destination = $Destination" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
+    $envVar = $env:ENVIRONMENT
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['Destination'] = $envVar
         Write-Host "📋 Wrapper: Using DESTINATION variable as Destination = $envVar" -ForegroundColor Cyan
@@ -471,7 +471,7 @@ if (-not [string]::IsNullOrWhiteSpace($InstanceAlias)) {
     Write-Host "📋 Wrapper: Using provided InstanceAlias = $InstanceAlias" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS")
+    $envVar = $env:INSTANCE_ALIAS
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['InstanceAlias'] = $envVar
         Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as InstanceAlias = $envVar" -ForegroundColor Cyan
@@ -490,7 +490,7 @@ if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove)) {
     Write-Host "📋 Wrapper: Using provided InstanceAliasToRemove = $InstanceAliasToRemove" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS_TO_REMOVE")
+    $envVar = $env:INSTANCE_ALIAS_TO_REMOVE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['InstanceAliasToRemove'] = $envVar
         Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as InstanceAliasToRemove = $envVar" -ForegroundColor Cyan
@@ -509,7 +509,7 @@ if (-not [string]::IsNullOrWhiteSpace($Cloud)) {
     Write-Host "📋 Wrapper: Using provided Cloud = $Cloud" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
-    $envVar = [System.Environment]::GetEnvironmentVariable("AZURE_CLOUD_NAME")
+    $envVar = $env:AZURE_CLOUD_NAME
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
         $scriptParams['Cloud'] = $envVar
         Write-Host "📋 Wrapper: Using AZURE_CLOUD_NAME variable as Cloud = $envVar" -ForegroundColor Cyan

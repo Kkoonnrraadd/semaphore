@@ -300,7 +300,7 @@ if (-not (Test-Path $selfServiceScript)) {
 
 Write-Host "🚀 Calling self_service.ps1 with converted parameters..." -ForegroundColor Green
 # Build parameter hashtable - only include non-empty values
-$parsedParams = @{}
+# $parsedParams = @{}
 
 # ============================================================================
 # TIMEZONE VALIDATION AND DEFAULTING
@@ -309,14 +309,15 @@ $parsedParams = @{}
 # Get effective timezone (user-provided or from environment)
 if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
     # User provided timezone - use it (user override wins)
-    $parsedParams['Timezone'] = $Timezone
+    # $parsedParams['Timezone'] = $Timezone
     Write-Host "🕐 Using user-provided timezone: $Timezone" -ForegroundColor Yellow
 } else {
     # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable
     $envTimezone = $env:SEMAPHORE_SCHEDULE_TIMEZONE
     if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
-        $parsedParams['Timezone'] = $envTimezone
-        Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $envTimezone" -ForegroundColor Green
+        # $parsedParams['Timezone'] = $envTimezone
+        $Timezone = $envTimezone
+        Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $Timezone" -ForegroundColor Green
     } else {
         Write-Host "❌ FATAL ERROR: Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set" -ForegroundColor Red
         Write-Host "   Restore operations require a timezone to prevent incorrect restore points." -ForegroundColor Yellow
@@ -332,7 +333,8 @@ if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
 # Use backup propagation delay (10 minutes) to ensure backups are ready
 try {
 
-    $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($parsedParams['Timezone'])
+    # $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($parsedParams['Timezone'])
+    $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($Timezone)
     # Get current UTC time
     $utcNow = [DateTime]::UtcNow
     # Convert to the configured timezone
@@ -342,17 +344,17 @@ try {
 
     # Normalize RestoreDateTime if provided
     if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
-        $parsedParams['RestoreDateTime']  = Normalize-DateTime -InputDateTime $RestoreDateTime
+        $RestoreDateTime  = Normalize-DateTime -InputDateTime $RestoreDateTime
+        Write-Host "🕐 Using provided RestoreDateTime: $RestoreDateTime" -ForegroundColor Green
     }else{
-        Write-Host "🕐 Using default RestoreDateTime: 10 minutes ago" -ForegroundColor Gray
-        $parsedParams['RestoreDateTime'] = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+        $RestoreDateTime = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+        Write-Host "🕐 Using default RestoreDateTime: $RestoreDateTime ($BackupPropagationDelayMinutes minutes ago in $Timezone)" -ForegroundColor Gray
+        Write-Host "   (Safe buffer for Azure SQL backup propagation)" -ForegroundColor Gray
     }
 
-    Write-Host "🕐 Set default restore time: $parsedParams['RestoreDateTime'] ($BackupPropagationDelayMinutes minutes ago in $parsedParams['Timezone'])"
-    Write-Host "   (Safe buffer for Azure SQL backup propagation)" -ForegroundColor Gray
 } catch {
     Write-Host "" -ForegroundColor Red
-    Write-Host "❌ FATAL ERROR: Invalid restore datetime '$parsedParams['RestoreDateTime']' for timezone '$parsedParams['Timezone']'"
+    Write-Host "❌ FATAL ERROR: Invalid restore datetime '$RestoreDateTime' for timezone '$Timezone'"
     Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Yellow
     $global:LASTEXITCODE = 1
     throw "Invalid timezone configuration: $parsedParams['Timezone']. Please use a valid IANA timezone identifier and datetime format e.g (yyyy-MM-dd HH:mm:ss) for more information see README.md and DOCS/"
@@ -369,34 +371,35 @@ try {
 # Default value is 60 minutes
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
     try {
-        $MaxWaitMinutes = [int]::Parse($MaxWaitMinutes)
+        $MaxWaitMinutesInt = [int]::Parse($MaxWaitMinutes)
         if ($MaxWaitMinutes -lt 1 -or $MaxWaitMinutes -gt 1440) {
             Write-Host "⚠️ Invalid MaxWaitMinutes '$MaxWaitMinutes', must be between 1 and 360 minutes" -ForegroundColor Yellow
             Write-Host "   Using default: 60 minutes" -ForegroundColor Gray
-            $MaxWaitMinutesInt = 60
+            $MaxWaitMinutes = 60
         } else {
             Write-Host "🕐 Using provided MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Green
-            $parsedParams['MaxWaitMinutes'] = $MaxWaitMinutes
+            $MaxWaitMinutes = $MaxWaitMinutesInt
         }
     } catch {
         Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 60" -ForegroundColor Yellow
-        $parsedParams['MaxWaitMinutes'] = 60
+        $global:LASTEXITCODE = 1
+        throw "Could not parse MaxWaitMinutes '$MaxWaitMinutes', error: $($_.Exception.Message)"
     }
 }else{
     Write-Host "🕐 Using default MaxWaitMinutes: 60" -ForegroundColor Gray
-    $parsedParams['MaxWaitMinutes'] = 60
+    $MaxWaitMinutes = 60
 }
 
 # Special handling for SourceNamespace - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { 
-    $parsedParams['SourceNamespace'] = $SourceNamespace 
+    # $parsedParams['SourceNamespace'] = $SourceNamespace 
     Write-Host "📋 Wrapper: Using provided SourceNamespace = $SourceNamespace" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:SOURCE_NAMESPACE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['SourceNamespace'] = $envVar
-        Write-Host "📋 Wrapper: Using SOURCE_NAMESPACE variable as SourceNamespace = $envVar" -ForegroundColor Cyan
+        $SourceNamespace = $envVar
+        Write-Host "📋 Wrapper: Using SOURCE_NAMESPACE variable as SourceNamespace = $SourceNamespace" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No SourceNamespace provided and SOURCE_NAMESPACE variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -SourceNamespace parameter (e.g., -SourceNamespace 'manufacturo')" -ForegroundColor Gray
@@ -408,14 +411,14 @@ if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) {
 
 # Special handling for Source - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($Source)) { 
-    $parsedParams['Source'] = $Source 
+    # $parsedParams['Source'] = $Source 
     Write-Host "📋 Wrapper: Using provided Source = $Source" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:ENVIRONMENT
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['Source'] = $envVar
-        Write-Host "📋 Wrapper: Using ENVIRONMENT variable as Source = $envVar" -ForegroundColor Cyan
+        $Source = $envVar
+        Write-Host "📋 Wrapper: Using ENVIRONMENT variable as Source = $Source" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No Source provided and ENVIRONMENT variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -Source parameter (e.g., -Source 'gov001')" -ForegroundColor Gray
@@ -427,14 +430,14 @@ if (-not [string]::IsNullOrWhiteSpace($Source)) {
 
 # Special handling for DestinationNamespace - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) { 
-    $parsedParams['DestinationNamespace'] = $DestinationNamespace 
+    # $parsedParams['DestinationNamespace'] = $DestinationNamespace 
     Write-Host "📋 Wrapper: Using provided DestinationNamespace = $DestinationNamespace" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:DESTINATION_NAMESPACE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['DestinationNamespace'] = $envVar
-        Write-Host "📋 Wrapper: Using DESTINATION_NAMESPACE variable as DestinationNamespace = $envVar" -ForegroundColor Cyan
+        $DestinationNamespace = $envVar
+        Write-Host "📋 Wrapper: Using DESTINATION_NAMESPACE variable as DestinationNamespace = $DestinationNamespace" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No DestinationNamespace provided and DESTINATION_NAMESPACE variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -DestinationNamespace parameter (e.g., -DestinationNamespace 'test')" -ForegroundColor Gray
@@ -447,14 +450,14 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
 
 # Special handling for Destination - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($Destination)) { 
-    $parsedParams['Destination'] = $Destination
+    # $parsedParams['Destination'] = $Destination
     Write-Host "📋 Wrapper: Using provided Destination = $Destination" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:ENVIRONMENT
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['Destination'] = $envVar
-        Write-Host "📋 Wrapper: Using DESTINATION variable as Destination = $envVar" -ForegroundColor Cyan
+        $Destination = $envVar
+        Write-Host "📋 Wrapper: Using DESTINATION variable as Destination = $Destination" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No Destination provided and ENVIRONMENT variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -Destination parameter (e.g., -Destination 'gov001')" -ForegroundColor Gray
@@ -467,14 +470,14 @@ if (-not [string]::IsNullOrWhiteSpace($Destination)) {
 
 # Special handling for InstanceAlias - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($InstanceAlias)) { 
-    $parsedParams['InstanceAlias'] = $InstanceAlias 
+    # $parsedParams['InstanceAlias'] = $InstanceAlias 
     Write-Host "📋 Wrapper: Using provided InstanceAlias = $InstanceAlias" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:INSTANCE_ALIAS
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['InstanceAlias'] = $envVar
-        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as InstanceAlias = $envVar" -ForegroundColor Cyan
+        $InstanceAlias = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as InstanceAlias = $InstanceAlias" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No InstanceAlias provided and INSTANCE_ALIAS variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -InstanceAlias parameter (e.g., -InstanceAlias 'mil-space-dev')" -ForegroundColor Gray
@@ -486,14 +489,14 @@ if (-not [string]::IsNullOrWhiteSpace($InstanceAlias)) {
 
 # Special handling for InstanceAliasToRemove - if not provided, try to get from AZURE_CLOUD_NAME environment variable
 if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove)) { 
-    $parsedParams['InstanceAliasToRemove'] = $InstanceAliasToRemove 
+    # $parsedParams['InstanceAliasToRemove'] = $InstanceAliasToRemove 
     Write-Host "📋 Wrapper: Using provided InstanceAliasToRemove = $InstanceAliasToRemove" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:INSTANCE_ALIAS_TO_REMOVE
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['InstanceAliasToRemove'] = $envVar
-        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as InstanceAliasToRemove = $envVar" -ForegroundColor Cyan
+        $InstanceAliasToRemove = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as InstanceAliasToRemove = $InstanceAliasToRemove" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No InstanceAliasToRemove provided and INSTANCE_ALIAS_TO_REMOVE variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -InstanceAliasToRemove parameter (e.g., -InstanceAliasToRemove 'mil-space-dev')" -ForegroundColor Gray
@@ -505,14 +508,14 @@ if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove)) {
 
 # Special handling for Cloud - if not provided, try to get from AZURE_CLOUD_NAME environment variable
 if (-not [string]::IsNullOrWhiteSpace($Cloud)) { 
-    $parsedParams['Cloud'] = $Cloud 
+    # $parsedParams['Cloud'] = $Cloud 
     Write-Host "📋 Wrapper: Using provided Cloud = $Cloud" -ForegroundColor Cyan
 } else {
     # Try to read ENVIRONMENT variable
     $envVar = $env:AZURE_CLOUD_NAME
     if (-not [string]::IsNullOrWhiteSpace($envVar)) {
-        $parsedParams['Cloud'] = $envVar
-        Write-Host "📋 Wrapper: Using AZURE_CLOUD_NAME variable as Cloud = $envVar" -ForegroundColor Cyan
+        $Cloud = $envVar
+        Write-Host "📋 Wrapper: Using AZURE_CLOUD_NAME variable as Cloud = $Cloud" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No Cloud provided and AZURE_CLOUD_NAME variable not set" -ForegroundColor Yellow
         Write-Host "   1. Provide -Cloud parameter (e.g., -Cloud 'AzureCloud')" -ForegroundColor Gray
@@ -521,11 +524,6 @@ if (-not [string]::IsNullOrWhiteSpace($Cloud)) {
         throw "Cloud is required - provide -Cloud parameter or set AZURE_CLOUD_NAME environment variable"
     }
 }
-
-
-$parsedParams['DryRun'] = $DryRun
-$parsedParams['UseSasTokens'] = $UseSasTokens
-$parsedParams['MaxWaitMinutes'] = $MaxWaitMinutesInt
 
 # SAFETY CHECK: Prevent Source = Destination (would overwrite source!)
 if ($SourceNamespace -eq $DestinationNamespace) {
@@ -563,6 +561,6 @@ if ($script:DestinationNamespace -eq "manufacturo") {
 }
 
 # Call the main script with splatting - only passes parameters that have values
-& $selfServiceScript @parsedParams
+& $selfServiceScript -RestoreDateTime $RestoreDateTime -Timezone $Timezone -SourceNamespace $SourceNamespace -Source $Source -DestinationNamespace $DestinationNamespace -Destination $Destination -InstanceAlias $InstanceAlias -InstanceAliasToRemove $InstanceAliasToRemove -Cloud $Cloud -DryRun $DryRun -UseSasTokens $UseSasTokens -MaxWaitMinutes $MaxWaitMinutes
 
 Write-Host "✅ Semaphore wrapper completed" -ForegroundColor Green

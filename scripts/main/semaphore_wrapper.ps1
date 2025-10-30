@@ -94,6 +94,102 @@ function Parse-Arguments {
     return $parameters
 }
 
+# ============================================================================
+# DATETIME NORMALIZATION
+# ============================================================================
+
+function Normalize-DateTime {
+    param (
+        [string]$InputDateTime
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($InputDateTime)) {
+        return ""
+    }
+    
+    Write-Host "📅 Parsing datetime input: '$InputDateTime'" -ForegroundColor Gray
+    
+    # Define common datetime formats to try
+    $formats = @(
+        # Standard format
+        'yyyy-MM-dd HH:mm:ss',
+        
+        # ISO 8601 formats
+        'yyyy-MM-ddTHH:mm:ss',
+        'yyyy-MM-dd HH:mm',
+        'yyyy-MM-dd',
+        
+        # US formats
+        'M/d/yyyy h:mm:ss tt',    # 1/15/2025 2:30:00 PM
+        'M/d/yyyy H:mm:ss',       # 1/15/2025 14:30:00
+        'M/d/yyyy h:mm tt',       # 1/15/2025 2:30 PM
+        'M/d/yyyy H:mm',          # 1/15/2025 14:30
+        'M/d/yyyy',               # 1/15/2025
+        'MM/dd/yyyy HH:mm:ss',    # 01/15/2025 14:30:00
+        'MM/dd/yyyy',             # 01/15/2025
+        
+        # European formats
+        'dd/MM/yyyy HH:mm:ss',    # 15/01/2025 14:30:00
+        'dd/MM/yyyy',             # 15/01/2025
+        'd/M/yyyy H:mm:ss',       # 15/1/2025 14:30:00
+        'd/M/yyyy',               # 15/1/2025
+        
+        # Alternative separators
+        'yyyy.MM.dd HH:mm:ss',
+        'yyyy.MM.dd',
+        'dd.MM.yyyy HH:mm:ss',
+        'dd.MM.yyyy',
+        
+        # With dashes
+        'dd-MM-yyyy HH:mm:ss',
+        'dd-MM-yyyy',
+        'MM-dd-yyyy HH:mm:ss',
+        'MM-dd-yyyy'
+    )
+    
+    # Try to parse with each format
+    foreach ($format in $formats) {
+        try {
+            $parsedDate = [DateTime]::ParseExact($InputDateTime, $format, [System.Globalization.CultureInfo]::InvariantCulture)
+            $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
+            Write-Host "  ✅ Parsed successfully using format: $format" -ForegroundColor Green
+            Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
+            return $normalizedDate
+        } catch {
+            # Try next format
+        }
+    }
+    
+    # If all formats fail, try .NET's automatic parsing as last resort
+    try {
+        $parsedDate = [DateTime]::Parse($InputDateTime)
+        $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
+        Write-Host "  ✅ Parsed successfully using automatic parsing" -ForegroundColor Green
+        Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
+        return $normalizedDate
+    } catch {
+        # All parsing attempts failed
+        Write-Host "" -ForegroundColor Red
+        Write-Host "❌ FATAL ERROR: Could not parse datetime: '$InputDateTime'" -ForegroundColor Red
+        Write-Host "   Please use one of these formats:" -ForegroundColor Yellow
+        Write-Host "   • Standard: 2025-01-15 14:30:00 (recommended)" -ForegroundColor Gray
+        Write-Host "   • ISO 8601: 2025-01-15T14:30:00" -ForegroundColor Gray
+        Write-Host "   • US Format: 1/15/2025 2:30:00 PM" -ForegroundColor Gray
+        Write-Host "   • European: 15/01/2025 14:30:00" -ForegroundColor Gray
+        Write-Host "   • Date Only: 2025-01-15 (time defaults to 00:00:00)" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        Write-Host "Examples of valid inputs:" -ForegroundColor Cyan
+        Write-Host "  • 2025-10-11 14:30:00" -ForegroundColor Gray
+        Write-Host "  • 10/11/2025 2:30 PM" -ForegroundColor Gray
+        Write-Host "  • 11/10/2025 14:30:00" -ForegroundColor Gray
+        Write-Host "  • 2025-10-11" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "Could not parse datetime: '$InputDateTime' - please use a valid datetime format"
+    }
+}
+
+
 # Parse all command line arguments
 Write-Host "🔧 Semaphore Wrapper: Parsing command line arguments..." -ForegroundColor Cyan
 Write-Host "📋 Raw arguments: $($args -join ' ')" -ForegroundColor Gray
@@ -198,160 +294,117 @@ if (-not (Test-Path $selfServiceScript)) {
     Write-Host "   2. Verify the git repository is accessible" -ForegroundColor Gray
     Write-Host "   3. Check Semaphore task logs for clone errors" -ForegroundColor Gray
     Write-Host "" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
     throw "self_service.ps1 not found - repository may not be properly initialized"
 }
 
-# Convert MaxWaitMinutes to integer
-$MaxWaitMinutesInt = 60  # Default value
-if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
-    try {
-        $MaxWaitMinutesInt = [int]::Parse($MaxWaitMinutes)
-    } catch {
-        Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 60" -ForegroundColor Yellow
-        $MaxWaitMinutesInt = 60
-    }
-}
-
 Write-Host "🚀 Calling self_service.ps1 with converted parameters..." -ForegroundColor Green
-
-# ============================================================================
-# DATETIME NORMALIZATION
-# ============================================================================
-
-function Normalize-DateTime {
-    param (
-        [string]$InputDateTime
-    )
-    
-    if ([string]::IsNullOrWhiteSpace($InputDateTime)) {
-        return ""
-    }
-    
-    Write-Host "📅 Parsing datetime input: '$InputDateTime'" -ForegroundColor Gray
-    
-    # Define common datetime formats to try
-    $formats = @(
-        # Standard format
-        'yyyy-MM-dd HH:mm:ss',
-        
-        # ISO 8601 formats
-        'yyyy-MM-ddTHH:mm:ss',
-        'yyyy-MM-dd HH:mm',
-        'yyyy-MM-dd',
-        
-        # US formats
-        'M/d/yyyy h:mm:ss tt',    # 1/15/2025 2:30:00 PM
-        'M/d/yyyy H:mm:ss',       # 1/15/2025 14:30:00
-        'M/d/yyyy h:mm tt',       # 1/15/2025 2:30 PM
-        'M/d/yyyy H:mm',          # 1/15/2025 14:30
-        'M/d/yyyy',               # 1/15/2025
-        'MM/dd/yyyy HH:mm:ss',    # 01/15/2025 14:30:00
-        'MM/dd/yyyy',             # 01/15/2025
-        
-        # European formats
-        'dd/MM/yyyy HH:mm:ss',    # 15/01/2025 14:30:00
-        'dd/MM/yyyy',             # 15/01/2025
-        'd/M/yyyy H:mm:ss',       # 15/1/2025 14:30:00
-        'd/M/yyyy',               # 15/1/2025
-        
-        # Alternative separators
-        'yyyy.MM.dd HH:mm:ss',
-        'yyyy.MM.dd',
-        'dd.MM.yyyy HH:mm:ss',
-        'dd.MM.yyyy',
-        
-        # With dashes
-        'dd-MM-yyyy HH:mm:ss',
-        'dd-MM-yyyy',
-        'MM-dd-yyyy HH:mm:ss',
-        'MM-dd-yyyy'
-    )
-    
-    # Try to parse with each format
-    foreach ($format in $formats) {
-        try {
-            $parsedDate = [DateTime]::ParseExact($InputDateTime, $format, [System.Globalization.CultureInfo]::InvariantCulture)
-            $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
-            Write-Host "  ✅ Parsed successfully using format: $format" -ForegroundColor Green
-            Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
-            return $normalizedDate
-        } catch {
-            # Try next format
-        }
-    }
-    
-    # If all formats fail, try .NET's automatic parsing as last resort
-    try {
-        $parsedDate = [DateTime]::Parse($InputDateTime)
-        $normalizedDate = $parsedDate.ToString('yyyy-MM-dd HH:mm:ss')
-        Write-Host "  ✅ Parsed successfully using automatic parsing" -ForegroundColor Green
-        Write-Host "  ✅ Normalized to: $normalizedDate" -ForegroundColor Green
-        return $normalizedDate
-    } catch {
-        # All parsing attempts failed
-        Write-Host "" -ForegroundColor Red
-        Write-Host "❌ FATAL ERROR: Could not parse datetime: '$InputDateTime'" -ForegroundColor Red
-        Write-Host "   Please use one of these formats:" -ForegroundColor Yellow
-        Write-Host "   • Standard: 2025-01-15 14:30:00 (recommended)" -ForegroundColor Gray
-        Write-Host "   • ISO 8601: 2025-01-15T14:30:00" -ForegroundColor Gray
-        Write-Host "   • US Format: 1/15/2025 2:30:00 PM" -ForegroundColor Gray
-        Write-Host "   • European: 15/01/2025 14:30:00" -ForegroundColor Gray
-        Write-Host "   • Date Only: 2025-01-15 (time defaults to 00:00:00)" -ForegroundColor Gray
-        Write-Host "" -ForegroundColor Red
-        Write-Host "Examples of valid inputs:" -ForegroundColor Cyan
-        Write-Host "  • 2025-10-11 14:30:00" -ForegroundColor Gray
-        Write-Host "  • 10/11/2025 2:30 PM" -ForegroundColor Gray
-        Write-Host "  • 11/10/2025 14:30:00" -ForegroundColor Gray
-        Write-Host "  • 2025-10-11" -ForegroundColor Gray
-        Write-Host "" -ForegroundColor Red
-        $global:LASTEXITCODE = 1
-        throw "Could not parse datetime: '$InputDateTime' - please use a valid datetime format"
-    }
-}
-
-# Normalize RestoreDateTime if provided
-if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
-    $RestoreDateTime = Normalize-DateTime -InputDateTime $RestoreDateTime
-}
+# Build parameter hashtable - only include non-empty values
+$scriptParams = @{}
 
 # ============================================================================
 # TIMEZONE VALIDATION AND DEFAULTING
 # ============================================================================
 
 # Get effective timezone (user-provided or from environment)
-$effectiveTimezone = ""
 if (-not [string]::IsNullOrWhiteSpace($Timezone)) {
     # User provided timezone - use it (user override wins)
-    $effectiveTimezone = $Timezone
-    Write-Host "🕐 Using user-provided timezone: $effectiveTimezone" -ForegroundColor Yellow
+    $scriptParams['Timezone'] = $Timezone
+    Write-Host "🕐 Using user-provided timezone: $Timezone" -ForegroundColor Yellow
 } else {
     # Check for SEMAPHORE_SCHEDULE_TIMEZONE environment variable
     $envTimezone = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_SCHEDULE_TIMEZONE")
     if (-not [string]::IsNullOrWhiteSpace($envTimezone)) {
-        $effectiveTimezone = $envTimezone
-        Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $effectiveTimezone" -ForegroundColor Green
+        $scriptParams['Timezone'] = $envTimezone
+        Write-Host "🕐 Using timezone from SEMAPHORE_SCHEDULE_TIMEZONE: $envTimezone" -ForegroundColor Green
     } else {
-        # Only fail if RestoreDateTime is provided (timezone is needed)
-        if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
-            Write-Host "" -ForegroundColor Red
-            Write-Host "❌ FATAL ERROR: Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set" -ForegroundColor Red
-            Write-Host "   Restore operations require a timezone to prevent incorrect restore points." -ForegroundColor Yellow
-            Write-Host "   Please either:" -ForegroundColor Yellow
-            Write-Host "   1. Set SEMAPHORE_SCHEDULE_TIMEZONE environment variable" -ForegroundColor Gray
-            Write-Host "   2. Provide Timezone parameter explicitly" -ForegroundColor Gray
-            Write-Host "" -ForegroundColor Red
-            $global:LASTEXITCODE = 1
-            throw "Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set - restore operations require a timezone"
-        }
-        # If no RestoreDateTime, timezone not needed
+        Write-Host "❌ FATAL ERROR: Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set" -ForegroundColor Red
+        Write-Host "   Restore operations require a timezone to prevent incorrect restore points." -ForegroundColor Yellow
+        Write-Host "   Please either:" -ForegroundColor Yellow
+        Write-Host "   1. Set SEMAPHORE_SCHEDULE_TIMEZONE environment variable" -ForegroundColor Gray
+        Write-Host "   2. Provide Timezone parameter explicitly" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "Timezone not provided and SEMAPHORE_SCHEDULE_TIMEZONE not set - restore operations require a timezone"
     }
 }
 
-# Build parameter hashtable - only include non-empty values
-$scriptParams = @{}
-if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $scriptParams['RestoreDateTime'] = $RestoreDateTime }
-if (-not [string]::IsNullOrWhiteSpace($effectiveTimezone)) { $scriptParams['Timezone'] = $effectiveTimezone }
-if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { $scriptParams['SourceNamespace'] = $SourceNamespace }
+# Calculate default restore time in the configured timezone
+# Use backup propagation delay (10 minutes) to ensure backups are ready
+try {
+
+    $timezoneInfo = [System.TimeZoneInfo]::FindSystemTimeZoneById($scriptParams['Timezone'])
+    # Get current UTC time
+    $utcNow = [DateTime]::UtcNow
+    # Convert to the configured timezone
+    $currentTimeInTimezone = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $timezoneInfo)
+    # Subtract 10 minutes (Azure SQL backup propagation delay)
+    $BackupPropagationDelayMinutes = 10
+
+    # Normalize RestoreDateTime if provided
+    if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) {
+        $scriptParams['RestoreDateTime']  = Normalize-DateTime -InputDateTime $RestoreDateTime
+    }else{
+        Write-Host "🕐 Using default RestoreDateTime: 15 minutes ago" -ForegroundColor Gray
+        $scriptParams['RestoreDateTime'] = $currentTimeInTimezone.AddMinutes(-$BackupPropagationDelayMinutes).ToString("yyyy-MM-dd HH:mm:ss")
+    }
+
+    Write-Host "🕐 Set default restore time: $scriptParams['RestoreDateTime'] ($BackupPropagationDelayMinutes minutes ago in $scriptParams['Timezone'])"
+    Write-Host "   (Safe buffer for Azure SQL backup propagation)" -ForegroundColor Gray
+} catch {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: Invalid restore datetime '$scriptParams['RestoreDateTime']' for timezone '$scriptParams['Timezone']'"
+    Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    $global:LASTEXITCODE = 1
+    throw "Invalid timezone configuration: $scriptParams['Timezone']. Please use a valid IANA timezone identifier and datetime format e.g (yyyy-MM-dd HH:mm:ss) for more information see README.md and DOCS/"
+}
+
+
+
+
+# ============================================================================
+# MAX WAIT MINUTES VALIDATION AND DEFAULTING
+# ============================================================================
+
+# Convert MaxWaitMinutes to integer
+# Default value is 60 minutes
+if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
+    try {
+        $MaxWaitMinutes = [int]::Parse($MaxWaitMinutes)
+        if ($MaxWaitMinutes -lt 1 -or $MaxWaitMinutes -gt 1440) {
+            Write-Host "⚠️ Invalid MaxWaitMinutes '$MaxWaitMinutes', must be between 1 and 360 minutes" -ForegroundColor Yellow
+            Write-Host "   Using default: 60 minutes" -ForegroundColor Gray
+            $MaxWaitMinutesInt = 60
+        } else {
+            Write-Host "🕐 Using provided MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Green
+            $scriptParams['MaxWaitMinutes'] = $MaxWaitMinutes
+        }
+    } catch {
+        Write-Host "⚠️ Could not parse MaxWaitMinutes '$MaxWaitMinutes', using default: 60" -ForegroundColor Yellow
+        $scriptParams['MaxWaitMinutes'] = 60
+    }
+}else{
+    Write-Host "🕐 Using default MaxWaitMinutes: 60" -ForegroundColor Gray
+    $scriptParams['MaxWaitMinutes'] = 60
+}
+
+# Special handling for SourceNamespace - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($SourceNamespace)) { 
+    $scriptParams['SourceNamespace'] = $SourceNamespace 
+    Write-Host "📋 Wrapper: Using provided SourceNamespace = $SourceNamespace" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("SOURCE_NAMESPACE")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['SourceNamespace'] = $envVar
+        Write-Host "📋 Wrapper: Using SOURCE_NAMESPACE variable as SourceNamespace = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No SourceNamespace provided and SOURCE_NAMESPACE variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -SourceNamespace parameter (e.g., -SourceNamespace 'manufacturo')" -ForegroundColor Gray
+        Write-Host "   2. Set SOURCE_NAMESPACE environment variable (e.g., export SOURCE_NAMESPACE='manufacturo')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "SourceNamespace is required - provide -SourceNamespace parameter or set SOURCE_NAMESPACE environment variable"
+    }
+}
 
 # Special handling for Source - if not provided, try to get from ENVIRONMENT variable
 if (-not [string]::IsNullOrWhiteSpace($Source)) { 
@@ -365,17 +418,149 @@ if (-not [string]::IsNullOrWhiteSpace($Source)) {
         Write-Host "📋 Wrapper: Using ENVIRONMENT variable as Source = $envVar" -ForegroundColor Cyan
     } else {
         Write-Host "⚠️ Wrapper: No Source provided and ENVIRONMENT variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -Source parameter (e.g., -Source 'gov001')" -ForegroundColor Gray
+        Write-Host "   2. Set ENVIRONMENT environment variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "Source is required - provide -Source parameter or set ENVIRONMENT environment variable"
     }
 }
 
-if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) { $scriptParams['DestinationNamespace'] = $DestinationNamespace }
-if (-not [string]::IsNullOrWhiteSpace($Destination)) { $scriptParams['Destination'] = $Destination }
-if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { $scriptParams['CustomerAlias'] = $CustomerAlias }
-if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove }
-if (-not [string]::IsNullOrWhiteSpace($Cloud)) { $scriptParams['Cloud'] = $Cloud }
+# Special handling for DestinationNamespace - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) { 
+    $scriptParams['DestinationNamespace'] = $DestinationNamespace 
+    Write-Host "📋 Wrapper: Using provided DestinationNamespace = $DestinationNamespace" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("DESTINATION_NAMESPACE")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['DestinationNamespace'] = $envVar
+        Write-Host "📋 Wrapper: Using DESTINATION_NAMESPACE variable as DestinationNamespace = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No DestinationNamespace provided and DESTINATION_NAMESPACE variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -DestinationNamespace parameter (e.g., -DestinationNamespace 'test')" -ForegroundColor Gray
+        Write-Host "   2. Set DESTINATION_NAMESPACE environment variable (e.g., export DESTINATION_NAMESPACE='test')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "DestinationNamespace is required - provide -DestinationNamespace parameter or set DESTINATION_NAMESPACE environment variable"
+
+    }
+}
+
+# Special handling for Destination - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($Destination)) { 
+    $scriptParams['Destination'] = $Destination
+    Write-Host "📋 Wrapper: Using provided Destination = $Destination" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("ENVIRONMENT")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['Destination'] = $envVar
+        Write-Host "📋 Wrapper: Using DESTINATION variable as Destination = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No Destination provided and ENVIRONMENT variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -Destination parameter (e.g., -Destination 'gov001')" -ForegroundColor Gray
+        Write-Host "   2. Set ENVIRONMENT environment variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "Destination is required - provide -Destination parameter or set ENVIRONMENT environment variable"
+    }
+}
+
+
+# Special handling for CustomerAlias - if not provided, try to get from ENVIRONMENT variable
+if (-not [string]::IsNullOrWhiteSpace($CustomerAlias)) { 
+    $scriptParams['CustomerAlias'] = $CustomerAlias 
+    Write-Host "📋 Wrapper: Using provided CustomerAlias = $CustomerAlias" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['CustomerAlias'] = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS variable as CustomerAlias = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No CustomerAlias provided and INSTANCE_ALIAS variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
+        Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
+    }
+}
+
+# Special handling for CustomerAliasToRemove - if not provided, try to get from AZURE_CLOUD_NAME environment variable
+if (-not [string]::IsNullOrWhiteSpace($CustomerAliasToRemove)) { 
+    $scriptParams['CustomerAliasToRemove'] = $CustomerAliasToRemove 
+    Write-Host "📋 Wrapper: Using provided CustomerAliasToRemove = $CustomerAliasToRemove" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("INSTANCE_ALIAS_TO_REMOVE")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['CustomerAliasToRemove'] = $envVar
+        Write-Host "📋 Wrapper: Using INSTANCE_ALIAS_TO_REMOVE variable as CustomerAliasToRemove = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No CustomerAliasToRemove provided and INSTANCE_ALIAS_TO_REMOVE variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space-dev')" -ForegroundColor Gray
+        Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space-dev')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
+    }
+}
+
+# Special handling for Cloud - if not provided, try to get from AZURE_CLOUD_NAME environment variable
+if (-not [string]::IsNullOrWhiteSpace($Cloud)) { 
+    $scriptParams['Cloud'] = $Cloud 
+    Write-Host "📋 Wrapper: Using provided Cloud = $Cloud" -ForegroundColor Cyan
+} else {
+    # Try to read ENVIRONMENT variable
+    $envVar = [System.Environment]::GetEnvironmentVariable("AZURE_CLOUD_NAME")
+    if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+        $scriptParams['Cloud'] = $envVar
+        Write-Host "📋 Wrapper: Using AZURE_CLOUD_NAME variable as Cloud = $envVar" -ForegroundColor Cyan
+    } else {
+        Write-Host "⚠️ Wrapper: No Cloud provided and AZURE_CLOUD_NAME variable not set" -ForegroundColor Yellow
+        Write-Host "   1. Provide -Cloud parameter (e.g., -Cloud 'AzureCloud')" -ForegroundColor Gray
+        Write-Host "   2. Set AZURE_CLOUD_NAME environment variable (e.g., export AZURE_CLOUD_NAME='AzureCloud')" -ForegroundColor Gray
+        $global:LASTEXITCODE = 1
+        throw "Cloud is required - provide -Cloud parameter or set AZURE_CLOUD_NAME environment variable"
+    }
+}
+
+
 $scriptParams['DryRun'] = $DryRun
 $scriptParams['UseSasTokens'] = $UseSasTokens
 $scriptParams['MaxWaitMinutes'] = $MaxWaitMinutesInt
+
+# SAFETY CHECK: Prevent Source = Destination (would overwrite source!)
+if ($SourceNamespace -eq $DestinationNamespace) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "🚫 BLOCKED: Source and Destination cannot be the same!" -ForegroundColor Red
+    Write-Host "   Source: $Source/$SourceNamespace" -ForegroundColor Yellow
+    Write-Host "   Destination: $Destination/$DestinationNamespace" -ForegroundColor Yellow
+    Write-Host "   This would overwrite the source environment and cause data loss!" -ForegroundColor Red
+    Write-Host "   Please specify a different destination environment." -ForegroundColor Yellow
+    $global:LASTEXITCODE = 1
+    throw "SAFETY: SourceNamespace and DestinationNamespace must be different to prevent data loss"
+}
+
+# SAFETY CHECK: Prevent Source = Destination (would overwrite source!)
+if ($Source -ne $Destination) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "🚫 BLOCKED: Source and Destination must be the same!" -ForegroundColor Red
+    Write-Host "   Source: $Source/$SourceNamespace" -ForegroundColor Yellow
+    Write-Host "   Destination: $Destination/$DestinationNamespace" -ForegroundColor Yellow
+    Write-Host "   This would prevent the source environment from being restored!" -ForegroundColor Red
+    Write-Host "   Please specify the same destination environment as the source environment." -ForegroundColor Yellow
+    $global:LASTEXITCODE = 1
+    throw "SAFETY: Source and Destination must be the same to prevent data loss"
+}
+
+if ($script:DestinationNamespace -eq "manufacturo") {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FATAL ERROR: Destination namespace cannot be 'manufacturo'" -ForegroundColor Red
+    Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
+    Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    Write-AutomationLog "❌ FATAL ERROR: Destination namespace 'manufacturo' is not allowed" "ERROR"
+    $global:LASTEXITCODE = 1
+    throw "Destination namespace 'manufacturo' is not allowed - this is a protected namespace"
+}
 
 # Call the main script with splatting - only passes parameters that have values
 & $selfServiceScript @scriptParams

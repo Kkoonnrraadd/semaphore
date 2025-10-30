@@ -80,49 +80,49 @@ Write-Host "🔧 RUNNING PREREQUISITE STEPS" -ForegroundColor Magenta
 Write-Host "═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Magenta
 Write-Host ""
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STEP 0A: GRANT PERMISSIONS
-# ═══════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════
+STEP 0A: GRANT PERMISSIONS
+═══════════════════════════════════════════════════════════════════════════
 
-    # Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    # Write-Host ""
+    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-Host ""
     
-    # if ($Parameters.ContainsKey("Source")) {
-    #     $targetEnv = $Parameters["Source"]
-    # } else {
-    #     $targetEnv = ""
-    # }
+    if ($Parameters.ContainsKey("Source")) {
+        $targetEnv = $Parameters["Source"]
+    } else {
+        $targetEnv = ""
+    }
 
-    # if ($targetEnv) {
-    #     Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
+    if ($targetEnv) {
+        Write-Host "   📋 Target Environment: $targetEnv" -ForegroundColor Gray
         
-    #     try {
-    #         $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+        try {
+            $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
             
-    #         if (Test-Path $grantScript) {
-    #             $permResult = & $grantScript -Environment $targetEnv
-    #             $result.PermissionResult = $permResult
+            if (Test-Path $grantScript) {
+                $permResult = & $grantScript -Environment $targetEnv
+                $result.PermissionResult = $permResult
                 
-    #             if ($permResult.Success) {
-    #                 # Store propagation wait info for later (after authentication)
-    #                 $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
-    #                 $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
-    #             } else {
-    #                 Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
-    #             }
-    #         } else {
-    #             Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
-    #         }
-    #     } catch {
-    #         Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
-    #         Write-Host "   Continuing anyway..." -ForegroundColor Gray
-    #     }
-    # } else {
-    #     Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
-    #     Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
-    # }
+                if ($permResult.Success) {
+                    # Store propagation wait info for later (after authentication)
+                    $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+                    $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+                } else {
+                    Write-Host "   ⚠️  Permission grant had issues, but continuing..." -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "   Continuing anyway..." -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "   ⚠️  No environment specified - skipping permission grant" -ForegroundColor Yellow
+        Write-Host "      Set Source, Destination, Environment, or ENVIRONMENT variable" -ForegroundColor Gray
+    }
     
-    # Write-Host ""
+    Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 0B: AZURE AUTHENTICATION
@@ -211,87 +211,87 @@ Write-Host ""
     
     Write-Host ""
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STEP 0C: AUTO-DETECT PARAMETERS
-# ═══════════════════════════════════════════════════════════════════════════
+# # ═══════════════════════════════════════════════════════════════════════════
+# # STEP 0C: AUTO-DETECT PARAMETERS
+# # ═══════════════════════════════════════════════════════════════════════════
 
-    Write-Host "🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
-    Write-Host ""
+#     Write-Host "🔧 STEP 0C: AUTO-DETECT PARAMETERS" -ForegroundColor Cyan
+#     Write-Host ""
     
-    try {
-        $azureParamsScript = Join-Path $scriptDir "common/Get-AzureParameters.ps1"
+#     try {
+#         $azureParamsScript = Join-Path $scriptDir "common/Get-AzureParameters.ps1"
         
-        if (Test-Path $azureParamsScript) {
-            Write-Host "   🔍 Detecting missing parameters from Azure..." -ForegroundColor Gray
+#         if (Test-Path $azureParamsScript) {
+#             Write-Host "   🔍 Detecting missing parameters from Azure..." -ForegroundColor Gray
             
-            # Build parameters for detection script
-            $detectionParams = @{}
+#             # Build parameters for detection script
+#             $detectionParams = @{}
             
-            if ($Parameters.ContainsKey("Source")) {
-                $detectionParams["Source"] = $Parameters["Source"]
-            }
-            if ($Parameters.ContainsKey("Destination")) {
-                $detectionParams["Destination"] = $Parameters["Destination"]
-            }
-            if ($Parameters.ContainsKey("SourceNamespace")) {
-                $detectionParams["SourceNamespace"] = $Parameters["SourceNamespace"]
-            }
-            if ($Parameters.ContainsKey("DestinationNamespace")) {
-                $detectionParams["DestinationNamespace"] = $Parameters["DestinationNamespace"]
-            }
-            if ($Parameters.ContainsKey("RestoreDateTime")) {
-                $detectionParams["RestoreDateTime"] = $Parameters["RestoreDateTime"]
-            }
-            if ($Parameters.ContainsKey("Timezone")) {
-                $detectionParams["Timezone"] = $Parameters["Timezone"]
-            }
+#             if ($Parameters.ContainsKey("Source")) {
+#                 $detectionParams["Source"] = $Parameters["Source"]
+#             }
+#             if ($Parameters.ContainsKey("Destination")) {
+#                 $detectionParams["Destination"] = $Parameters["Destination"]
+#             }
+#             if ($Parameters.ContainsKey("SourceNamespace")) {
+#                 $detectionParams["SourceNamespace"] = $Parameters["SourceNamespace"]
+#             }
+#             if ($Parameters.ContainsKey("DestinationNamespace")) {
+#                 $detectionParams["DestinationNamespace"] = $Parameters["DestinationNamespace"]
+#             }
+#             if ($Parameters.ContainsKey("RestoreDateTime")) {
+#                 $detectionParams["RestoreDateTime"] = $Parameters["RestoreDateTime"]
+#             }
+#             if ($Parameters.ContainsKey("Timezone")) {
+#                 $detectionParams["Timezone"] = $Parameters["Timezone"]
+#             }
             
-            $detectedParams = & $azureParamsScript @detectionParams
+#             $detectedParams = & $azureParamsScript @detectionParams
             
-            if ($detectedParams) {
-                # Normalize parameter names (map DefaultX to X for script compatibility)
-                $normalizedParams = @{}
-                foreach ($key in $detectedParams.Keys) {
-                    $value = $detectedParams[$key]
+#             if ($detectedParams) {
+#                 # Normalize parameter names (map DefaultX to X for script compatibility)
+#                 $normalizedParams = @{}
+#                 foreach ($key in $detectedParams.Keys) {
+#                     $value = $detectedParams[$key]
                     
-                    # Add with original name
-                    $normalizedParams[$key] = $value
+#                     # Add with original name
+#                     $normalizedParams[$key] = $value
                     
-                    # Also add without "Default" prefix for script compatibility
-                    if ($key -like "Default*") {
-                        $normalizedKey = $key -replace "^Default", ""
-                        $normalizedParams[$normalizedKey] = $value
-                        Write-Host "   📋 Mapped $key → $normalizedKey" -ForegroundColor DarkGray
-                    }
-                }
+#                     # Also add without "Default" prefix for script compatibility
+#                     if ($key -like "Default*") {
+#                         $normalizedKey = $key -replace "^Default", ""
+#                         $normalizedParams[$normalizedKey] = $value
+#                         Write-Host "   📋 Mapped $key → $normalizedKey" -ForegroundColor DarkGray
+#                     }
+#                 }
                 
-                # Store normalized parameters
-                $result.DetectedParameters = $normalizedParams
+#                 # Store normalized parameters
+#                 $result.DetectedParameters = $normalizedParams
                 
-                # Show what was detected
-                $detectedCount = 0
-                foreach ($key in $normalizedParams.Keys) {
-                    if (-not [string]::IsNullOrWhiteSpace($normalizedParams[$key]) -and $key -notlike "Default*") {
-                        Write-Host "   ✅ Auto-detected $key`: $($normalizedParams[$key])" -ForegroundColor Green
-                        $detectedCount++
-                    }
-                }
+#                 # Show what was detected
+#                 $detectedCount = 0
+#                 foreach ($key in $normalizedParams.Keys) {
+#                     if (-not [string]::IsNullOrWhiteSpace($normalizedParams[$key]) -and $key -notlike "Default*") {
+#                         Write-Host "   ✅ Auto-detected $key`: $($normalizedParams[$key])" -ForegroundColor Green
+#                         $detectedCount++
+#                     }
+#                 }
                 
-                if ($detectedCount -gt 0) {
-                    Write-Host "   ✅ Parameter auto-detection completed ($detectedCount parameter(s))" -ForegroundColor Green
-                } else {
-                    Write-Host "   ℹ️  No additional parameters detected" -ForegroundColor Gray
-                }
-            }
-        } else {
-            Write-Host "   ⚠️  Parameter detection script not found: $azureParamsScript" -ForegroundColor Yellow
-        }
-    } catch {
-        Write-Host "   ⚠️  Parameter detection failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "   Continuing with provided parameters only..." -ForegroundColor Gray
-    }
+#                 if ($detectedCount -gt 0) {
+#                     Write-Host "   ✅ Parameter auto-detection completed ($detectedCount parameter(s))" -ForegroundColor Green
+#                 } else {
+#                     Write-Host "   ℹ️  No additional parameters detected" -ForegroundColor Gray
+#                 }
+#             }
+#         } else {
+#             Write-Host "   ⚠️  Parameter detection script not found: $azureParamsScript" -ForegroundColor Yellow
+#         }
+#     } catch {
+#         Write-Host "   ⚠️  Parameter detection failed: $($_.Exception.Message)" -ForegroundColor Yellow
+#         Write-Host "   Continuing with provided parameters only..." -ForegroundColor Gray
+#     }
     
-    Write-Host ""
+#     Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
 # COMPLETION

@@ -84,76 +84,76 @@ if (-not (Test-Path $automationUtilitiesScript)) {
 # EARLY PARAMETER VALIDATION (Before Azure Connection)
 # ═══════════════════════════════════════════════════════════════════════════
 
-Write-Host "🔧 Validating provided parameters..." -ForegroundColor Yellow
+# Write-Host "🔧 Validating provided parameters..." -ForegroundColor Yellow
 
-# Store original user-provided values before any auto-detection
-$script:OriginalSource = $Source
-$script:OriginalDestination = $Destination
-$script:OriginalSourceNamespace = $SourceNamespace
-$script:OriginalDestinationNamespace = $DestinationNamespace
-$script:OriginalCloud = $Cloud
-$script:OriginalCustomerAlias = $CustomerAlias
-$script:OriginalCustomerAliasToRemove = $CustomerAliasToRemove
-$script:OriginalRestoreDateTime = $RestoreDateTime
-$script:OriginalTimezone = $Timezone
-
-
-if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) {
-    if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS_TO_REMOVE)) {
-        $script:CustomerAliasToRemove = $env:INSTANCE_ALIAS_TO_REMOVE
-        Write-Host "📋 CustomerAliasToRemove: '$($script:CustomerAliasToRemove)' ← From INSTANCE_ALIAS_TO_REMOVE environment variable" -ForegroundColor Yellow
-    } else {
-        Write-Host "❌ FATAL ERROR: CustomerAliasToRemove is required" -ForegroundColor Red
-        Write-Host "   Please either:" -ForegroundColor Yellow
-        Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space')" -ForegroundColor Gray
-        Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space')" -ForegroundColor Gray
-        $global:LASTEXITCODE = 1
-        throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
-    }
-} else {
-    $script:CustomerAliasToRemove = $script:OriginalCustomerAliasToRemove
-}
-
-# Apply CustomerAlias with fallback to INSTANCE_ALIAS environment variable
-if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
-    if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS)) {
-        $script:CustomerAlias = $env:INSTANCE_ALIAS
-        Write-Host "📋 CustomerAlias: '$($script:CustomerAlias)' ← From INSTANCE_ALIAS environment variable" -ForegroundColor Yellow
-    } else {
-        Write-Host "❌ FATAL ERROR: CustomerAlias is required" -ForegroundColor Red
-        Write-Host "   Please either:" -ForegroundColor Yellow
-        Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
-        Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
-        $global:LASTEXITCODE = 1
-        throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
-    }
-} else {
-    $script:CustomerAlias = $script:OriginalCustomerAlias
-}
+# # Store original user-provided values before any auto-detection
+# $script:OriginalSource = $Source
+# $script:OriginalDestination = $Destination
+# $script:OriginalSourceNamespace = $SourceNamespace
+# $script:OriginalDestinationNamespace = $DestinationNamespace
+# $script:OriginalCloud = $Cloud
+# $script:OriginalCustomerAlias = $CustomerAlias
+# $script:OriginalCustomerAliasToRemove = $CustomerAliasToRemove
+# $script:OriginalRestoreDateTime = $RestoreDateTime
+# $script:OriginalTimezone = $Timezone
 
 
-    # Determine target environment with correct priority:
-    # 1. User-provided Source parameter (highest priority)
-    # 2. ENVIRONMENT variable (fallback)
-if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
-    $script:OriginalSource = $script:OriginalSource.ToLower()
-    Write-Host "📋 Source: $script:OriginalSource (from USER-PROVIDED Source)" -ForegroundColor Gray
-} elseif (-not [string]::IsNullOrWhiteSpace($env:ENVIRONMENT)) {
-    $script:OriginalSource = $env:ENVIRONMENT.ToLower()
-    Write-Host "📋 Source: $script:OriginalSource (from ENVIRONMENT variable)" -ForegroundColor Gray
-} else {
-    Write-Host "" -ForegroundColor Red
-    Write-Host "❌ FATAL ERROR: No environment specified" -ForegroundColor Red
-    Write-Host "   Cannot grant permissions without knowing the environment" -ForegroundColor Yellow
-    Write-Host "   Please either:" -ForegroundColor Yellow
-    Write-Host "   1. Provide -Source parameter (e.g., -Source 'gov001')" -ForegroundColor Gray
-    Write-Host "   2. Set ENVIRONMENT variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
-    Write-Host "" -ForegroundColor Red
-    Write-AutomationLog "❌ FATAL ERROR: No environment specified for permission grant" "ERROR"
-    $global:LASTEXITCODE = 1
-    throw "Cannot proceed without environment specification for permission granting"
+# if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAliasToRemove)) {
+#     if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS_TO_REMOVE)) {
+#         $script:CustomerAliasToRemove = $env:INSTANCE_ALIAS_TO_REMOVE
+#         Write-Host "📋 CustomerAliasToRemove: '$($script:CustomerAliasToRemove)' ← From INSTANCE_ALIAS_TO_REMOVE environment variable" -ForegroundColor Yellow
+#     } else {
+#         Write-Host "❌ FATAL ERROR: CustomerAliasToRemove is required" -ForegroundColor Red
+#         Write-Host "   Please either:" -ForegroundColor Yellow
+#         Write-Host "   1. Provide -CustomerAliasToRemove parameter (e.g., -CustomerAliasToRemove 'mil-space')" -ForegroundColor Gray
+#         Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space')" -ForegroundColor Gray
+#         $global:LASTEXITCODE = 1
+#         throw "CustomerAliasToRemove is required - provide -CustomerAliasToRemove parameter or set INSTANCE_ALIAS_TO_REMOVE environment variable"
+#     }
+# } else {
+#     $script:CustomerAliasToRemove = $script:OriginalCustomerAliasToRemove
+# }
+
+# # Apply CustomerAlias with fallback to INSTANCE_ALIAS environment variable
+# if ([string]::IsNullOrWhiteSpace($script:OriginalCustomerAlias)) {
+#     if (-not [string]::IsNullOrWhiteSpace($env:INSTANCE_ALIAS)) {
+#         $script:CustomerAlias = $env:INSTANCE_ALIAS
+#         Write-Host "📋 CustomerAlias: '$($script:CustomerAlias)' ← From INSTANCE_ALIAS environment variable" -ForegroundColor Yellow
+#     } else {
+#         Write-Host "❌ FATAL ERROR: CustomerAlias is required" -ForegroundColor Red
+#         Write-Host "   Please either:" -ForegroundColor Yellow
+#         Write-Host "   1. Provide -CustomerAlias parameter (e.g., -CustomerAlias 'mil-space-dev')" -ForegroundColor Gray
+#         Write-Host "   2. Set INSTANCE_ALIAS environment variable (e.g., export INSTANCE_ALIAS='mil-space-dev')" -ForegroundColor Gray
+#         $global:LASTEXITCODE = 1
+#         throw "CustomerAlias is required - provide -CustomerAlias parameter or set INSTANCE_ALIAS environment variable"
+#     }
+# } else {
+#     $script:CustomerAlias = $script:OriginalCustomerAlias
+# }
+
+
+#     # Determine target environment with correct priority:
+#     # 1. User-provided Source parameter (highest priority)
+#     # 2. ENVIRONMENT variable (fallback)
+# if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
+#     $script:OriginalSource = $script:OriginalSource.ToLower()
+#     Write-Host "📋 Source: $script:OriginalSource (from USER-PROVIDED Source)" -ForegroundColor Gray
+# } elseif (-not [string]::IsNullOrWhiteSpace($env:ENVIRONMENT)) {
+#     $script:OriginalSource = $env:ENVIRONMENT.ToLower()
+#     Write-Host "📋 Source: $script:OriginalSource (from ENVIRONMENT variable)" -ForegroundColor Gray
+# } else {
+#     Write-Host "" -ForegroundColor Red
+#     Write-Host "❌ FATAL ERROR: No environment specified" -ForegroundColor Red
+#     Write-Host "   Cannot grant permissions without knowing the environment" -ForegroundColor Yellow
+#     Write-Host "   Please either:" -ForegroundColor Yellow
+#     Write-Host "   1. Provide -Source parameter (e.g., -Source 'gov001')" -ForegroundColor Gray
+#     Write-Host "   2. Set ENVIRONMENT variable (e.g., export ENVIRONMENT='gov001')" -ForegroundColor Gray
+#     Write-Host "" -ForegroundColor Red
+#     Write-AutomationLog "❌ FATAL ERROR: No environment specified for permission grant" "ERROR"
+#     $global:LASTEXITCODE = 1
+#     throw "Cannot proceed without environment specification for permission granting"
     
-}
+# }
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
@@ -206,20 +206,32 @@ function Perform-Migration {
     # 2. Azure Function call is safe (idempotent)
     # 3. No actual infrastructure changes
     $prerequisiteScript = Get-ScriptPath "common/Invoke-PrerequisiteSteps.ps1"
+
     if (-not (Test-Path $prerequisiteScript)) {
         Write-AutomationLog "❌ FATAL ERROR: Prerequisite script not found at $prerequisiteScript" "ERROR"
         throw "Prerequisite script not found at: $prerequisiteScript"
     }
     
+    # # Build parameters for prerequisite script
+    # $prereqParams = @{
+    #     Source = $script:OriginalSource
+    #     Destination = $script:OriginalDestination
+    #     SourceNamespace = $script:OriginalSourceNamespace
+    #     DestinationNamespace = $script:OriginalDestinationNamespace
+    #     RestoreDateTime = $script:OriginalRestoreDateTime
+    #     Timezone = $script:OriginalTimezone
+    #     Cloud = $script:OriginalCloud
+    # }
+
     # Build parameters for prerequisite script
     $prereqParams = @{
-        Source = $script:OriginalSource
-        Destination = $script:OriginalDestination
-        SourceNamespace = $script:OriginalSourceNamespace
-        DestinationNamespace = $script:OriginalDestinationNamespace
-        RestoreDateTime = $script:OriginalRestoreDateTime
-        Timezone = $script:OriginalTimezone
-        Cloud = $script:OriginalCloud
+        Source = $Source
+        Destination = $Destination
+        SourceNamespace = $SourceNamespace
+        DestinationNamespace = $DestinationNamespace
+        RestoreDateTime = $RestoreDateTime
+        Timezone = $Timezone
+        Cloud = $Cloud
     }
     
     $prerequisiteResult = & $prerequisiteScript `
@@ -234,88 +246,81 @@ function Perform-Migration {
     Write-AutomationLog "✅ Prerequisite steps completed successfully" "SUCCESS"
     
     # Extract detected parameters
-    $detectedParams = $prerequisiteResult.DetectedParameters
+    # $detectedParams = $prerequisiteResult.DetectedParameters
     
     # ═══════════════════════════════════════════════════════════════════════════
     # MERGE USER-PROVIDED AND AUTO-DETECTED PARAMETERS
     # ═══════════════════════════════════════════════════════════════════════════
     
     # Apply detected values, but allow user-provided values to override
-    Write-Host "`n🔀 Merging user-provided values with auto-detected values..." -ForegroundColor Cyan
+    # Write-Host "`n🔀 Merging user-provided values with auto-detected values..." -ForegroundColor Cyan
     
-    # Source
-    if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
-        $script:Source = $script:OriginalSource
-        Write-Host "   Source: '$($script:Source)' ← USER PROVIDED ✅" -ForegroundColor Green
-    } else {
-        $script:Source = $detectedParams.Source
-        Write-Host "   Source: '$($script:Source)' ← Auto-detected from Azure" -ForegroundColor Yellow
-    }
+    # # Source
+    # if (-not [string]::IsNullOrWhiteSpace($script:OriginalSource)) {
+    #     $script:Source = $script:OriginalSource
+    #     Write-Host "   Source: '$($script:Source)' ← USER PROVIDED ✅" -ForegroundColor Green
+    # } else {
+    #     $script:Source = $detectedParams.Source
+    #     Write-Host "   Source: '$($script:Source)' ← Auto-detected from Azure" -ForegroundColor Yellow
+    # }
     
-    # SourceNamespace
-    if (-not [string]::IsNullOrWhiteSpace($script:OriginalSourceNamespace)) {
-        $script:SourceNamespace = $script:OriginalSourceNamespace
-        Write-Host "   SourceNamespace: '$($script:SourceNamespace)' ← USER PROVIDED ✅" -ForegroundColor Green
-    } else {
-        $script:SourceNamespace = $detectedParams.SourceNamespace
-        Write-Host "   SourceNamespace: '$($script:SourceNamespace)' ← Default (org standard)" -ForegroundColor Yellow
-    }
+    # # SourceNamespace
+    # if (-not [string]::IsNullOrWhiteSpace($script:OriginalSourceNamespace)) {
+    #     $script:SourceNamespace = $script:OriginalSourceNamespace
+    #     Write-Host "   SourceNamespace: '$($script:SourceNamespace)' ← USER PROVIDED ✅" -ForegroundColor Green
+    # } else {
+    #     $script:SourceNamespace = $detectedParams.SourceNamespace
+    #     Write-Host "   SourceNamespace: '$($script:SourceNamespace)' ← Default (org standard)" -ForegroundColor Yellow
+    # }
     
-    # Destination
-    if (-not [string]::IsNullOrWhiteSpace($script:OriginalDestination)) {
-        $script:Destination = $script:OriginalDestination
-        Write-Host "   Destination: '$($script:Destination)' ← USER PROVIDED ✅" -ForegroundColor Green
-    } else {
-        $script:Destination = $detectedParams.Source
-        Write-Host "   Destination: '$($script:Source)' ← Auto-detected (same as Source)" -ForegroundColor Yellow
-    }
+    # # Destination
+    # if (-not [string]::IsNullOrWhiteSpace($script:OriginalDestination)) {
+    #     $script:Destination = $script:OriginalDestination
+    #     Write-Host "   Destination: '$($script:Destination)' ← USER PROVIDED ✅" -ForegroundColor Green
+    # } else {
+    #     $script:Destination = $detectedParams.Source
+    #     Write-Host "   Destination: '$($script:Source)' ← Auto-detected (same as Source)" -ForegroundColor Yellow
+    # }
     
-    # DestinationNamespace
-    if (-not [string]::IsNullOrWhiteSpace($script:OriginalDestinationNamespace)) {
-        $script:DestinationNamespace = $script:OriginalDestinationNamespace
-        Write-Host "   DestinationNamespace: '$($script:DestinationNamespace)' ← USER PROVIDED ✅" -ForegroundColor Green
-    } else {
-        $script:DestinationNamespace = $detectedParams.DestinationNamespace
-        Write-Host "   DestinationNamespace: '$($script:DestinationNamespace)' ← Default (org standard)" -ForegroundColor Yellow
-    }
+    # # DestinationNamespace
+    # if (-not [string]::IsNullOrWhiteSpace($script:OriginalDestinationNamespace)) {
+    #     $script:DestinationNamespace = $script:OriginalDestinationNamespace
+    #     Write-Host "   DestinationNamespace: '$($script:DestinationNamespace)' ← USER PROVIDED ✅" -ForegroundColor Green
+    # } else {
+    #     $script:DestinationNamespace = $detectedParams.DestinationNamespace
+    #     Write-Host "   DestinationNamespace: '$($script:DestinationNamespace)' ← Default (org standard)" -ForegroundColor Yellow
+    # }
     
-    if ($script:DestinationNamespace -eq "manufacturo") {
-        Write-Host "" -ForegroundColor Red
-        Write-Host "❌ FATAL ERROR: Destination namespace cannot be 'manufacturo'" -ForegroundColor Red
-        Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
-        Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
-        Write-Host "" -ForegroundColor Red
-        Write-AutomationLog "❌ FATAL ERROR: Destination namespace 'manufacturo' is not allowed" "ERROR"
-        $global:LASTEXITCODE = 1
-        throw "Destination namespace 'manufacturo' is not allowed - this is a protected namespace"
-    }
 
-    # Cloud
-    if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
-        $script:Cloud = $script:OriginalCloud
-        Write-Host "   Cloud: '$($script:Cloud)' ← USER PROVIDED ✅" -ForegroundColor Green
-    } else {
-        $script:Cloud = $detectedParams.Cloud
-        Write-Host "   Cloud: '$($script:Cloud)' ← Auto-detected from Azure CLI" -ForegroundColor Yellow
-    }
+    # # Cloud
+    # if (-not [string]::IsNullOrWhiteSpace($script:OriginalCloud)) {
+    #     $script:Cloud = $script:OriginalCloud
+    #     Write-Host "   Cloud: '$($script:Cloud)' ← USER PROVIDED ✅" -ForegroundColor Green
+    # } else {
+    #     $script:Cloud = $detectedParams.Cloud
+    #     Write-Host "   Cloud: '$($script:Cloud)' ← Auto-detected from Azure CLI" -ForegroundColor Yellow
+    # }
     
-    # Apply default values for time-sensitive parameters if not provided by user
-    $script:RestoreDateTime = if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $RestoreDateTime } else { $detectedParams.DefaultRestoreDateTime }
-    $script:Timezone = if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $Timezone } else { $detectedParams.DefaultTimezone }
+    # # Apply default values for time-sensitive parameters if not provided by user
+    # $script:RestoreDateTime = if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $RestoreDateTime } else { $detectedParams.DefaultRestoreDateTime }
+    # $script:Timezone = if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $Timezone } else { $detectedParams.DefaultTimezone }
     
     Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
     Write-Host "📋 Final parameters:" -ForegroundColor Cyan
-    Write-Host "   Source: $($script:Source) / $($script:SourceNamespace)" -ForegroundColor Gray
-    Write-Host "   Destination: $($script:Destination) / $($script:DestinationNamespace)" -ForegroundColor Gray
-    Write-Host "   Cloud: $($script:Cloud)" -ForegroundColor Gray
-    Write-Host "   Customer Alias: $($script:CustomerAlias)" -ForegroundColor Gray
-    Write-Host "   Customer Alias to Remove: $($script:CustomerAliasToRemove)" -ForegroundColor Gray
-    Write-Host "   Restore DateTime: $($script:RestoreDateTime) ($($script:Timezone))" -ForegroundColor Gray
-    Write-Host "   Max Wait Minutes: $($script:MaxWaitMinutes)" -ForegroundColor Gray
+    Write-Host "   Source: $Source / $SourceNamespace" -ForegroundColor Gray
+    Write-Host "   Destination: $Destination / $DestinationNamespace" -ForegroundColor Gray
+    Write-Host "   Cloud: $Cloud" -ForegroundColor Gray
+    Write-Host "   Customer Alias: $CustomerAlias" -ForegroundColor Gray
+    Write-Host "   Customer Alias to Remove: $CustomerAliasToRemove" -ForegroundColor Gray
+    Write-Host "   Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
+    Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
+    Write-Host "   DryRun: $DryRun" -ForegroundColor Gray
+    Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
+    Write-Host "   UseSasTokens: $UseSasTokens" -ForegroundColor Gray
     
-    # Log final parameters
-    Write-AutomationLog "📋 Final Parameters: Source=$($script:Source)/$($script:SourceNamespace) → Destination=$($script:Destination)/$($script:DestinationNamespace)" "INFO"
-    Write-AutomationLog "☁️  Cloud: $($script:Cloud) | DryRun: $DryRun" "INFO"
+    # # Log final parameters
+    # Write-AutomationLog "📋 Final Parameters: Source=$($script:Source)/$($script:SourceNamespace) → Destination=$($script:Destination)/$($script:DestinationNamespace)" "INFO"
+    # Write-AutomationLog "☁️  Cloud: $($script:Cloud) | DryRun: $DryRun" "INFO"
     
     # ═══════════════════════════════════════════════════════════════════════════
     # STEP 0E: VALIDATE PREREQUISITES
@@ -330,7 +335,7 @@ function Perform-Migration {
     }
     
     # Set domain based on cloud environment for downstream scripts
-    switch ($script:Cloud) {
+    switch ($Cloud) {
         'AzureCloud' {
             $Domain = 'cloud'
         }
@@ -343,18 +348,18 @@ function Perform-Migration {
     }
 
     Invoke-Migration `
-        -Cloud $script:Cloud `
-        -Source $script:Source `
-        -Destination $script:Destination `
-        -CustomerAlias $script:CustomerAlias `
-        -CustomerAliasToRemove $script:CustomerAliasToRemove `
-        -SourceNamespace $script:SourceNamespace `
-        -DestinationNamespace $script:DestinationNamespace `
+        -Cloud $Cloud `
+        -Source $Source `
+        -Destination $Destination `
+        -CustomerAlias $CustomerAlias `
+        -CustomerAliasToRemove $CustomerAliasToRemove `
+        -SourceNamespace $SourceNamespace `
+        -DestinationNamespace $DestinationNamespace `
         -Domain $Domain `
         -DryRun:($DryRun -eq $true) `
         -MaxWaitMinutes $MaxWaitMinutes `
-        -RestoreDateTime $script:RestoreDateTime `
-        -Timezone $script:Timezone
+        -RestoreDateTime $RestoreDateTime `
+        -Timezone $Timezone
 }
 
 function Invoke-Migration {
@@ -392,6 +397,118 @@ function Invoke-Migration {
     }
     Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
     
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0A: GRANT PERMISSIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-Host ""
+    
+    Write-Host "   📋 Target Environment: $Source" -ForegroundColor Gray
+    
+    try {
+        $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+        
+        if (Test-Path $grantScript) {
+            $permResult = & $grantScript -Environment $Source
+            $result.PermissionResult = $permResult
+            
+            if ($permResult.Success) {
+                # Store propagation wait info for later (after authentication)
+                Write-Host "   ✅ Permission grant successful" -ForegroundColor Green
+                $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+                $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+            } else {
+                Write-Host "   ❌ Permission grant failed" -ForegroundColor Red
+                Write-Host "   📍 Error: $($permResult.Error)" -ForegroundColor Gray
+                Write-Host "   ⚠️  Continuing anyway..." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "   ⚠️  Permission script not found: $grantScript" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "   ⚠️  Permission grant error: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "   Continuing anyway..." -ForegroundColor Gray
+    }
+
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0B: AZURE AUTHENTICATION
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
+    Write-Host ""
+
+    try {
+        $authScript = Join-Path $scriptDir "common/Connect-Azure.ps1"
+        
+        if (Test-Path $authScript) {
+            Write-Host "   🔑 Authenticating to Azure..." -ForegroundColor Gray
+            
+            Write-Host "   🌐 Using specified cloud: $Cloud" -ForegroundColor Gray
+            $authResult = & $authScript -Cloud $Cloud
+            
+            if ($authResult) {
+                Write-Host "   ✅ Azure authentication successful" -ForegroundColor Green
+                $result.AuthenticationResult = $true
+            } else {
+                Write-Host ""
+                Write-Host "   ❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
+                Write-Host "   Cannot proceed without authentication" -ForegroundColor Yellow
+                
+                $result.Success = $false
+                $result.Error = "Azure authentication failed"
+                return $result
+            }
+        } else {
+            Write-Host "   ⚠️  Authentication script not found: $authScript" -ForegroundColor Yellow
+            Write-Host "   Assuming Azure CLI is already authenticated..." -ForegroundColor Gray
+        }
+    } catch {
+        Write-Host ""
+        Write-Host "   ❌ FATAL ERROR: Authentication exception: $($_.Exception.Message)" -ForegroundColor Red
+        
+        $result.Success = $false
+        $result.Error = "Azure authentication exception: $($_.Exception.Message)"
+        return $result
+    }
+
+    # NOW perform propagation wait if needed (after successful authentication)
+    if ($result.NeedsPropagationWait) {
+        $waitSeconds = $result.PropagationWaitSeconds
+        Write-Host ""
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "   ⚡ Note: This wait is SKIPPED on subsequent runs if permissions already exist!" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
+        
+        # Progress bar for better UX
+        for ($i = 1; $i -le $waitSeconds; $i++) {
+            $percent = [math]::Round(($i / $waitSeconds) * 100)
+            Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
+            Start-Sleep -Seconds 1
+        }
+        Write-Progress -Activity "Azure AD Permission Propagation" -Completed
+        
+        Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
+        Write-Host ""
+    } else {
+        Write-Host ""
+        Write-Host "   ⚡ SKIPPING propagation wait - no Azure AD changes were made" -ForegroundColor Cyan
+        Write-Host ""
+    }
+
+    Write-Host ""
+
+
     # Step 1: Restore Point in Time
     Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
     if ($DryRun) {
@@ -551,40 +668,40 @@ function Invoke-Migration {
         & $scriptPath -Source $Source 
     }
     
-    # # Step 12: Remove Permissions
-    # Write-Host "`n🔄 STEP 12: REMOVE PERMISSIONS" -ForegroundColor Cyan
-    # if ($DryRun) {
-    #     Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
-    #     Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
-    #     Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
-    #     Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
+    # Step 12: Remove Permissions
+    Write-Host "`n🔄 STEP 12: REMOVE PERMISSIONS" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
 
-    #     # Call the dedicated permission management script
-    #     $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    #     $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
 
-    #     if (-not $permissionResult.Success) {
-    #         Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions" "ERROR"
-    #         Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-    #         throw "Permission removal failed: $($permissionResult.Error)"
-    #     }
-    #     Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions" "ERROR"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+            throw "Permission removal failed: $($permissionResult.Error)"
+        }
+        Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
 
-    # } else {
-    #     Write-AutomationLog "🔐 Starting permission removal process..." "INFO"
+    } else {
+        Write-AutomationLog "🔐 Starting permission removal process..." "INFO"
         
-    #     # Call the dedicated permission management script
-    #     $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    #     $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
         
-    #     if (-not $permissionResult.Success) {
-    #         Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
-    #         Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
-    #         Write-AutomationLog "💡 Permissions may need to be removed manually" "WARN"
-    #     } else {
-    #         Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
-    #     }
-    # }
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
+            Write-AutomationLog "💡 Permissions may need to be removed manually" "WARN"
+        } else {
+            Write-AutomationLog "✅ Permissions removed successfully" "SUCCESS"
+        }
+    }
     
     # Final summary for dry run mode
     if ($DryRun) {
@@ -620,9 +737,10 @@ function Invoke-Migration {
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN SCRIPT EXECUTION
 # ═══════════════════════════════════════════════════════════════════════════
-Write-AutomationLog "🚀 Starting Self-Service Data Refresh" "INFO"
-Write-AutomationLog "📋 Initial Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
-Write-AutomationLog "☁️  Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<will auto-detect>' } else { $Cloud }) | DryRun: $DryRun" "INFO"
+
+# Write-AutomationLog "🚀 Starting Self-Service Data Refresh" "INFO"
+# Write-AutomationLog "📋 Initial Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
+# Write-AutomationLog "☁️  Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<will auto-detect>' } else { $Cloud }) | DryRun: $DryRun" "INFO"
 
 if (-not [string]::IsNullOrEmpty($LogFile)) {
     Write-AutomationLog "📝 Logging to file: $LogFile" "INFO"

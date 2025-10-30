@@ -44,7 +44,8 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Environment,
     
-    [string]$ServiceAccount = "SelfServiceRefresh",
+    # [string]$ServiceAccount = "SelfServiceRefresh",
+    [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
     
     [int]$TimeoutSeconds = 60,
     
@@ -64,6 +65,19 @@ $scriptDir = if ($global:ScriptBaseDir) {
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN EXECUTION
 # ═══════════════════════════════════════════════════════════════════════════
+
+# # SEMAPHORE_WORKLOAD_IDENTITY_NAME
+# $ServiceAccount = [System.Environment]::GetEnvironmentVariable("SEMAPHORE_WORKLOAD_IDENTITY_NAME")
+# if (-not [string]::IsNullOrWhiteSpace($ServiceAccount)) {
+#     Write-Host "📋 Wrapper: Using SEMAPHORE_WORKLOAD_IDENTITY_NAME variable as ServiceAccount = $envVar" -ForegroundColor Cyan
+# } else {
+#     Write-Host "⚠️ Wrapper: No ServiceAccount provided and SEMAPHORE_WORKLOAD_IDENTITY_NAME variable not set" -ForegroundColor Yellow
+#     Write-Host "   1. Provide -ServiceAccount parameter (e.g., -ServiceAccount 'mil-space-dev')" -ForegroundColor Gray
+#     Write-Host "   2. Set INSTANCE_ALIAS_TO_REMOVE environment variable (e.g., export INSTANCE_ALIAS_TO_REMOVE='mil-space-dev')" -ForegroundColor Gray
+#     $global:LASTEXITCODE = 1
+#     throw "ServiceAccount is required - provide -ServiceAccount parameter or set SEMAPHORE_WORKLOAD_IDENTITY_NAME environment variable"
+# }
+
 
 Write-Host "🔐 Granting Azure permissions..." -ForegroundColor Cyan
 Write-Host "   Environment: $Environment" -ForegroundColor Gray

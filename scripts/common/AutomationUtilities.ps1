@@ -103,18 +103,14 @@ function Test-Prerequisites {
     }
     
     # Check PowerShell modules (SqlServer required for Invoke-SqlCmd)
-    if (-not $DryRun) {
-        $requiredModules = @("SqlServer")
-        foreach ($module in $requiredModules) {
-            if (-not (Get-Module -ListAvailable -Name $module)) {
-                Write-AutomationLog "❌ PowerShell module '$module' not installed - required for SQL operations" "ERROR"
-                $errors += "Missing required PowerShell module: $module"
-            } else {
-                Write-AutomationLog "✅ PowerShell module '$module' available" "SUCCESS"
-            }
+    $requiredModules = @("SqlServer")
+    foreach ($module in $requiredModules) {
+        if (-not (Get-Module -ListAvailable -Name $module)) {
+            Write-AutomationLog "❌ PowerShell module '$module' not installed - required for SQL operations" "ERROR"
+            $errors += "Missing required PowerShell module: $module"
+        } else {
+            Write-AutomationLog "✅ PowerShell module '$module' available" "SUCCESS"
         }
-    } else {
-        Write-AutomationLog "ℹ️ PowerShell module check skipped in dry-run mode" "INFO"
     }
     
     # Check kubectl (for environment management)

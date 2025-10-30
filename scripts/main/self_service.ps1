@@ -50,18 +50,18 @@
 #>
 
 param (
-    [AllowEmptyString()][string]$RestoreDateTime,  # Format: "yyyy-MM-dd HH:mm:ss" - empty uses 15 min ago
-    [AllowEmptyString()][string]$Timezone,         # Empty uses system timezone
-    [AllowEmptyString()][string]$SourceNamespace,
-    [AllowEmptyString()][string]$Source,
-    [AllowEmptyString()][string]$DestinationNamespace,
-    [AllowEmptyString()][string]$Destination,
-    [AllowEmptyString()][string]$InstanceAlias,
-    [AllowEmptyString()][string]$InstanceAliasToRemove,
-    [AllowEmptyString()][string]$Cloud,
-    [switch]$DryRun=$true,
-    [switch]$UseSasTokens=$false,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
-    [int]$MaxWaitMinutes = 60,
+    [string]$RestoreDateTime,  # Format: "yyyy-MM-dd HH:mm:ss" - empty uses 15 min ago
+    [string]$Timezone,         # Empty uses system timezone
+    [string]$SourceNamespace,
+    [string]$Source,
+    [string]$DestinationNamespace,
+    [string]$Destination,
+    [string]$InstanceAlias,
+    [string]$InstanceAliasToRemove,
+    [string]$Cloud,
+    [switch]$DryRun,
+    [switch]$UseSasTokens,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
+    [int]$MaxWaitMinutes,
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
     [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
@@ -407,7 +407,7 @@ function Invoke-Migration {
     Write-Host "   📋 Target Environment: $Source" -ForegroundColor Gray
     
     try {
-        $grantScript = Join-Path $scriptDir "common/Grant-AzurePermissions.ps1"
+        $grantScript = Join-Path $scriptDir "../common/Grant-AzurePermissions.ps1"
         
         if (Test-Path $grantScript) {
             $permResult = & $grantScript -Environment $Source
@@ -440,7 +440,7 @@ function Invoke-Migration {
     Write-Host ""
 
     try {
-        $authScript = Join-Path $scriptDir "common/Connect-Azure.ps1"
+        $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
         
         if (Test-Path $authScript) {
             Write-Host "   🔑 Authenticating to Azure..." -ForegroundColor Gray

@@ -198,19 +198,19 @@ function Perform-Migration {
     # STEPS 0A, 0B, 0C: RUN PREREQUISITE STEPS (Using unified module)
     # ═══════════════════════════════════════════════════════════════════════════
     
-    Write-AutomationLog "🔐 Running prerequisite steps (permissions, authentication, parameter detection)" "INFO"
+    # Write-AutomationLog "🔐 Running prerequisite steps (permissions, authentication, parameter detection)" "INFO"
     
     # Call the unified prerequisite steps script
     # NOTE: This ALWAYS runs, even in dry-run mode, because:
     # 1. Permissions are needed for subsequent Azure operations
     # 2. Azure Function call is safe (idempotent)
     # 3. No actual infrastructure changes
-    $prerequisiteScript = Get-ScriptPath "common/Invoke-PrerequisiteSteps.ps1"
+    # $prerequisiteScript = Get-ScriptPath "common/Invoke-PrerequisiteSteps.ps1"
 
-    if (-not (Test-Path $prerequisiteScript)) {
-        Write-AutomationLog "❌ FATAL ERROR: Prerequisite script not found at $prerequisiteScript" "ERROR"
-        throw "Prerequisite script not found at: $prerequisiteScript"
-    }
+    # if (-not (Test-Path $prerequisiteScript)) {
+    #     Write-AutomationLog "❌ FATAL ERROR: Prerequisite script not found at $prerequisiteScript" "ERROR"
+    #     throw "Prerequisite script not found at: $prerequisiteScript"
+    # }
     
     # # Build parameters for prerequisite script
     # $prereqParams = @{
@@ -223,27 +223,27 @@ function Perform-Migration {
     #     Cloud = $script:OriginalCloud
     # }
 
-    # Build parameters for prerequisite script
-    $prereqParams = @{
-        Source = $Source
-        Destination = $Destination
-        SourceNamespace = $SourceNamespace
-        DestinationNamespace = $DestinationNamespace
-        RestoreDateTime = $RestoreDateTime
-        Timezone = $Timezone
-        Cloud = $Cloud
-    }
+    # # Build parameters for prerequisite script
+    # $prereqParams = @{
+    #     Source = $Source
+    #     Destination = $Destination
+    #     SourceNamespace = $SourceNamespace
+    #     DestinationNamespace = $DestinationNamespace
+    #     RestoreDateTime = $RestoreDateTime
+    #     Timezone = $Timezone
+    #     Cloud = $Cloud
+    # }
     
-    $prerequisiteResult = & $prerequisiteScript `
-        -Parameters $prereqParams
+    # $prerequisiteResult = & $prerequisiteScript `
+    #     -Parameters $prereqParams
     
-    if (-not $prerequisiteResult.Success) {
-        Write-AutomationLog "❌ FATAL ERROR: Prerequisite steps failed" "ERROR"
-        Write-AutomationLog "📍 Error: $($prerequisiteResult.Error)" "ERROR"
-        throw "Prerequisite steps failed: $($prerequisiteResult.Error)"
-    }
+    # if (-not $prerequisiteResult.Success) {
+    #     Write-AutomationLog "❌ FATAL ERROR: Prerequisite steps failed" "ERROR"
+    #     Write-AutomationLog "📍 Error: $($prerequisiteResult.Error)" "ERROR"
+    #     throw "Prerequisite steps failed: $($prerequisiteResult.Error)"
+    # }
     
-    Write-AutomationLog "✅ Prerequisite steps completed successfully" "SUCCESS"
+    # Write-AutomationLog "✅ Prerequisite steps completed successfully" "SUCCESS"
     
     # Extract detected parameters
     # $detectedParams = $prerequisiteResult.DetectedParameters

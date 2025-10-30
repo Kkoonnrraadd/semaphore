@@ -80,9 +80,9 @@ Write-Host "🔧 RUNNING PREREQUISITE STEPS" -ForegroundColor Magenta
 Write-Host "═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Magenta
 Write-Host ""
 
-═══════════════════════════════════════════════════════════════════════════
-STEP 0A: GRANT PERMISSIONS
-═══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 0A: GRANT PERMISSIONS
+# ═══════════════════════════════════════════════════════════════════════════
 
     Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-Host ""

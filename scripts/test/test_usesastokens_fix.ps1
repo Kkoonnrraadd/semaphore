@@ -1,2 +1,4 @@
+whoami
 gci env:* | sort-object name
-Get-Process | select-object name, id, processname, cpu
+su semaphore
+gci env:* | sort-object name

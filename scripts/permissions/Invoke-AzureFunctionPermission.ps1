@@ -42,7 +42,7 @@ param(
     
     [string]$ServiceAccount = "SelfServiceRefresh",
     
-    [int]$TimeoutSeconds = 60,
+    [int]$TimeoutSeconds = 360,
     
     [int]$WaitForPropagation = 30,
     

@@ -61,9 +61,9 @@ param (
     [string]$Cloud,
     [switch]$DryRun,
     [switch]$UseSasTokens,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
-    [int]$MaxWaitMinutes,
+    [int]$MaxWaitMinutes
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
-    [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
+    # [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
 )
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -407,6 +407,21 @@ function Invoke-Migration {
     Write-Host "   📋 Target Environment: $Source" -ForegroundColor Gray
     
     try {
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # INITIALIZE RESULT OBJECT
+        # ═══════════════════════════════════════════════════════════════════════════
+
+        $result = @{
+            Success = $true
+            DetectedParameters = @{}
+            PermissionResult = $null
+            AuthenticationResult = $false
+            NeedsPropagationWait = $false
+            PropagationWaitSeconds = 0
+            Error = $null
+        }
+
         $grantScript = Join-Path $scriptDir "../common/Grant-AzurePermissions.ps1"
         
         if (Test-Path $grantScript) {
@@ -743,9 +758,9 @@ function Invoke-Migration {
 # Write-AutomationLog "📋 Initial Parameters: Source=$Source/$SourceNamespace → Destination=$Destination/$DestinationNamespace" "INFO"
 # Write-AutomationLog "☁️  Cloud: $(if ([string]::IsNullOrWhiteSpace($Cloud)) { '<will auto-detect>' } else { $Cloud }) | DryRun: $DryRun" "INFO"
 
-if (-not [string]::IsNullOrEmpty($LogFile)) {
-    Write-AutomationLog "📝 Logging to file: $LogFile" "INFO"
-}
+# if (-not [string]::IsNullOrEmpty($LogFile)) {
+#     Write-AutomationLog "📝 Logging to file: $LogFile" "INFO"
+# }
 
 try {
     Write-AutomationLog "✅ Input validation passed" "SUCCESS"
@@ -760,10 +775,10 @@ try {
     Write-AutomationLog "❌ FATAL ERROR: $errorMessage" "ERROR"
     Write-AutomationLog "📍 Error occurred at: $($_.InvocationInfo.ScriptLineNumber):$($_.InvocationInfo.OffsetInLine)" "ERROR"
     
-    if (-not [string]::IsNullOrEmpty($LogFile)) {
-        Write-AutomationLog "📝 Full error details saved to log file: $LogFile" "ERROR"
-        Add-Content -Path $LogFile -Value "FULL ERROR DETAILS:`n$($_ | Out-String)" -Force
-    }
+    # if (-not [string]::IsNullOrEmpty($LogFile)) {
+        # Write-AutomationLog "📝 Full error details saved to log file: $LogFile" "ERROR"
+        # Add-Content -Path $LogFile -Value "FULL ERROR DETAILS:`n$($_ | Out-String)" -Force
+    # }
     
     # Standard exit code for errors
     $global:LASTEXITCODE = 1

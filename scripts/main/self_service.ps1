@@ -445,15 +445,15 @@ function Invoke-Migration {
     #     # INITIALIZE RESULT OBJECT
     #     # ═══════════════════════════════════════════════════════════════════════════
 
-    #     $result = @{
-    #         Success = $true
-    #         DetectedParameters = @{}
-    #         PermissionResult = $null
-    #         AuthenticationResult = $false
-    #         NeedsPropagationWait = $false
-    #         PropagationWaitSeconds = 0
-    #         Error = $null
-    #     }
+        $result = @{
+            Success = $true
+            DetectedParameters = @{}
+            PermissionResult = $null
+            AuthenticationResult = $false
+            NeedsPropagationWait = $false
+            PropagationWaitSeconds = 0
+            Error = $null
+        }
 
     #     $grantScript = Join-Path $scriptDir "../common/Grant-AzurePermissions.ps1"
         

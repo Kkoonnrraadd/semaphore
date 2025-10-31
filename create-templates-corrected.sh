@@ -47,26 +47,16 @@ NC='\033[0m' # No Color
 # INSTANCE_ALIAS_TO_REMOVE=$(echo "$INSTANCE_ALIAS_TO_REMOVE")
 # CLOUD=$(echo "$CLOUD")
 
-# Assign variables
-TIMEZONE="$SEMAPHORE_SCHEDULE_TIMEZONE"
-SOURCE_NAMESPACE="$SOURCE_NAMESPACE"
-SOURCE="$ENVIRONMENT"
-DESTINATION_NAMESPACE="$DESTINATION_NAMESPACE"
-DESTINATION="$ENVIRONMENT"
-INSTANCE_ALIAS="$INSTANCE_ALIAS"
-INSTANCE_ALIAS_TO_REMOVE="$INSTANCE_ALIAS_TO_REMOVE"
-CLOUD="$CLOUD"
-
 # Debug output
 echo "=== Debugging Environment Variables ==="
-echo "TIMEZONE:                $TIMEZONE"
-echo "SOURCE_NAMESPACE:        $SOURCE_NAMESPACE"
+echo "SEMAPHORE_SCHEDULE_TIMEZONE:                $SEMAPHORE_SCHEDULE_TIMEZONE"
+echo "SOURCE_NAMESPACE:                           $SOURCE_NAMESPACE"
 echo "SOURCE:                  $SOURCE"
 echo "DESTINATION_NAMESPACE:   $DESTINATION_NAMESPACE"
 echo "DESTINATION:             $DESTINATION"
 echo "INSTANCE_ALIAS:          $INSTANCE_ALIAS"
-echo "INSTANCE_ALIAS_TO_REMOVE:$INSTANCE_ALIAS_TO_REMOVE"
-echo "CLOUD:                   $CLOUD"
+echo "INSTANCE_ALIAS_TO_REMOVE:                   $INSTANCE_ALIAS_TO_REMOVE"
+echo "AZURE_CLOUD_NAME:                           $AZURE_CLOUD_NAME"
 echo "======================================"
 
 
@@ -403,7 +393,7 @@ create_main_templates() {
                 "title": "Instance Alias",
                 "description": "Instance identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
                 "default_value": '$INSTANCE_ALIAS',
-                "required": true
+                "required": false
             },
             {
                 "name": "InstanceAliasToRemove",
@@ -416,7 +406,7 @@ create_main_templates() {
                 "name": "Cloud",
                 "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
-                "default_value": '$CLOUD',
+                "default_value": '$AZURE_CLOUD_NAME',
                 "required": false
             },
             {
@@ -529,7 +519,7 @@ create_main_templates() {
                 "name": "Cloud",
                 "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
-                "default_value": '$CLOUD',
+                "default_value": '$AZURE_CLOUD_NAME',
                 "required": false
             },
             {

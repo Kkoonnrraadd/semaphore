@@ -49,7 +49,7 @@ param(
     # [switch]$NoWait
 )
 
-$ServiceAccount = $env:SEMAPHORE_SERVICE_ACCOUNT_NAME
+$ServiceAccount = $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME
 # Azure Function Configuration
 # $functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
 $functionBaseUrl = $env:SEMAPHORE_FUNCTION_URL

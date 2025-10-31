@@ -38,14 +38,38 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
-TIMEZONE=$(echo "$SEMAPHORE_SCHEDULE_TIMEZONE")
-SOURCE_NAMESPACE=$(echo "$SOURCE_NAMESPACE")
-SOURCE=$(echo "$ENVIRONMENT")
-DESTINATION_NAMESPACE=$(echo "$DESTINATION_NAMESPACE")
-DESTINATION=$(echo "$ENVIRONMENT")
-INSTANCE_ALIAS=$(echo "$INSTANCE_ALIAS")
-INSTANCE_ALIAS_TO_REMOVE=$(echo "$INSTANCE_ALIAS_TO_REMOVE")
-CLOUD=$(echo "$CLOUD")
+# TIMEZONE=$(echo "$SEMAPHORE_SCHEDULE_TIMEZONE")
+# SOURCE_NAMESPACE=$(echo "$SOURCE_NAMESPACE")
+# SOURCE=$(echo "$ENVIRONMENT")
+# DESTINATION_NAMESPACE=$(echo "$DESTINATION_NAMESPACE")
+# DESTINATION=$(echo "$ENVIRONMENT")
+# INSTANCE_ALIAS=$(echo "$INSTANCE_ALIAS")
+# INSTANCE_ALIAS_TO_REMOVE=$(echo "$INSTANCE_ALIAS_TO_REMOVE")
+# CLOUD=$(echo "$CLOUD")
+
+# Assign variables
+TIMEZONE="$SEMAPHORE_SCHEDULE_TIMEZONE"
+SOURCE_NAMESPACE="$SOURCE_NAMESPACE"
+SOURCE="$ENVIRONMENT"
+DESTINATION_NAMESPACE="$DESTINATION_NAMESPACE"
+DESTINATION="$ENVIRONMENT"
+INSTANCE_ALIAS="$INSTANCE_ALIAS"
+INSTANCE_ALIAS_TO_REMOVE="$INSTANCE_ALIAS_TO_REMOVE"
+CLOUD="$CLOUD"
+
+# Debug output
+echo "=== Debugging Environment Variables ==="
+echo "TIMEZONE:                $TIMEZONE"
+echo "SOURCE_NAMESPACE:        $SOURCE_NAMESPACE"
+echo "SOURCE:                  $SOURCE"
+echo "DESTINATION_NAMESPACE:   $DESTINATION_NAMESPACE"
+echo "DESTINATION:             $DESTINATION"
+echo "INSTANCE_ALIAS:          $INSTANCE_ALIAS"
+echo "INSTANCE_ALIAS_TO_REMOVE:$INSTANCE_ALIAS_TO_REMOVE"
+echo "CLOUD:                   $CLOUD"
+echo "======================================"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -343,7 +367,7 @@ create_main_templates() {
                 "name": "Timezone",
                 "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Europe/Warsaw or America/New_York). Script uses system timezone if empty.",
-                "default_value": '$TIMEZONE',
+                "default_value": '$SEMAPHORE_SCHEDULE_TIMEZONE',
                 "required": false
             },
             {
@@ -456,7 +480,7 @@ create_main_templates() {
                 "name": "Timezone",
                 "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
-                "default_value": '$TIMEZONE',
+                "default_value": '$SEMAPHORE_SCHEDULE_TIMEZONE',
                 "required": false
             },
             {

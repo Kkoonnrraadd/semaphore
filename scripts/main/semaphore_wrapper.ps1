@@ -564,6 +564,6 @@ if ($script:DestinationNamespace -eq "manufacturo") {
 }
 
 # Call the main script with splatting - only passes parameters that have values
-& $selfServiceScript -RestoreDateTime $RestoreDateTime -Timezone $Timezone -SourceNamespace $SourceNamespace -Source $Source -DestinationNamespace $DestinationNamespace -Destination $Destination -InstanceAlias $InstanceAlias -InstanceAliasToRemove $InstanceAliasToRemove -Cloud $Cloud -DryRun $DryRun -UseSasTokens $UseSasTokens -MaxWaitMinutes $MaxWaitMinutes
+& $selfServiceScript -RestoreDateTime $RestoreDateTime -Timezone $Timezone -SourceNamespace $SourceNamespace -Source $Source -DestinationNamespace $DestinationNamespace -Destination $Destination -InstanceAlias $InstanceAlias -InstanceAliasToRemove $InstanceAliasToRemove -Cloud $Cloud -DryRun:$DryRun -UseSasTokens:$UseSasTokens -MaxWaitMinutes $MaxWaitMinutes
 
 Write-Host "✅ Semaphore wrapper completed" -ForegroundColor Green

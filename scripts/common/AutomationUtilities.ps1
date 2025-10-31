@@ -74,9 +74,7 @@ function Test-Prerequisites {
     .PARAMETER DryRun
         Skip checks that are not needed in dry-run mode
     #>
-    param(
-        [switch]$DryRun
-    )
+    param()
     
     Write-AutomationLog "🔍 Validating prerequisites for automation..." "INFO"
     $errors = @()

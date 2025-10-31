@@ -305,13 +305,8 @@ function Perform-Migration {
     # $script:RestoreDateTime = if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $RestoreDateTime } else { $detectedParams.DefaultRestoreDateTime }
     # $script:Timezone = if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $Timezone } else { $detectedParams.DefaultTimezone }
     
-    Write-AutomationLog "🔍 DryRun mode: $DryRun" "INFO"
-    if (-not $DryRun) {
-        Write-AutomationLog "🔍 Running prerequisites check (not in dry-run mode)" "INFO"
-        Test-Prerequisites -DryRun:$DryRun
-    } else {
-        Write-AutomationLog "🔍 Skipping prerequisites check in dry-run mode" "INFO"
-    }
+    Write-AutomationLog "🔍 Running prerequisites check" "INFO"
+    Test-Prerequisites
 
     Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
     Write-Host "📋 Final parameters:" -ForegroundColor Cyan
@@ -567,7 +562,7 @@ function Invoke-Migration {
     }
     
     # Add UseSasTokens if specified (for 3TB+ containers)
-    if ($UseSasTokens -eq $true) {
+    if ($UseSasTokens) {
         $copyParams['UseSasTokens'] = $true
         Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
     }

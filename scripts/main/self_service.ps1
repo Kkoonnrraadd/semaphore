@@ -345,19 +345,20 @@ function Perform-Migration {
     }
     Write-Host "🔍 Domain: $Domain" -ForegroundColor Gray
 
-    # Invoke-Migration `
-    #     -Cloud $Cloud `
-    #     -Source $Source `
-    #     -Destination $Destination `
-    #     -InstanceAlias $InstanceAlias `
-    #     -InstanceAliasToRemove $InstanceAliasToRemove `
-    #     -SourceNamespace $SourceNamespace `
-    #     -DestinationNamespace $DestinationNamespace `
-    #     -Domain $Domain `
-    #     -DryRun:($DryRun -eq $true) `
-    #     -MaxWaitMinutes $MaxWaitMinutes `
-    #     -RestoreDateTime $RestoreDateTime `
-    #     -Timezone $Timezone
+    Invoke-Migration `
+        -Cloud $Cloud `
+        -Source $Source `
+        -Destination $Destination `
+        -InstanceAlias $InstanceAlias `
+        -InstanceAliasToRemove $InstanceAliasToRemove `
+        -SourceNamespace $SourceNamespace `
+        -DestinationNamespace $DestinationNamespace `
+        -Domain $Domain `
+        -DryRun:$DryRun `
+        -UseSasTokens:$UseSasTokens `
+        -MaxWaitMinutes $MaxWaitMinutes `
+        -RestoreDateTime $RestoreDateTime `
+        -Timezone $Timezone
 }
 
 function Invoke-Migration {
@@ -371,6 +372,7 @@ function Invoke-Migration {
         [string]$DestinationNamespace,
         [string]$Domain,
         [switch]$DryRun,
+        [switch]$UseSasTokens,
         [int]$MaxWaitMinutes,
         [string]$RestoreDateTime,
         [string]$Timezone

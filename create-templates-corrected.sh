@@ -38,6 +38,14 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
+TIMEZONE=$(echo "$SEMAPHORE_SCHEDULE_TIMEZONE")
+SOURCE_NAMESPACE=$(echo "$SOURCE_NAMESPACE")
+SOURCE=$(echo "$ENVIRONMENT")
+DESTINATION_NAMESPACE=$(echo "$DESTINATION_NAMESPACE")
+DESTINATION=$(echo "$ENVIRONMENT")
+INSTANCE_ALIAS=$(echo "$INSTANCE_ALIAS")
+INSTANCE_ALIAS_TO_REMOVE=$(echo "$INSTANCE_ALIAS_TO_REMOVE")
+CLOUD=$(echo "$CLOUD")
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -335,56 +343,56 @@ create_main_templates() {
                 "name": "Timezone",
                 "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Europe/Warsaw or America/New_York). Script uses system timezone if empty.",
-                "default_value": "",
+                "default_value": '$TIMEZONE',
                 "required": false
             },
             {
                 "name": "SourceNamespace",
                 "title": "Source Namespace",
                 "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
-                "default_value": "",
+                "default_value": '$SOURCE_NAMESPACE',
                 "required": false
             },
             {
                 "name": "Source",
                 "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
-                "default_value": "",
+                "default_value": '$SOURCE',
                 "required": false
             },
             {
                 "name": "DestinationNamespace",
                 "title": "Destination Namespace",
                 "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
-                "default_value": "",
+                "default_value": '$DESTINATION_NAMESPACE',
                 "required": false
             },
             {
                 "name": "Destination",
                 "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": "",
+                "default_value": '$DESTINATION',
                 "required": false
             },
             {
                 "name": "InstanceAlias",
                 "title": "Instance Alias",
                 "description": "Instance identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
-                "default_value": "destination",
+                "default_value": '$INSTANCE_ALIAS',
                 "required": true
             },
             {
                 "name": "InstanceAliasToRemove",
                 "title": "Instance Alias To Remove",
                 "description": "Instance Alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
-                "default_value": "source",
+                "default_value": '$INSTANCE_ALIAS_TO_REMOVE',
                 "required": false
             },
             {
                 "name": "Cloud",
                 "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
-                "default_value": "",
+                "default_value": '$CLOUD',
                 "required": false
             },
             {
@@ -398,7 +406,7 @@ create_main_templates() {
                 "name": "MaxWaitMinutes",
                 "title": "Max Wait Minutes",
                 "description": "Maximum minutes to wait for operations. Default: 60",
-                "default_value": "",
+                "default_value": "60",
                 "required": false
             },
             {
@@ -448,56 +456,56 @@ create_main_templates() {
                 "name": "Timezone",
                 "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
-                "default_value": "",
+                "default_value": '$TIMEZONE',
                 "required": false
             },
             {
                 "name": "SourceNamespace",
                 "title": "Source Namespace",
                 "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
-                "default_value": "",
+                "default_value": '$SOURCE_NAMESPACE',
                 "required": false
             },
             {
                 "name": "Source",
                 "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
-                "default_value": "",
+                "default_value": '$SOURCE',
                 "required": false
             },
             {
                 "name": "DestinationNamespace",
                 "title": "Destination Namespace",
                 "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
-                "default_value": "",
+                "default_value": '$DESTINATION_NAMESPACE',
                 "required": false
             },
             {
                 "name": "Destination",
                 "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": "",
+                "default_value": '$DESTINATION',
                 "required": false
             },
             {
                 "name": "InstanceAlias",
                 "title": "Instance Alias",
                 "description": "Instance identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
-                "default_value": "",
+                "default_value": '$INSTANCE_ALIAS',
                 "required": false
             },
             {
                 "name": "InstanceAliasToRemove",
                 "title": "Instance Alias To Remove",
                 "description": "Instance Alias to remove during cleanup. Script auto-calculates from InstanceAlias if empty.",
-                "default_value": "",
+                "default_value": '$INSTANCE_ALIAS_TO_REMOVE',
                 "required": false
             },
             {
                 "name": "Cloud",
                 "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
-                "default_value": "",
+                "default_value": '$CLOUD',
                 "required": false
             },
             {
@@ -511,7 +519,7 @@ create_main_templates() {
                 "name": "MaxWaitMinutes",
                 "title": "Max Wait Minutes",
                 "description": "Maximum minutes to wait for operations. Default: 60",
-                "default_value": "",
+                "default_value": "60",
                 "required": false
             },
             {

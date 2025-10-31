@@ -41,17 +41,18 @@ param(
     [string]$Environment,
     
     # [string]$ServiceAccount = "SelfServiceRefresh",
-    [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
+    # [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
     
     [int]$TimeoutSeconds = 360,
     
-    [int]$WaitForPropagation = 30,
-    
-    [switch]$NoWait
+    [int]$WaitForPropagation = 60
+    # [switch]$NoWait
 )
 
+$ServiceAccount = $env:SEMAPHORE_SERVICE_ACCOUNT_NAME
 # Azure Function Configuration
-$functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
+# $functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
+$functionBaseUrl = $env:SEMAPHORE_FUNCTION_URL
 # $functionBaseUrl = "https://triggerimportondemand.azurewebsites.net/api/SelfServiceTest"
 $functionCode = $env:AZURE_FUNCTION_APP_SECRET
 
@@ -172,26 +173,58 @@ try {
         $response | ConvertTo-Json -Depth 10 | Write-Host -ForegroundColor Gray
     }
     Write-Host ""
-    
-    # Wait for permission propagation
-    if (-not $NoWait -and $WaitForPropagation -gt 0) {
-        Write-StatusMessage "⏳ Waiting $WaitForPropagation seconds for permissions to propagate in Azure AD..." "Info"
+
+    $permissionsAdded = 0
+    $needsWait = $false
+
+    if ($response -match "(\d+) succeeded") {
+        $permissionsAdded = [int]$matches[1]
+        
+        Write-Host "   📊 Parsed result: $permissionsAdded permission(s) successfully added" -ForegroundColor Gray
+        
+        if ($permissionsAdded -gt 0) {
+            Write-Host "   ✅ Permissions granted: $permissionsAdded group(s) added" -ForegroundColor Green
+            Write-Host "   ⏳ Propagation wait REQUIRED (changes were made to Azure AD)" -ForegroundColor Yellow
+            $needsWait = $true
+        } else {
+            Write-Host "   ✅ Permissions already configured (no changes needed)" -ForegroundColor Green
+            Write-Host "   ⚡ Propagation wait SKIPPED - service principal already has access" -ForegroundColor Cyan
+            $needsWait = $false
+        }
+    }else{
+        Write-Host "   ⚠️  Could not parse response (pattern '(\d+) succeeded' not found)" -ForegroundColor Yellow
+        Write-Host "   ✅ Permissions granted successfully" -ForegroundColor Green
+        Write-Host "   ⏳ Propagation wait RECOMMENDED (unable to determine if changes were made)" -ForegroundColor Yellow
+        $needsWait = $true
+    }
+
+    # NOW perform propagation wait if needed (after successful authentication)
+    if ($needsWait) {
+        $waitSeconds = $WaitForPropagation
+        Write-Host ""
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
         
         # Progress bar for better UX
-        for ($i = 0; $i -lt $WaitForPropagation; $i++) {
-            $percent = [math]::Round(($i / $WaitForPropagation) * 100)
-            Write-Progress -Activity "Permission Propagation Wait" -Status "$i / $WaitForPropagation seconds" -PercentComplete $percent
+        for ($i = 1; $i -le $waitSeconds; $i++) {
+            $percent = [math]::Round(($i / $waitSeconds) * 100)
+            Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
             Start-Sleep -Seconds 1
         }
-        Write-Progress -Activity "Azure RBAC Propagation Wait" -Completed
+        Write-Progress -Activity "Azure AD Permission Propagation" -Completed
         
-        Write-StatusMessage "✅ Permission propagation wait completed" "Success"
-        Write-Host ""
-    } elseif ($NoWait) {
-        Write-StatusMessage "⏭️  Deferring permission propagation wait (will be handled by caller)" "Info"
+        Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
         Write-Host ""
     }
-    
+
     Write-Host "============================================" -ForegroundColor Green
     Write-Host " ✅ OPERATION COMPLETED SUCCESSFULLY" -ForegroundColor Green
     Write-Host "============================================" -ForegroundColor Green

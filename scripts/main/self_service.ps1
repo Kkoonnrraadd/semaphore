@@ -401,50 +401,83 @@ function Invoke-Migration {
     
     Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-Host ""
-    
-    Write-Host "   📋 Target Environment: $Source" -ForegroundColor Gray
-    
-    try {
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would grant permissions to SelfServiceRefresh" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
 
-        # ═══════════════════════════════════════════════════════════════════════════
-        # INITIALIZE RESULT OBJECT
-        # ═══════════════════════════════════════════════════════════════════════════
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Grant" -Environment $Source -TimeoutSeconds 60 -WaitForPropagation 30
 
-        $result = @{
-            Success = $true
-            DetectedParameters = @{}
-            PermissionResult = $null
-            AuthenticationResult = $false
-            NeedsPropagationWait = $false
-            PropagationWaitSeconds = 0
-            Error = $null
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+            throw "Permission grant failed: $($permissionResult.Error)"
         }
+        Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
 
-        $grantScript = Join-Path $scriptDir "../common/Grant-AzurePermissions.ps1"
+    } else {
+        Write-AutomationLog "🔐 Starting permission grant process..." "INFO"
         
-        if (Test-Path $grantScript) {
-            $permResult = & $grantScript -Environment $Source
-            $result.PermissionResult = $permResult
-            
-            if ($permResult.Success) {
-                # Store propagation wait info for later (after authentication)
-                Write-Host "   ✅ Permission grant successful" -ForegroundColor Green
-                $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
-                $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
-            } else {
-                Write-Host "   ❌ Permission grant failed" -ForegroundColor Red
-                Write-Host "   📍 Error: $($permResult.Error)" -ForegroundColor Gray
-                $global:LASTEXITCODE = 1
-                throw "Permission grant failed: $($permResult.Error)"
-            }
+        # Call the dedicated permission management script
+        $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+        $permissionResult = & $permissionScript -Action "Grant" -Environment $Source  -TimeoutSeconds 60 -WaitForPropagation 30
+        # -ServiceAccount $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME
+        if (-not $permissionResult.Success) {
+            Write-AutomationLog "⚠️  WARNING: Failed to grant permissions" "WARN"
+            Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"
+            Write-AutomationLog "💡 Permissions may need to be granted manually" "WARN"
         } else {
-            $global:LASTEXITCODE = 1
-            throw "Permission script not found: $grantScript"
+            Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
         }
-    } catch {
-        $global:LASTEXITCODE = 1
-        throw "Permission grant error: $($_.Exception.Message)"
     }
+
+    
+    # Write-Host "   📋 Target Environment: $Source" -ForegroundColor Gray
+    
+    # try {
+
+    #     # ═══════════════════════════════════════════════════════════════════════════
+    #     # INITIALIZE RESULT OBJECT
+    #     # ═══════════════════════════════════════════════════════════════════════════
+
+    #     $result = @{
+    #         Success = $true
+    #         DetectedParameters = @{}
+    #         PermissionResult = $null
+    #         AuthenticationResult = $false
+    #         NeedsPropagationWait = $false
+    #         PropagationWaitSeconds = 0
+    #         Error = $null
+    #     }
+
+    #     $grantScript = Join-Path $scriptDir "../common/Grant-AzurePermissions.ps1"
+        
+    #     if (Test-Path $grantScript) {
+    #         $permResult = & $grantScript -Environment $Source
+    #         $result.PermissionResult = $permResult
+            
+    #         if ($permResult.Success) {
+    #             # Store propagation wait info for later (after authentication)
+    #             Write-Host "   ✅ Permission grant successful" -ForegroundColor Green
+    #             $result.NeedsPropagationWait = $permResult.NeedsPropagationWait
+    #             $result.PropagationWaitSeconds = $permResult.PropagationWaitSeconds
+    #         } else {
+    #             Write-Host "   ❌ Permission grant failed" -ForegroundColor Red
+    #             Write-Host "   📍 Error: $($permResult.Error)" -ForegroundColor Gray
+    #             $global:LASTEXITCODE = 1
+    #             throw "Permission grant failed: $($permResult.Error)"
+    #         }
+    #     } else {
+    #         $global:LASTEXITCODE = 1
+    #         throw "Permission script not found: $grantScript"
+    #     }
+    # } catch {
+    #     $global:LASTEXITCODE = 1
+    #     throw "Permission grant error: $($_.Exception.Message)"
+    # }
 
     # ═══════════════════════════════════════════════════════════════════════════
     # STEP 0B: AZURE AUTHENTICATION
@@ -487,38 +520,38 @@ function Invoke-Migration {
         return $result
     }
 
-    # NOW perform propagation wait if needed (after successful authentication)
-    if ($result.NeedsPropagationWait) {
-        $waitSeconds = $result.PropagationWaitSeconds
-        Write-Host ""
-        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
-        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
-        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
-        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
-        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "   ⚡ Note: This wait is SKIPPED on subsequent runs if permissions already exist!" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
+    # # NOW perform propagation wait if needed (after successful authentication)
+    # if ($result.NeedsPropagationWait) {
+    #     $waitSeconds = $result.PropagationWaitSeconds
+    #     Write-Host ""
+    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+    #     Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+    #     Write-Host ""
+    #     Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+    #     Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+    #     Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+    #     Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+    #     Write-Host ""
+    #     Write-Host "   ⚡ Note: This wait is SKIPPED on subsequent runs if permissions already exist!" -ForegroundColor Cyan
+    #     Write-Host ""
+    #     Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
         
-        # Progress bar for better UX
-        for ($i = 1; $i -le $waitSeconds; $i++) {
-            $percent = [math]::Round(($i / $waitSeconds) * 100)
-            Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
-            Start-Sleep -Seconds 1
-        }
-        Write-Progress -Activity "Azure AD Permission Propagation" -Completed
+    #     # Progress bar for better UX
+    #     for ($i = 1; $i -le $waitSeconds; $i++) {
+    #         $percent = [math]::Round(($i / $waitSeconds) * 100)
+    #         Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
+    #         Start-Sleep -Seconds 1
+    #     }
+    #     Write-Progress -Activity "Azure AD Permission Propagation" -Completed
         
-        Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
-        Write-Host ""
-    } else {
-        Write-Host ""
-        Write-Host "   ⚡ SKIPPING propagation wait - no Azure AD changes were made" -ForegroundColor Cyan
-        Write-Host ""
-    }
+    #     Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
+    #     Write-Host ""
+    # } else {
+    #     Write-Host ""
+    #     Write-Host "   ⚡ SKIPPING propagation wait - no Azure AD changes were made" -ForegroundColor Cyan
+    #     Write-Host ""
+    # }
 
     Write-Host ""
 
@@ -688,11 +721,11 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would remove permissions from SelfServiceRefresh" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Function URL: https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
 
         # Call the dedicated permission management script
         $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
+        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -TimeoutSeconds 60 -WaitForPropagation 30
 
         if (-not $permissionResult.Success) {
             Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions" "ERROR"
@@ -706,8 +739,8 @@ function Invoke-Migration {
         
         # Call the dedicated permission management script
         $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source -ServiceAccount "SelfServiceRefresh" -TimeoutSeconds 60 -WaitForPropagation 30
-        
+        $permissionResult = & $permissionScript -Action "Remove" -Environment $Source  -TimeoutSeconds 60 -WaitForPropagation 30
+        # -ServiceAccount $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME
         if (-not $permissionResult.Success) {
             Write-AutomationLog "⚠️  WARNING: Failed to remove permissions" "WARN"
             Write-AutomationLog "📍 Error: $($permissionResult.Error)" "WARN"

@@ -326,63 +326,63 @@ create_main_templates() {
         "survey_vars": [
             {
                 "name": "RestoreDateTime",
-                "title": "Restore Date/Time (OPTIONAL)",
+                "title": "Restore Date/Time",
                 "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 10 minutes ago. Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Timezone",
-                "title": "Timezone (OPTIONAL)",
+                "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Europe/Warsaw or America/New_York). Script uses system timezone if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "SourceNamespace",
-                "title": "Source Namespace (OPTIONAL)",
+                "title": "Source Namespace",
                 "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Source",
-                "title": "Source Environment (OPTIONAL)",
+                "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "DestinationNamespace",
-                "title": "Destination Namespace (OPTIONAL)",
+                "title": "Destination Namespace",
                 "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Destination",
-                "title": "Destination Environment (REQUIRED)",
+                "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": "",
-                "required": true
-            },
-            {
-                "name": "InstanceAlias",
-                "title": "Instance Alias (REQUIRED)",
-                "description": "Instance identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
-                "default_value": "",
-                "required": true
-            },
-            {
-                "name": "InstanceAliasToRemove",
-                "title": "Instance Alias To Remove (OPTIONAL)",
-                "description": "Instance Alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
                 "default_value": "",
                 "required": false
             },
             {
+                "name": "InstanceAlias",
+                "title": "Instance Alias",
+                "description": "Instance identifier for the refreshed instance. Script uses INSTANCE_ALIAS environment variable if empty.",
+                "default_value": "destination",
+                "required": true
+            },
+            {
+                "name": "InstanceAliasToRemove",
+                "title": "Instance Alias To Remove",
+                "description": "Instance Alias to remove during cleanup. Script uses INSTANCE_ALIAS_TO_REMOVE environment variable if empty.",
+                "default_value": "source",
+                "required": false
+            },
+            {
                 "name": "Cloud",
-                "title": "Azure Cloud (OPTIONAL)",
+                "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
@@ -392,19 +392,19 @@ create_main_templates() {
                 "title": "Dry Run Mode",
                 "description": "Enable dry run mode (preview only, no changes). FIXED to true for this template.",
                 "default_value": "true",
-                "required": true
+                "required": false
             },
             {
                 "name": "MaxWaitMinutes",
-                "title": "Max Wait Minutes (OPTIONAL)",
+                "title": "Max Wait Minutes",
                 "description": "Maximum minutes to wait for operations. Default: 60",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "UseSasTokens",
-                "title": "Use SAS Tokens (OPTIONAL)",
-                "description": "Use SAS tokens for large 3TB+ containers (true/false). Default: false",
+                "title": "Use SAS Tokens",
+                "description": "Use SAS tokens for large containers in storage account (true/false). Default: false",
                 "default_value": "false",
                 "required": false
             }
@@ -439,63 +439,63 @@ create_main_templates() {
         "survey_vars": [
             {
                 "name": "RestoreDateTime",
-                "title": "Restore Date/Time (OPTIONAL)",
+                "title": "Restore Date/Time",
                 "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 15 minutes ago. Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Timezone",
-                "title": "Timezone (OPTIONAL)",
+                "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "SourceNamespace",
-                "title": "Source Namespace (OPTIONAL)",
+                "title": "Source Namespace",
                 "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Source",
-                "title": "Source Environment (OPTIONAL)",
+                "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "DestinationNamespace",
-                "title": "Destination Namespace (OPTIONAL)",
+                "title": "Destination Namespace",
                 "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Destination",
-                "title": "Destination Environment (OPTIONAL)",
+                "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "InstanceAlias",
-                "title": "Instance Alias (OPTIONAL)",
+                "title": "Instance Alias",
                 "description": "Instance identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "InstanceAliasToRemove",
-                "title": "Instance Alias To Remove (OPTIONAL)",
+                "title": "Instance Alias To Remove",
                 "description": "Instance Alias to remove during cleanup. Script auto-calculates from InstanceAlias if empty.",
                 "default_value": "",
                 "required": false
             },
             {
                 "name": "Cloud",
-                "title": "Azure Cloud (OPTIONAL)",
+                "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
@@ -505,11 +505,11 @@ create_main_templates() {
                 "title": "Dry Run Mode",
                 "description": "Enable dry run mode (preview only, no changes). Set to false for PRODUCTION execution.",
                 "default_value": "false",
-                "required": true
+                "required": false
             },
             {
                 "name": "MaxWaitMinutes",
-                "title": "Max Wait Minutes (OPTIONAL)",
+                "title": "Max Wait Minutes",
                 "description": "Maximum minutes to wait for operations. Default: 60",
                 "default_value": "",
                 "required": false

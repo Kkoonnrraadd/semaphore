@@ -210,13 +210,14 @@ $MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedPara
 
 $DryRun = if ($parsedParams.ContainsKey("DryRun")) { 
     $dryRunValue = $parsedParams["DryRun"]
-    $dryRunBool = if ($dryRunValue -eq "true" -or $dryRunValue -eq $true) { $true } else { $false }
+    $dryRunBool = if ($dryRunValue -eq "false" -or $dryRunValue -eq $false) { $false } else { $true }
     Write-Host "🔧 Converted DryRun: '$dryRunValue' → $dryRunBool" -ForegroundColor Yellow
     $dryRunBool
 } else { 
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
+
 $UseSasTokens = if ($parsedParams.ContainsKey("UseSasTokens")) { 
     $useSasValue = $parsedParams["UseSasTokens"]
     $useSasBool = if ($useSasValue -eq "true" -or $useSasValue -eq $true) { $true } else { $false }

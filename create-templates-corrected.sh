@@ -462,7 +462,7 @@ create_main_templates() {
             {
                 "name": "RestoreDateTime",
                 "title": "Restore Date/Time",
-                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 15 minutes ago. Script auto-detects if empty.",
+                "description": "Point in time to restore to (yyyy-MM-dd HH:mm:ss). Leave empty for 10 minutes ago. Script auto-detects if empty.",
                 "default_value": "",
                 "required": false
             },
@@ -470,56 +470,56 @@ create_main_templates() {
                 "name": "Timezone",
                 "title": "Timezone",
                 "description": "Timezone for restore datetime (e.g., Eastern Standard Time). Script uses system timezone if empty.",
-                "default_value": '$SEMAPHORE_SCHEDULE_TIMEZONE',
+                "default_value": "'$SEMAPHORE_SCHEDULE_TIMEZONE'",
                 "required": false
             },
             {
                 "name": "SourceNamespace",
                 "title": "Source Namespace",
                 "description": "Source namespace. Script auto-detects as '\''manufacturo'\'' if empty.",
-                "default_value": '$SOURCE_NAMESPACE',
+                "default_value": "'$SOURCE_NAMESPACE'",
                 "required": false
             },
             {
                 "name": "Source",
                 "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
-                "default_value": '$SOURCE',
+                "default_value": "'$ENVIRONMENT'",
                 "required": false
             },
             {
                 "name": "DestinationNamespace",
                 "title": "Destination Namespace",
                 "description": "Destination namespace. Script auto-detects as '\''test'\'' if empty.",
-                "default_value": '$DESTINATION_NAMESPACE',
+                "default_value": "'$DESTINATION_NAMESPACE'",
                 "required": false
             },
             {
                 "name": "Destination",
                 "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": '$DESTINATION',
+                "default_value": "'$ENVIRONMENT'",
                 "required": false
             },
             {
                 "name": "InstanceAlias",
                 "title": "Instance Alias",
                 "description": "Instance identifier. Script uses INSTANCE_ALIAS environment variable if empty.",
-                "default_value": '$INSTANCE_ALIAS',
+                "default_value": "'$INSTANCE_ALIAS'",
                 "required": false
             },
             {
                 "name": "InstanceAliasToRemove",
                 "title": "Instance Alias To Remove",
                 "description": "Instance Alias to remove during cleanup. Script auto-calculates from InstanceAlias if empty.",
-                "default_value": '$INSTANCE_ALIAS_TO_REMOVE',
+                "default_value": "'$INSTANCE_ALIAS_TO_REMOVE'",
                 "required": false
             },
             {
                 "name": "Cloud",
                 "title": "Azure Cloud",
                 "description": "Azure cloud environment (AzureCloud or AzureUSGovernment). Script auto-detects if empty.",
-                "default_value": '$AZURE_CLOUD_NAME',
+                "default_value": "'$AZURE_CLOUD_NAME'",
                 "required": false
             },
             {
@@ -612,7 +612,7 @@ create_task_templates() {
         "Restore databases to a specific point in time. Parameters: RestoreDateTime, Timezone, Source, SourceNamespace, MaxWaitMinutes (all OPTIONAL - script auto-detects)" \
         "restore/RestorePointInTime.ps1" \
         '[
-            {"name":"RestoreDateTime","title":"Restore Date/Time (OPTIONAL)","description":"Point in time to restore (yyyy-MM-dd HH:mm:ss). Auto: 15 min ago","default_value":"","required":false},
+            {"name":"RestoreDateTime","title":"Restore Date/Time (OPTIONAL)","description":"Point in time to restore (yyyy-MM-dd HH:mm:ss). Auto: 10 min ago","default_value":"","required":false},
             {"name":"Timezone","title":"Timezone (OPTIONAL)","description":"Timezone for restore. Auto: system timezone","default_value":"","required":false},
             {"name":"Source","title":"Source Environment (OPTIONAL)","description":"Source environment. Auto-detected from Azure","default_value":"","required":false},
             {"name":"SourceNamespace","title":"Source Namespace (OPTIONAL)","description":"Source namespace. Auto: '\''manufacturo'\''","default_value":"","required":false},

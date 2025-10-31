@@ -206,21 +206,24 @@ $Destination = if ($parsedParams.ContainsKey("Destination")) { $parsedParams["De
 $InstanceAlias = if ($parsedParams.ContainsKey("InstanceAlias")) { $parsedParams["InstanceAlias"] } else { "" }
 $InstanceAliasToRemove = if ($parsedParams.ContainsKey("InstanceAliasToRemove")) { $parsedParams["InstanceAliasToRemove"] } else { "" }
 $Cloud = if ($parsedParams.ContainsKey("Cloud")) { $parsedParams["Cloud"] } else { "" }
+$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
+
 $DryRun = if ($parsedParams.ContainsKey("DryRun")) { 
     $dryRunValue = $parsedParams["DryRun"]
     $dryRunBool = if ($dryRunValue -eq "true" -or $dryRunValue -eq $true) { $true } else { $false }
-    # Write-Host "🔧 Converted DryRun: '$dryRunValue' → $dryRunBool" -ForegroundColor Yellow
+    Write-Host "🔧 Converted DryRun: '$dryRunValue' → $dryRunBool" -ForegroundColor Yellow
     $dryRunBool
 } else { 
     Write-Host "🔧 Using default DryRun: true" -ForegroundColor Yellow
     $true 
 }
-$MaxWaitMinutes = if ($parsedParams.ContainsKey("MaxWaitMinutes")) { $parsedParams["MaxWaitMinutes"] } else { "" }
 $UseSasTokens = if ($parsedParams.ContainsKey("UseSasTokens")) { 
     $useSasValue = $parsedParams["UseSasTokens"]
     $useSasBool = if ($useSasValue -eq "true" -or $useSasValue -eq $true) { $true } else { $false }
+    Write-Host "🔧 Converted UseSasTokens: '$useSasValue' → $useSasBool" -ForegroundColor Yellow
     $useSasBool
 } else { 
+    Write-Host "🔧 Using default UseSasTokens: false" -ForegroundColor Yellow
     $false 
 }
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }

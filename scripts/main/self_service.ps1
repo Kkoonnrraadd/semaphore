@@ -305,6 +305,14 @@ function Perform-Migration {
     # $script:RestoreDateTime = if (-not [string]::IsNullOrWhiteSpace($RestoreDateTime)) { $RestoreDateTime } else { $detectedParams.DefaultRestoreDateTime }
     # $script:Timezone = if (-not [string]::IsNullOrWhiteSpace($Timezone)) { $Timezone } else { $detectedParams.DefaultTimezone }
     
+    Write-AutomationLog "🔍 DryRun mode: $DryRun" "INFO"
+    if (-not $DryRun) {
+        Write-AutomationLog "🔍 Running prerequisites check (not in dry-run mode)" "INFO"
+        Test-Prerequisites -DryRun:$DryRun
+    } else {
+        Write-AutomationLog "🔍 Skipping prerequisites check in dry-run mode" "INFO"
+    }
+
     Write-Host "✅ Parameters auto-detected and configured" -ForegroundColor Green
     Write-Host "📋 Final parameters:" -ForegroundColor Cyan
     Write-Host "   Source: $Source / $SourceNamespace" -ForegroundColor Gray
@@ -326,13 +334,7 @@ function Perform-Migration {
     # STEP 0E: VALIDATE PREREQUISITES
     # ═══════════════════════════════════════════════════════════════════════════
     
-    Write-AutomationLog "🔍 DryRun mode: $DryRun" "INFO"
-    if (-not $DryRun) {
-        Write-AutomationLog "🔍 Running prerequisites check (not in dry-run mode)" "INFO"
-        Test-Prerequisites -DryRun:$DryRun
-    } else {
-        Write-AutomationLog "🔍 Skipping prerequisites check in dry-run mode" "INFO"
-    }
+
     
     # Set domain based on cloud environment for downstream scripts
     switch ($Cloud) {
@@ -346,20 +348,21 @@ function Perform-Migration {
             $Domain = ''
         }
     }
+    Write-Host "🔍 Domain: $Domain" -ForegroundColor Gray
 
-    Invoke-Migration `
-        -Cloud $Cloud `
-        -Source $Source `
-        -Destination $Destination `
-        -InstanceAlias $InstanceAlias `
-        -InstanceAliasToRemove $InstanceAliasToRemove `
-        -SourceNamespace $SourceNamespace `
-        -DestinationNamespace $DestinationNamespace `
-        -Domain $Domain `
-        -DryRun:($DryRun -eq $true) `
-        -MaxWaitMinutes $MaxWaitMinutes `
-        -RestoreDateTime $RestoreDateTime `
-        -Timezone $Timezone
+    # Invoke-Migration `
+    #     -Cloud $Cloud `
+    #     -Source $Source `
+    #     -Destination $Destination `
+    #     -InstanceAlias $InstanceAlias `
+    #     -InstanceAliasToRemove $InstanceAliasToRemove `
+    #     -SourceNamespace $SourceNamespace `
+    #     -DestinationNamespace $DestinationNamespace `
+    #     -Domain $Domain `
+    #     -DryRun:($DryRun -eq $true) `
+    #     -MaxWaitMinutes $MaxWaitMinutes `
+    #     -RestoreDateTime $RestoreDateTime `
+    #     -Timezone $Timezone
 }
 
 function Invoke-Migration {

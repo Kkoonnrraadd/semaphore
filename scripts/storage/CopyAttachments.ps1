@@ -196,6 +196,16 @@ if ($DryRun) {
 $Source_lower = (Get-Culture).TextInfo.ToLower($Source)
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
+$result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
+        
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
+} else {
+    Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
+    throw "Service Principal authentication failed"
+}
+
 # Detect source context
 if ($SourceNamespace -eq "manufacturo") {
     # Special handling for "manufacturo" - use standard storage account names
@@ -222,16 +232,8 @@ $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 if (-not $src_sa -or $src_sa.Count -eq 0) {
     Write-Host "❌ Error: No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
-    Write-Host "Error: $($LASTEXITCODE)" -ForegroundColor Red
-    Write-Host "Error message: $($error[0].Exception.Message)" -ForegroundColor Red
-    Write-Host "Error stack trace: $($error[0].Exception.StackTrace)" -ForegroundColor Red
-    Write-Host "Error target site: $($error[0].Exception.TargetSite)" -ForegroundColor Red
-    Write-Host "Error help link: $($error[0].Exception.HelpLink)" -ForegroundColor Red
-    Write-Host "Error data: $($error[0].Exception.Data)" -ForegroundColor Red
-    Write-Host "Error inner exception: $($error[0].Exception.InnerException)" -ForegroundColor Red
-    Write-Host "Error source: $($error[0].Exception.Source)" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'"
+    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace' Error: $($LASTEXITCODE)"
 }
 
 $Source_subscription = $src_sa[0].subscriptionId

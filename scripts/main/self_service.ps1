@@ -574,16 +574,16 @@ function Invoke-Migration {
     #     & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
     # }
     
-    # Step 2: Stop Environment
-    Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud 
-    }
+    # # Step 2: Stop Environment
+    # Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud 
+    # }
     
     # Step 3: Copy Attachments
     Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan

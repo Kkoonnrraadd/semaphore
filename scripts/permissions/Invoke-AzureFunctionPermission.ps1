@@ -40,57 +40,10 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Environment,
     
-    # [string]$ServiceAccount = "SelfServiceRefresh",
-    # [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
-    
     [int]$TimeoutSeconds = 360,
     
     [int]$WaitForPropagation = 60
-    # [switch]$NoWait
 )
-
-$ServiceAccount = $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME
-# Azure Function Configuration
-# $functionBaseUrl = "https://triggerimportondemand.azurewebsites.us/api/SelfServiceTest"
-$functionBaseUrl = $env:SEMAPHORE_FUNCTION_URL
-# $functionBaseUrl = "https://triggerimportondemand.azurewebsites.net/api/SelfServiceTest"
-$functionCode = $env:AZURE_FUNCTION_APP_SECRET
-
-# Validate that the Azure Function secret is configured
-if ([string]::IsNullOrWhiteSpace($functionCode)) {
-    Write-Host "" -ForegroundColor Red
-    Write-Host "============================================" -ForegroundColor Red
-    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
-    Write-Host "============================================" -ForegroundColor Red
-    Write-Host "" -ForegroundColor Red
-    Write-Host "❌ AZURE_FUNCTION_APP_SECRET environment variable is not set!" -ForegroundColor Red
-    Write-Host "" -ForegroundColor Yellow
-    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
-    Write-Host "" -ForegroundColor Gray
-    Write-Host "To fix this, ensure AZURE_FUNCTION_APP_SECRET is set in your environment:" -ForegroundColor Gray
-    Write-Host "  • In docker-compose.yaml: Add to environment section" -ForegroundColor Gray
-    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
-    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
-    Write-Host "" -ForegroundColor Gray
-    Write-Host "Example (docker-compose.yaml):" -ForegroundColor Gray
-    Write-Host "  environment:" -ForegroundColor Gray
-    Write-Host "    AZURE_FUNCTION_APP_SECRET: your-secret-here" -ForegroundColor Gray
-    Write-Host "" -ForegroundColor Red
-    
-    # Return structured error for automation
-    return @{
-        Success = $false
-        Action = $Action
-        Environment = $Environment
-        ServiceAccount = $ServiceAccount
-        Response = $null
-        Duration = 0
-        Error = "AZURE_FUNCTION_APP_SECRET environment variable is not set"
-        StatusCode = $null
-    }
-}
-
-$functionUrl = "${functionBaseUrl}?code=${functionCode}"
 
 # Color-coded output for better visibility
 function Write-StatusMessage {
@@ -110,6 +63,96 @@ function Write-StatusMessage {
         "Error"   { Write-Host "$prefix [ERROR]   $Message" -ForegroundColor Red }
     }
 }
+
+$ServiceAccount = $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME
+$functionBaseUrl = $env:SEMAPHORE_FUNCTION_URL
+$functionCode = $env:AZURE_FUNCTION_APP_SECRET
+
+# Validate that the Azure Function secret is configured
+if ([string]::IsNullOrWhiteSpace($functionCode)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ AZURE_FUNCTION_APP_SECRET environment variable is not set!" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "To fix this, ensure AZURE_FUNCTION_APP_SECRET is set in your environment:" -ForegroundColor Gray
+    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
+    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
+    Write-Host ""
+    
+    # Return structured error for automation
+    return @{
+        Success = $false
+        Action = $Action
+        Environment = $Environment
+        ServiceAccount = $ServiceAccount
+        Response = $null
+        Duration = 0
+        Error = "AZURE_FUNCTION_APP_SECRET environment variable is not set"
+        StatusCode = $null
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($functionBaseUrl)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ SEMAPHORE_FUNCTION_URL environment variable is not set!" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "To fix this, ensure SEMAPHORE_FUNCTION_URL is set in your environment:" -ForegroundColor Gray
+    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
+    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
+    Write-Host ""
+
+    return @{
+        Success = $false
+        Action = $Action
+        Environment = $Environment
+        ServiceAccount = $ServiceAccount
+        Response = $null
+        Duration = 0
+        Error = "SEMAPHORE_FUNCTION_URL environment variable is not set"
+        StatusCode = $null
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($ServiceAccount)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ SEMAPHORE_WORKLOAD_IDENTITY_NAME environment variable is not set!" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "To fix this, ensure SEMAPHORE_WORKLOAD_IDENTITY_NAME is set in your environment:" -ForegroundColor Gray
+    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
+    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
+    Write-Host ""
+
+    return @{
+        Success = $false
+        Action = $Action
+        Environment = $Environment
+        ServiceAccount = $ServiceAccount
+        Response = $null
+        Duration = 0
+        Error = "SEMAPHORE_WORKLOAD_IDENTITY_NAME environment variable is not set"
+        StatusCode = $null
+    }
+}
+
+
+$functionUrl = "${functionBaseUrl}?code=${functionCode}"
 
 # Main execution
 Write-Host ""

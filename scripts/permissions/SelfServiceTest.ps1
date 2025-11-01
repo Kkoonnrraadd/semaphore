@@ -7,6 +7,7 @@ $body = $Request.Body
 $Environment = $body.Environment ?? "gov001"
 $ServiceAccount = $body.ServiceAccount ?? "SelfServiceRefresh"
 $Action = $body.Action ?? "Remove"
+$Namespace = $body.Namespace ?? "test"
 
 # Validate Action parameter
 if ($Action -notin @("Grant", "Remove", "ProdSecurity")) {
@@ -81,10 +82,12 @@ $targetGroups = @()
 
 if ($Action -eq "ProdSecurity") {
     $filter =   "$Environment-$suffix"
-    $groupSuffixes = @("DBAdmins")
+    $preprod_filter =   "prodsecurityonly:)"
+    $groupSuffixes = @("DBContributors", "DBAdmins")
 } else {
-    $filter =   "*-$suffix"
-    $groupSuffixes = @("Contributors", "DBAdmins")
+    $filter =   "$Environment-$suffix"
+    $preprod_filter =   "$Environment-$Namespace-$suffix"
+    $groupSuffixes = @("Contributors", "DBContributors", "DBAdmins", "SelfServiceRefresh")
 }
 
 try {
@@ -99,7 +102,7 @@ try {
             $matchesSuffix = $false
             foreach ($suffix in $groupSuffixes) {
                 # Check if group name ends with -Contributors or -DBAdmin
-                if ($group.DisplayName -like "$filter") {
+                if ($group.DisplayName -like "$filter" -or $group.DisplayName -like "$preprod_filter") {
                     $matchesSuffix = $true
                     break
                 }

@@ -334,7 +334,7 @@ if ($DryRun) {
     }
 } else {
     Set-ClusterContext -ClusterContext $Destination_aks
-    # Downscale-BlackboxMonitoring -Namespace "monitoring"
+    Downscale-BlackboxMonitoring -Namespace "monitoring"
     Downscale-Deployments -Namespace $DestinationNamespace
 }
 

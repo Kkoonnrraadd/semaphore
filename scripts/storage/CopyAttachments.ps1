@@ -151,9 +151,9 @@ Write-Host "  DryRun: $DryRun (Type: $($DryRun.GetType().Name))" -ForegroundColo
 Write-Host "  UseSasTokens: $UseSasTokens (Type: $($UseSasTokens.GetType().Name))" -ForegroundColor $(if ($UseSasTokens) { "Magenta" } else { "Gray" })
 
 if ($UseSasTokens) {
-    Write-Host "  ⚠️  SAS Token mode is ENABLED" -ForegroundColor Magenta
+    Write-Host "  🔐 SAS Token mode is ENABLED" -ForegroundColor Magenta
 } else {
-    Write-Host "  ℹ️  SAS Token mode is DISABLED (default)" -ForegroundColor Gray
+    Write-Host "  🔐 SAS Token mode is DISABLED (default)" -ForegroundColor Gray
 }
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
 Write-Host ""
@@ -181,30 +181,8 @@ if ($DryRun) {
     Write-Host ""
 }
 
-# $result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
-
-# $result | ConvertFrom-Json
-
-# if ($LASTEXITCODE -eq 0) {
-#     Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-#     return $true
-# } else {
-#     Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
-#     return $false
-# }
-
 $Source_lower = (Get-Culture).TextInfo.ToLower($Source)
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
-
-# $result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
-        
-# if ($LASTEXITCODE -eq 0) {
-#     Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-# } else {
-#     Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
-#     $global:LASTEXITCODE = 1
-#     throw "Service Principal authentication failed"
-# }
 
 # Detect source context
 if ($SourceNamespace -eq "manufacturo") {
@@ -241,7 +219,7 @@ $Source_rg = $src_sa[0].resourceGroup
 
 # Detect Destination context
 if ($DestinationNamespace -eq "manufacturo") {
-    Write-Host "Detecting DESTINATION as Subscription..."
+    # Write-Host "Detecting DESTINATION as Subscription..."
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
@@ -249,7 +227,7 @@ if ($DestinationNamespace -eq "manufacturo") {
         | project name, resourceGroup, subscriptionId
     "
 } else {
-    Write-Host " Detecting DESTINATION as Multitenant..."
+    # Write-Host " Detecting DESTINATION as Multitenant..."
     $graph_query = "
         resources
         | where type == 'microsoft.storage/storageaccounts'
@@ -350,43 +328,32 @@ if ($DryRun) {
         
         $sourceUrl = ""
         $destUrl = ""
+             
+        $sourceSas = New-ContainerSasToken `
+            -StorageAccount $Source_account `
+            -ResourceGroup $Source_rg `
+            -SubscriptionId $Source_subscription `
+            -ContainerName $containerName `
+            -ExpiryHours 8
         
-        if ($UseSasTokens) {
-            # Generate SAS tokens for source and destination
-            # Write-Host "  🔑 Generating SAS tokens for container..." -ForegroundColor Gray
-            
-            $sourceSas = New-ContainerSasToken `
-                -StorageAccount $Source_account `
-                -ResourceGroup $Source_rg `
-                -SubscriptionId $Source_subscription `
-                -ContainerName $containerName `
-                -ExpiryHours 8
-            
-            $destSas = New-ContainerSasTokenWithWrite `
-                -StorageAccount $dest_account `
-                -ResourceGroup $dest_rg `
-                -SubscriptionId $dest_subscription `
-                -ContainerName $containerName `
-                -ExpiryHours 8
-            
-            if ($sourceSas -and $destSas) {
-                $sourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
-                $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
-                Write-Host "  ✅ SAS tokens generated successfully (valid for 8 hours)" -ForegroundColor Green
-            } else {
-                Write-Host "  ❌ Failed to generate SAS tokens, falling back to Azure CLI auth" -ForegroundColor Red
-                # $UseSasTokens = $false  # Fallback for this container
-                $global:LASTEXITCODE = 1
-                throw "Failed to generate SAS tokens"
-            }
+        $destSas = New-ContainerSasTokenWithWrite `
+            -StorageAccount $dest_account `
+            -ResourceGroup $dest_rg `
+            -SubscriptionId $dest_subscription `
+            -ContainerName $containerName `
+            -ExpiryHours 8
+        
+        if ($sourceSas -and $destSas) {
+            $sourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
+            $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
+            Write-Host "  ✅ SAS tokens generated successfully (valid for 8 hours)" -ForegroundColor Green
+        } else {
+            Write-Host "  ❌ Failed to generate SAS tokens, falling back to Azure CLI auth" -ForegroundColor Red
+            # $UseSasTokens = $false  # Fallback for this container
+            $global:LASTEXITCODE = 1
+            throw "Failed to generate SAS tokens"
         }
-        
-        # if (-not $UseSasTokens) {
-        #     # Use Azure CLI authentication with token refresh
-        #     Refresh-AzCopyAuth -ResourceUrl $storageResourceUrl | Out-Null
-        #     $sourceUrl = "${source_blob_endpoint}${containerName}"
-        #     $destUrl = "${dest_blob_endpoint}${containerName}"
-        # }
+
 
         Write-Host "  From: ${source_blob_endpoint}${containerName}" -ForegroundColor Gray
         Write-Host "  To:   ${dest_blob_endpoint}${containerName}" -ForegroundColor Gray
@@ -397,16 +364,7 @@ if ($DryRun) {
         Write-Host "  🔄 Starting copy operation..." -ForegroundColor Yellow
         $copyStartTime = Get-Date
         
-        azcopy copy $sourceUrl $destUrl --recursive
-        
-        # if ($UseSasTokens) {
-        #     # When using SAS tokens, don't use AZCLI auto-login
-        #     # $env:AZCOPY_AUTO_LOGIN_TYPE = ""
-        #     # azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
-        #     # $env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"  # Restore for potential fallback
-        # } else {
-        #     azcopy copy $sourceUrl $destUrl --recursive --log-level INFO
-        # }
+        azcopy copy $sourceUrl $destUrl --recursive -log-level INFO
         
         $copyElapsed = (Get-Date) - $copyStartTime
         $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
@@ -421,16 +379,6 @@ if ($DryRun) {
                 Duration = $copyMinutes
             }
             
-            # # Warn about long copies when using Azure CLI auth
-            # if (-not $UseSasTokens -and $copyMinutes -gt 40) {
-            #     Write-Host "  ⚠️  Long copy detected ($copyMinutes min) - authentication will be refreshed for next container" -ForegroundColor Yellow
-            #     Write-Host "  💡 Consider using -UseSasTokens for containers that take >60 minutes" -ForegroundColor Gray
-            # }
-            
-            # # Info for very long copies with SAS tokens
-            # if ($UseSasTokens -and $copyMinutes -gt 60) {
-            #     Write-Host "  ℹ️  Long copy ($copyMinutes min) - SAS token still valid for up to 8 hours" -ForegroundColor Cyan
-            # }
         } else {
             Write-Host ""
             Write-Host "  ❌ Container '$containerName' copy failed!" -ForegroundColor Red

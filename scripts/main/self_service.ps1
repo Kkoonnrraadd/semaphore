@@ -574,42 +574,42 @@ function Invoke-Migration {
     #     & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
     # }
     
-    # # Step 2: Stop Environment
-    # Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
-    # if ($DryRun) {
-    #     Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
-    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
-    # } else {
-    #     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud 
+    # Step 2: Stop Environment
+    Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
+        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:($DryRun -eq $true)
+    } else {
+        $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud 
+    }
+    
+    # # Step 3: Copy Attachments
+    # Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    
+    # # Build parameter hashtable for CopyAttachments
+    # $copyParams = @{
+    #     source = $Source
+    #     Destination = $Destination
+    #     SourceNamespace = $SourceNamespace
+    #     DestinationNamespace = $DestinationNamespace
     # }
     
-    # Step 3: Copy Attachments
-    Write-Host "`n🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    # # Add UseSasTokens if specified (for 3TB+ containers)
+    # if ($UseSasTokens) {
+    #     $copyParams['UseSasTokens'] = $true
+    #     Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
+    # }
     
-    # Build parameter hashtable for CopyAttachments
-    $copyParams = @{
-        source = $Source
-        Destination = $Destination
-        SourceNamespace = $SourceNamespace
-        DestinationNamespace = $DestinationNamespace
-    }
+    # # Add DryRun if enabled
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
+    #     $copyParams['DryRun'] = $true
+    # }
     
-    # Add UseSasTokens if specified (for 3TB+ containers)
-    if ($UseSasTokens) {
-        $copyParams['UseSasTokens'] = $true
-        Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
-    }
-    
-    # Add DryRun if enabled
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
-        $copyParams['DryRun'] = $true
-    }
-    
-    $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-    & $scriptPath @copyParams
+    # $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
+    # & $scriptPath @copyParams
     
     # # Step 4: Copy Database
     # Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan

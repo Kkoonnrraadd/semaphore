@@ -4,21 +4,21 @@ param(
 
 Write-Host "🔐 Setting up Azure authentication..." -ForegroundColor Cyan
 
-# Check if already authenticated
-try {
-    $context = az account show 2>$null | ConvertFrom-Json
-    if ($context) {
-        Write-Host "✅ Already authenticated to Azure" -ForegroundColor Green
-        $currentCloud = az cloud show --query "name" -o tsv 2>$null
-        Write-Host "   Cloud: $currentCloud" -ForegroundColor Gray
-        Write-Host "   Tenant: $($context.tenantId)" -ForegroundColor Gray
-        Write-Host "   Current Subscription: $($context.name)" -ForegroundColor Gray
-        Write-Host "   Total Subscriptions: $((az account list --query 'length(@)' -o tsv 2>$null)) available" -ForegroundColor Gray
-        return $true
-    }
-} catch {
-    # Not authenticated, continue with login
-}
+# # Check if already authenticated
+# try {
+#     $context = az account show 2>$null | ConvertFrom-Json
+#     if ($context) {
+#         Write-Host "✅ Already authenticated to Azure" -ForegroundColor Green
+#         $currentCloud = az cloud show --query "name" -o tsv 2>$null
+#         Write-Host "   Cloud: $currentCloud" -ForegroundColor Gray
+#         Write-Host "   Tenant: $($context.tenantId)" -ForegroundColor Gray
+#         Write-Host "   Current Subscription: $($context.name)" -ForegroundColor Gray
+#         Write-Host "   Total Subscriptions: $((az account list --query 'length(@)' -o tsv 2>$null)) available" -ForegroundColor Gray
+#         return $true
+#     }
+# } catch {
+#     # Not authenticated, continue with login
+# }
 
 # Try Service Principal authentication
 if ($env:AZURE_CLIENT_ID -and $env:AZURE_TENANT_ID -and $env:AZURE_FEDERATED_TOKEN_FILE) {

@@ -222,7 +222,7 @@ $UseSasTokens = if ($parsedParams.ContainsKey("UseSasTokens")) {
     $useSasValue = $parsedParams["UseSasTokens"]
     $useSasBool = if ($useSasValue -eq "true" -or $useSasValue -eq $true) { $true } else { $false }
     Write-Host "🔧 Converted UseSasTokens: '$useSasValue' → $useSasBool" -ForegroundColor Yellow
-    $useSasBool
+    $useSasBool = $true # default to true for now
 } else { 
     Write-Host "🔧 Using default UseSasTokens: false" -ForegroundColor Yellow
     $false 

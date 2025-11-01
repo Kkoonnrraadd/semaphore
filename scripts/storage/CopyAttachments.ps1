@@ -196,15 +196,15 @@ if ($DryRun) {
 $Source_lower = (Get-Culture).TextInfo.ToLower($Source)
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
-$result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
+# $result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
         
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-} else {
-    Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
-    $global:LASTEXITCODE = 1
-    throw "Service Principal authentication failed"
-}
+# if ($LASTEXITCODE -eq 0) {
+#     Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
+# } else {
+#     Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
+#     $global:LASTEXITCODE = 1
+#     throw "Service Principal authentication failed"
+# }
 
 # Detect source context
 if ($SourceNamespace -eq "manufacturo") {
@@ -226,14 +226,13 @@ if ($SourceNamespace -eq "manufacturo") {
 }
 
 $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
-# $src_sa
 
 # Check if we got any results
 if (-not $src_sa -or $src_sa.Count -eq 0) {
     Write-Host "❌ Error: No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
     $global:LASTEXITCODE = 1
-    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace' Error: $($LASTEXITCODE)"
+    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'"
 }
 
 $Source_subscription = $src_sa[0].subscriptionId

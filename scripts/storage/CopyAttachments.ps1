@@ -190,11 +190,20 @@ if ($SourceNamespace -eq "manufacturo") {
 }
 
 $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+$src_sa
 
 # Check if we got any results
 if (-not $src_sa -or $src_sa.Count -eq 0) {
     Write-Host "❌ Error: No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'" -ForegroundColor Red
     Write-Host "Graph query: $graph_query" -ForegroundColor Gray
+    Write-Host "Error: $($LASTEXITCODE)" -ForegroundColor Red
+    Write-Host "Error message: $($error[0].Exception.Message)" -ForegroundColor Red
+    Write-Host "Error stack trace: $($error[0].Exception.StackTrace)" -ForegroundColor Red
+    Write-Host "Error target site: $($error[0].Exception.TargetSite)" -ForegroundColor Red
+    Write-Host "Error help link: $($error[0].Exception.HelpLink)" -ForegroundColor Red
+    Write-Host "Error data: $($error[0].Exception.Data)" -ForegroundColor Red
+    Write-Host "Error inner exception: $($error[0].Exception.InnerException)" -ForegroundColor Red
+    Write-Host "Error source: $($error[0].Exception.Source)" -ForegroundColor Red
     $global:LASTEXITCODE = 1
     throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'"
 }

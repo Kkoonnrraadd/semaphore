@@ -558,21 +558,21 @@ function Invoke-Migration {
     Write-Host ""
 
 
-    # Step 1: Restore Point in Time
-    Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would execute restore point in time" -ForegroundColor Yellow
-        # Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
-        # Write-Host "🔍 DRY RUN: Timezone: $Timezone" -ForegroundColor Gray
-        # Write-Host "🔍 DRY RUN: Source: $Source / $SourceNamespace" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
-        & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
-    } else {
-        $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
-        & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
-    }
+    # # Step 1: Restore Point in Time
+    # Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would execute restore point in time" -ForegroundColor Yellow
+    #     # Write-Host "🔍 DRY RUN: Restore DateTime: $RestoreDateTime" -ForegroundColor Gray
+    #     # Write-Host "🔍 DRY RUN: Timezone: $Timezone" -ForegroundColor Gray
+    #     # Write-Host "🔍 DRY RUN: Source: $Source / $SourceNamespace" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
+    #     & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+    # } else {
+    #     $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
+    #     & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+    # }
     
     # Step 2: Stop Environment
     Write-Host "`n🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
@@ -611,111 +611,111 @@ function Invoke-Migration {
     $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
     & $scriptPath @copyParams
     
-    # Step 4: Copy Database
-    Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would copy database" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-        & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-        & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
-    }
+    # # Step 4: Copy Database
+    # Write-Host "`n🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would copy database" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "database/copy_database.ps1"
+    #     & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "database/copy_database.ps1"
+    #     & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace
+    # }
     
-    # Step 5: Cleanup Environment Configuration
-    Write-Host "`n🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would cleanup source environment configurations" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Removing CORS origins and redirect URIs for: $Source" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace
-    }
+    # # Step 5: Cleanup Environment Configuration
+    # Write-Host "`n🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would cleanup source environment configurations" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Removing CORS origins and redirect URIs for: $Source" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
+    #     & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
+    #     & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace
+    # }
     
-    # Step 6: Revert SQL Users
-    Write-Host "`n🔄 STEP 6: REVERT SQL USERS" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would revert source environment SQL users" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure
-    }
+    # # Step 6: Revert SQL Users
+    # Write-Host "`n🔄 STEP 6: REVERT SQL USERS" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would revert source environment SQL users" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Removing database users and roles for: $Source" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Source multitenant: $SourceNamespace" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    #     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure
+    # }
     
-    # Step 7: Adjust Resources
-    Write-Host "`n🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-        & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace 
-    }
+    # # Step 7: Adjust Resources
+    # Write-Host "`n🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would adjust database resources" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
+    #     & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
+    #     & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace 
+    # }
     
-    # Step 8: Delete Replicas
-    Write-Host "`n🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would delete and recreate replicas" -ForegroundColor Yellow
-        $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
-        & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
-    }
+    # # Step 8: Delete Replicas
+    # Write-Host "`n🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would delete and recreate replicas" -ForegroundColor Yellow
+    #     $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
+    #     & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
+    #     & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace 
+    # }
     
-    # Step 9: Configure Users
-    Write-Host "`n🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would configure SQL users" -ForegroundColor Yellow
-        # Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
-        # Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would configure user permissions and roles" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
-    } else {
-        $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-        & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
-    }
+    # # Step 9: Configure Users
+    # Write-Host "`n🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would configure SQL users" -ForegroundColor Yellow
+    #     # Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
+    #     # Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would configure user permissions and roles" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would set up database access for application users" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would configure authentication and authorization" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    #     & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -DryRun:($DryRun -eq $true) 
+    # } else {
+    #     $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    #     & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off
+    # }
     
-    # Step 10: Start Environment
-    Write-Host "`n🔄 STEP 10: START ENVIRONMENT" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would start environment (SKIPPED in dry run)" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would start AKS cluster and scale up deployments" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would enable Application Insights web tests" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would enable backend health alerts" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would restore monitoring and alerting" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
-        & $scriptPath  $Destination Namespace $DestinationNamespace -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
-        & $scriptPath  $Destination Namespace $DestinationNamespace
-    }
+    # # Step 10: Start Environment
+    # Write-Host "`n🔄 STEP 10: START ENVIRONMENT" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would start environment (SKIPPED in dry run)" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Environment: $Destination" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Client: $DestinationNamespace" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would start AKS cluster and scale up deployments" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would enable Application Insights web tests" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would enable backend health alerts" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would restore monitoring and alerting" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
+    #     & $scriptPath  $Destination Namespace $DestinationNamespace -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
+    #     & $scriptPath  $Destination Namespace $DestinationNamespace
+    # }
     
-    # Step 11: Cleanup
-    Write-Host "`n🔄 STEP 11: CLEANUP" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would delete restored databases" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Source: $Source" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would delete databases with '-restored' suffix" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would clean up temporary restored databases" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would free up storage space" -ForegroundColor Gray
-        $scriptPath = Get-ScriptPath "database/delete_restored_db.ps1"
-        & $scriptPath -Source $Source -DryRun:($DryRun -eq $true)
-    } else {
-        $scriptPath = Get-ScriptPath "database/delete_restored_db.ps1"
-        & $scriptPath -Source $Source 
-    }
+    # # Step 11: Cleanup
+    # Write-Host "`n🔄 STEP 11: CLEANUP" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would delete restored databases" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Source: $Source" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would delete databases with '-restored' suffix" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would clean up temporary restored databases" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would free up storage space" -ForegroundColor Gray
+    #     $scriptPath = Get-ScriptPath "database/delete_restored_db.ps1"
+    #     & $scriptPath -Source $Source -DryRun:($DryRun -eq $true)
+    # } else {
+    #     $scriptPath = Get-ScriptPath "database/delete_restored_db.ps1"
+    #     & $scriptPath -Source $Source 
+    # }
     
     # Step 12: Remove Permissions
     Write-Host "`n🔄 STEP 12: REMOVE PERMISSIONS" -ForegroundColor Cyan

@@ -371,7 +371,7 @@ create_main_templates() {
                 "name": "Source",
                 "title": "Source Environment",
                 "description": "Environment to copy data FROM (e.g., gov001). Script auto-detects from Azure if empty.",
-                "default_value": "'$SOURCE'",
+                "default_value": "'$ENVIRONMENT'",
                 "required": false
             },
             {
@@ -385,7 +385,7 @@ create_main_templates() {
                 "name": "Destination",
                 "title": "Destination Environment",
                 "description": "Environment to copy data TO (e.g., gov001). Script defaults to same as Source if empty.",
-                "default_value": "'$DESTINATION'",
+                "default_value": "'$ENVIRONMENT'",
                 "required": false
             },
             {

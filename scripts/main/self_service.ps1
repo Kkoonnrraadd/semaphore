@@ -115,7 +115,6 @@ function Perform-Migration {
     Write-Host "   Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
     Write-Host "   DryRun: $DryRun" -ForegroundColor Gray
-    Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
     Write-Host "   UseSasTokens: $UseSasTokens" -ForegroundColor Gray
     
     # Set domain based on cloud environment for downstream scripts
@@ -192,7 +191,6 @@ function Invoke-Migration {
     Write-Host ""
     if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would grant permissions to SelfServiceRefresh" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would call Azure Function to remove SelfServiceRefresh for environment: $Source" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait for permissions to propagate" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
 
@@ -244,18 +242,18 @@ function Invoke-Migration {
         $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
         
         if (Test-Path $authScript) {
-            Write-Host "   🔑 Authenticating to Azure..." -ForegroundColor Gray
+            Write-Host "🔑 Authenticating to Azure..." -ForegroundColor Gray
             
-            Write-Host "   🌐 Using specified cloud: $Cloud" -ForegroundColor Gray
+            Write-Host "🌐 Using specified cloud: $Cloud" -ForegroundColor Gray
             $authResult = & $authScript -Cloud $Cloud
             
             if ($authResult) {
-                Write-Host "   ✅ Azure authentication successful" -ForegroundColor Green
+                Write-Host "✅ Azure authentication successful" -ForegroundColor Green
                 $result.AuthenticationResult = $true
             } else {
                 Write-Host ""
-                Write-Host "   ❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
-                Write-Host "   Cannot proceed without authentication" -ForegroundColor Yellow
+                Write-Host "❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
+                Write-Host "Cannot proceed without authentication" -ForegroundColor Yellow
                 
                 $result.Success = $false
                 $result.Error = "Azure authentication failed"
@@ -280,7 +278,6 @@ function Invoke-Migration {
     # Step 1: Restore Point in Time
     Write-Host "`n🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
     if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would execute restore point in time" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Would restore databases to point in time with '-restored' suffix" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for restoration" -ForegroundColor Gray
         $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"

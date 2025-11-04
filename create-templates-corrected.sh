@@ -304,27 +304,27 @@ create_views() {
         exit 1
     fi
     
-    # Create tasks view (TASKI)
-    log_info "Creating view '$VIEW_TASKS'..."
+    # # Create tasks view (TASKI)
+    # log_info "Creating view '$VIEW_TASKS'..."
     
-    local view_tasks_data='{
-        "title": "'"$VIEW_TASKS"'",
-        "project_id": '$PROJECT_ID',
-        "position": 2
-    }'
+    # local view_tasks_data='{
+    #     "title": "'"$VIEW_TASKS"'",
+    #     "project_id": '$PROJECT_ID',
+    #     "position": 2
+    # }'
     
-    result=$(api_call "POST" "/api/project/$PROJECT_ID/views" "$view_tasks_data")
-    http_code=$(echo "$result" | cut -d'|' -f1)
-    response=$(echo "$result" | cut -d'|' -f2-)
+    # result=$(api_call "POST" "/api/project/$PROJECT_ID/views" "$view_tasks_data")
+    # http_code=$(echo "$result" | cut -d'|' -f1)
+    # response=$(echo "$result" | cut -d'|' -f2-)
     
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        VIEW_TASKS_ID=$(echo "$response" | jq -r '.id')
-        log_success "View '$VIEW_TASKS' created with ID: $VIEW_TASKS_ID"
-    else
-        log_error "Failed to create view '$VIEW_TASKS' (HTTP: $http_code)"
-        echo "Response: $response"
-        exit 1
-    fi
+    # if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+    #     VIEW_TASKS_ID=$(echo "$response" | jq -r '.id')
+    #     log_success "View '$VIEW_TASKS' created with ID: $VIEW_TASKS_ID"
+    # else
+    #     log_error "Failed to create view '$VIEW_TASKS' (HTTP: $http_code)"
+    #     echo "Response: $response"
+    #     exit 1
+    # fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════

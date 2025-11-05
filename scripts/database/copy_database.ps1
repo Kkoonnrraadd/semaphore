@@ -1091,14 +1091,16 @@ if ($databasesToProcess.Count -gt 0) {
     Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
     Write-Host ""
 }else {
+    if (-not $DryRun) {
     Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
-    Write-Host "❌ NO DATABASES TO PROCESS" -ForegroundColor Red
-    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "🔍 No databases to process" -ForegroundColor Yellow
-    Write-Host ""
-    $global:LASTEXITCODE = 1
-    throw "No databases to process"
+        Write-Host "❌ NO DATABASES TO PROCESS" -ForegroundColor Red
+        Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "🔍 No databases to process" -ForegroundColor Yellow
+        Write-Host ""
+        $global:LASTEXITCODE = 1
+        throw "No databases to process"
+    }
 }
 
 # ============================================================================

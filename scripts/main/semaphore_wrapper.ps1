@@ -554,7 +554,7 @@ if ($Source -ne $Destination) {
     throw "SAFETY: Source and Destination must be the same to prevent data loss"
 }
 
-if ($script:DestinationNamespace -eq "manufacturo") {
+if ($DestinationNamespace -eq "manufacturo") {
     Write-Host "" -ForegroundColor Red
     Write-Host "❌ FATAL ERROR: Destination namespace cannot be 'manufacturo'" -ForegroundColor Red
     Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow

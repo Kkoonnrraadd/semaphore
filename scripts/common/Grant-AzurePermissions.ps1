@@ -48,6 +48,8 @@ param(
     [string]$ServiceAccount = "semaphore-semaphore-mnfrotest-prod-gov001-virg",
     
     [int]$TimeoutSeconds = 60,
+
+    [int]$WaitForPropagation = 60,
     
     [int]$PropagationWaitSeconds = 30
 )
@@ -91,7 +93,8 @@ try {
         -Action "Grant" `
         -Environment $Environment `
         -ServiceAccount $ServiceAccount `
-        -TimeoutSeconds $TimeoutSeconds `
+        -WaitForPropagation $WaitForPropagation
+        -TimeoutSeconds $TimeoutSeconds
         -NoWait
     
     if (-not $permissionResult.Success) {

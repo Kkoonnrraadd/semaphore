@@ -257,7 +257,12 @@ if ($DryRun) {
 
 
 if ($DestinationNamespace -eq "manufacturo") {
-    $backend_health_alert = "${Destination_lower}_backend_health"
+    Write-Host "❌ FATAL ERROR: Destination Namespace $DestinationNamespace = manufacturo is not supported!" -ForegroundColor Red
+    Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
+    Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
+    throw "Destination Namespace $DestinationNamespace = manufacturo is not supported! This is a protected namespace and cannot be used as a destination."
 }else{
     $backend_health_alert = "${Destination_lower}-${DestinationNamespace}_backend_health"
 }

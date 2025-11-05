@@ -36,13 +36,11 @@ param(
     [Parameter(Mandatory=$true)]
     [ValidateSet("Grant", "Remove")]
     [string]$Action,
-    
     [Parameter(Mandatory=$true)]
     [string]$Environment,
-    
-    [int]$TimeoutSeconds = 360,
-    
-    [int]$WaitForPropagation = 60
+    [string]$Namespace,
+    [int]$TimeoutSeconds,
+    [int]$WaitForPropagation
 )
 
 # Color-coded output for better visibility
@@ -154,6 +152,33 @@ if ([string]::IsNullOrWhiteSpace($ServiceAccount)) {
 
 $functionUrl = "${functionBaseUrl}?code=${functionCode}"
 
+if ([string]::IsNullOrWhiteSpace($functionUrl)) {
+    Write-Host "" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host " ❌ CONFIGURATION ERROR" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Red
+    Write-Host "❌ FUNCTION URL is not set!" -ForegroundColor Red
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "This environment variable is required to authenticate with the Azure Function." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Gray
+    Write-Host "To fix this, ensure SEMAPHORE_FUNCTION_URL is set in your environment:" -ForegroundColor Gray
+    Write-Host "  • In Kubernetes: Add to pod env vars" -ForegroundColor Gray
+    Write-Host "  • In Semaphore: Add to pod environment variables" -ForegroundColor Gray
+    Write-Host ""
+
+    return @{
+        Success = $false
+        Action = $Action
+        Environment = $Environment
+        ServiceAccount = $ServiceAccount
+        Response = $null
+        Duration = 0
+        Error = "FUNCTION URL is not set"
+        StatusCode = $null
+    }
+}
+
 # Main execution
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -175,6 +200,7 @@ try {
     $requestBody = @{
         Action = $Action
         ServiceAccount = $ServiceAccount
+        Namespace = $Namespace
         Environment = $Environment
     }
     

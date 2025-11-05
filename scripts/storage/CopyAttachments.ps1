@@ -11,58 +11,6 @@
 # HELPER FUNCTIONS
 # ============================================================================
 
-# function Get-StorageResourceUrl {
-#     param([string]$BlobEndpoint)
-    
-#     # Determine Azure cloud type based on blob endpoint
-#     if ($BlobEndpoint -match "blob.core.windows.net") {
-#         return "https://storage.azure.com/"
-#     } elseif ($BlobEndpoint -match "blob.core.usgovcloudapi.net") {
-#         return "https://storage.azure.us/"
-#     } else {
-#         Write-Host "  ⚠️  Unknown cloud type, defaulting to Azure Commercial" -ForegroundColor Yellow
-#         return "https://storage.azure.com/"
-#     }
-# }
-
-# function Refresh-AzCopyAuth {
-#     param([string]$ResourceUrl)
-    
-#     Write-Host "  🔑 Refreshing Azure authentication for storage..." -ForegroundColor Gray
-    
-#     try {
-#         # Clear existing azcopy auth cache to force refresh
-#         azcopy logout 2>$null | Out-Null
-        
-#         $result = az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID --output json 2>&1
-
-#         $result | ConvertFrom-Json
-
-#         if ($LASTEXITCODE -eq 0) {
-#             Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-#             return $true
-#         } else {
-#             Write-Host "❌ Service Principal authentication failed" -ForegroundColor Red
-#             return $false
-#         }
-
-#         # Force az CLI to get fresh token for storage
-#         # $token = az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv 2>$null
-
-
-#         # if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
-#         #     Write-Host "  ⚠️  Warning: Token refresh failed, azcopy will use existing authentication" -ForegroundColor Yellow
-#         #     return $false
-#         # } else {
-#         #     Write-Host "  ✅ Authentication token refreshed successfully" -ForegroundColor Green
-#         #     return $true
-#         # }
-#     } catch {
-#         Write-Host "  ⚠️  Warning: Authentication refresh encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
-#         return $false
-#     }
-# }
-
 function New-ContainerSasToken {
     param(
         [string]$StorageAccount,
@@ -148,12 +96,12 @@ Write-Host "  Destination: $Destination" -ForegroundColor Gray
 Write-Host "  SourceNamespace: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun (Type: $($DryRun.GetType().Name))" -ForegroundColor Gray
-Write-Host "  UseSasTokens: $UseSasTokens (Type: $($UseSasTokens.GetType().Name))" -ForegroundColor $(if ($UseSasTokens) { "Magenta" } else { "Gray" })
 
 if ($UseSasTokens) {
     Write-Host "  🔐 SAS Token mode is ENABLED" -ForegroundColor Magenta
 } else {
-    Write-Host "  🔐 SAS Token mode is DISABLED (default)" -ForegroundColor Gray
+    $global:LASTEXITCODE = 1
+    throw "SAS must be enabled! This is bug, please check current script."
 }
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
 Write-Host ""
@@ -162,22 +110,13 @@ if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Copy Attachments" -ForegroundColor Yellow
     Write-Host "===================================" -ForegroundColor Yellow
     Write-Host "No actual copy operations will be performed" -ForegroundColor Yellow
-    if ($UseSasTokens) {
-        Write-Host "Authentication: SAS Tokens (8-hour expiry)" -ForegroundColor Yellow
-    } else {
-        Write-Host "Authentication: Azure CLI with refresh" -ForegroundColor Yellow
-    }
+    Write-Host "Authentication: SAS Tokens (8-hour expiry)" -ForegroundColor Yellow
 } else {
     Write-Host "`n=====================================" -ForegroundColor Cyan
     Write-Host "       Copy Attachments" -ForegroundColor Cyan
     Write-Host "=====================================" -ForegroundColor Cyan
-    if ($UseSasTokens) {
-        Write-Host "🔐 Mode: SAS Token Authentication" -ForegroundColor Magenta
-        Write-Host "   (Recommended for 3TB+ containers)" -ForegroundColor Gray
-    } else {
-        Write-Host "🔐 Mode: Azure CLI Authentication" -ForegroundColor Magenta
-        Write-Host "   (With automatic token refresh)" -ForegroundColor Gray
-    }
+    Write-Host "🔐 Mode: SAS Token Authentication" -ForegroundColor Magenta
+    Write-Host "   (Recommended for 3TB+ containers)" -ForegroundColor Gray
     Write-Host ""
 }
 
@@ -194,14 +133,17 @@ if ($SourceNamespace -eq "manufacturo") {
         | project name, resourceGroup, subscriptionId
     "
 } else {
-    # Write-Host "Detecting SOURCE as Multitenant..."
-    $graph_query = "
-        resources
-        | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'sa$SourceNamespace'
-        | project name, resourceGroup, subscriptionId
-    "
+    Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+    $global:LASTEXITCODE = 1
+    throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
 }
+    # Write-Host "Detecting SOURCE as Multitenant..."
+    # $graph_query = "
+    #     resources
+    #     | where type == 'microsoft.storage/storageaccounts'
+    #     | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'sa$SourceNamespace'
+    #     | project name, resourceGroup, subscriptionId
+    # "
 
 $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
@@ -217,15 +159,20 @@ $Source_subscription = $src_sa[0].subscriptionId
 $Source_account = $src_sa[0].name
 $Source_rg = $src_sa[0].resourceGroup
 
-# Detect Destination context
+# # Detect Destination context
+# if ($DestinationNamespace -eq "manufacturo") {
+#     # Write-Host "Detecting DESTINATION as Subscription..."
+#     $graph_query = "
+#         resources
+#         | where type == 'microsoft.storage/storageaccounts'
+#         | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary' and name contains 'samnfro'
+#         | project name, resourceGroup, subscriptionId
+#     "
 if ($DestinationNamespace -eq "manufacturo") {
-    # Write-Host "Detecting DESTINATION as Subscription..."
-    $graph_query = "
-        resources
-        | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$Destination_lower' and tags.Type == 'Primary' and name contains 'samnfro'
-        | project name, resourceGroup, subscriptionId
-    "
+    Write-Host "❌ FATAL ERROR: Destination Namespace $DestinationNamespace = manufacturo is not supported!" -ForegroundColor Red
+    Write-Host "   This is a protected namespace and cannot be used as a destination." -ForegroundColor Yellow
+    Write-Host "   Please specify a different destination namespace." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Red
 } else {
     # Write-Host " Detecting DESTINATION as Multitenant..."
     $graph_query = "
@@ -285,6 +232,20 @@ if ($DryRun) {
         Write-Host "Opening firewall rules for storage accounts... $dest_account" -ForegroundColor Cyan
     } else {
         Write-Host "Opening firewall rules failed" -ForegroundColor Red
+        Write-Host "Retrying in 30 seconds..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+        az storage account update `
+            --resource-group $dest_rg `
+            --name $dest_account `
+            --subscription $dest_subscription `
+            --default-action Allow -o none
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Opening firewall rules for storage accounts... $dest_account" -ForegroundColor Cyan
+        } else {
+            Write-Host "Opening firewall rules failed" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Opening firewall rules failed"
+        }
     }
 
     az storage account update `
@@ -297,24 +258,44 @@ if ($DryRun) {
         Write-Host "Opening firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
     } else {
         Write-Host "Opening firewall rules failed" -ForegroundColor Red
+        Write-Host "Retrying in 30 seconds..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+        az storage account update `
+            --resource-group $Source_rg `
+            --name $Source_account `
+            --subscription $Source_subscription `
+            --default-action Allow -o none
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Opening firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
+        } else {
+            Write-Host "Opening firewall rules failed" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Opening firewall rules failed"
+        }
     }
 
     Write-Host "Waiting 30 seconds for firewall rules to take effect..." -ForegroundColor Yellow
     Start-Sleep -Seconds 30
 
     $Source_blob_endpoint = az storage account show --name "$Source_account" --subscription "$Source_subscription" --query "primaryEndpoints.blob" -o tsv
+    
+    if (-not $Source_blob_endpoint) {
+        Write-Host "❌ Error: No source blob endpoint found for storage account: $Source_account" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "No source blob endpoint found for storage account: $Source_account"
+    }
     $dest_blob_endpoint = az storage account show --name "$dest_account" --subscription "$dest_subscription" --query "primaryEndpoints.blob" -o tsv 
 
+    if (-not $dest_blob_endpoint) {
+        Write-Host "❌ Error: No destination blob endpoint found for storage account: $dest_account" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "No destination blob endpoint found for storage account: $dest_account"
+    }
 
     Write-Host "🚀 STARTING BLOB COPY PROCESS" -ForegroundColor Cyan
     Write-Host "==============================" -ForegroundColor Cyan
     Write-Host "Processing $($containers.Count) containers sequentially" -ForegroundColor White
-    
-    if ($UseSasTokens) {
-        Write-Host "🔐 Generating SAS tokens (valid for 8 hours)..." -ForegroundColor Magenta
-        Write-Host "   This ensures no token expiration during large copies" -ForegroundColor Gray
-    }
-    Write-Host ""
+
     
     $copyResults = @()
     $successCount = 0
@@ -335,6 +316,12 @@ if ($DryRun) {
             -SubscriptionId $Source_subscription `
             -ContainerName $containerName `
             -ExpiryHours 8
+
+        if (-not $sourceSas) {
+            Write-Host "❌ Error: Failed to generate source SAS token for container: $containerName" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Failed to generate source SAS token for container: $containerName"
+        }
         
         $destSas = New-ContainerSasTokenWithWrite `
             -StorageAccount $dest_account `
@@ -343,6 +330,12 @@ if ($DryRun) {
             -ContainerName $containerName `
             -ExpiryHours 8
         
+        if (-not $destSas) {
+            Write-Host "❌ Error: Failed to generate destination SAS token for container: $containerName" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Failed to generate destination SAS token for container: $containerName"
+        }
+
         if ($sourceSas -and $destSas) {
             $sourceUrl = "${source_blob_endpoint}${containerName}?${sourceSas}"
             $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
@@ -355,8 +348,8 @@ if ($DryRun) {
         }
 
 
-        Write-Host "  From: ${source_blob_endpoint}${containerName}" -ForegroundColor Gray
-        Write-Host "  To:   ${dest_blob_endpoint}${containerName}" -ForegroundColor Gray
+        Write-Host "  From: ${source_blob_endpoint}${containerName}?SOURCE_SAS_TOKEN" -ForegroundColor Gray
+        Write-Host "  To:   ${dest_blob_endpoint}${containerName}?DEST_SAS_TOKEN" -ForegroundColor Gray
         Write-Host ""
 
         
@@ -366,10 +359,9 @@ if ($DryRun) {
         
         azcopy copy $sourceUrl $destUrl --recursive -log-level INFO
         
-        $copyElapsed = (Get-Date) - $copyStartTime
-        $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
-        
         if ($LASTEXITCODE -eq 0) {
+            $copyElapsed = (Get-Date) - $copyStartTime
+            $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
             Write-Host ""
             Write-Host "  ✅ Container '$containerName' copied successfully (took $copyMinutes min)" -ForegroundColor Green
             $successCount++
@@ -380,6 +372,8 @@ if ($DryRun) {
             }
             
         } else {
+            $copyElapsed = (Get-Date) - $copyStartTime
+            $copyMinutes = [math]::Round($copyElapsed.TotalMinutes, 1)
             Write-Host ""
             Write-Host "  ❌ Container '$containerName' copy failed!" -ForegroundColor Red
             Write-Host "  💡 Check azcopy logs for details" -ForegroundColor Yellow
@@ -431,7 +425,21 @@ if ($DryRun) {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Closing firewall rules for storage accounts... $dest_account" -ForegroundColor Cyan
     } else {
-        Write-Host "Closing firewall rules failed" -ForegroundColor Red
+        Write-Host "  ❌ Closing firewall rules failed" -ForegroundColor Red
+        Write-Host "  💡 Retrying in 30 seconds..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+        az storage account update `
+            --resource-group $dest_rg `
+            --name $dest_account `
+            --subscription $dest_subscription `
+            --default-action Deny -o none
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  ✅ Closing firewall rules for storage accounts... $dest_account" -ForegroundColor Cyan
+        } else {
+            Write-Host "  ❌ Closing firewall rules failed" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Closing firewall rules failed"
+        }
     }
 
     az storage account update `
@@ -444,6 +452,20 @@ if ($DryRun) {
         Write-Host "Closing firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
     } else {
         Write-Host "Closing firewall rules failed" -ForegroundColor Red
+        Write-Host "  💡 Retrying in 30 seconds..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+        az storage account update `
+            --resource-group $Source_rg `
+            --name $Source_account `
+            --subscription $Source_subscription `
+            --default-action Deny -o none
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  ✅ Closing firewall rules for storage accounts... $Source_account" -ForegroundColor Cyan
+        } else {
+            Write-Host "  ❌ Closing firewall rules failed" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Closing firewall rules failed"
+        }
     }
     
     Write-Host ""

@@ -92,8 +92,7 @@ function Get-ServiceFromDatabase {
 
 function Should-RestoreDatabase {
     param (
-        [string]$DatabaseName,
-        [string]$Service
+        [string]$DatabaseName
     )
     
     # Skip if contains "Copy"
@@ -132,10 +131,15 @@ function Test-DatabaseMatchesPattern {
     
     if ($SourceNamespace -eq "manufacturo") {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceEnvironment-$SourceLocation"
-        return $DatabaseName.Contains($expectedPattern)
+        if ($DatabaseName.Contains($expectedPattern)) {
+            return $DatabaseName
+        } else {
+            return $null
+        }
     } else {
-        $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
-        return $DatabaseName.Contains($expectedPattern)
+        Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+        $global:LASTEXITCODE = 1
+        throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
     }
 }
 
@@ -268,8 +272,8 @@ function Test-RestorePointValidity {
     }
     
     # Check 2: Query for latest available restore point (if requested time is too recent)
-    # We'll check this during database validation and adjust if needed
-    
+    # We'll check this during database validation and adjust if needed    
+
     # Check 3: Validate each database's restore window
     Write-Host "   🔎 Checking restore point availability for each database..."
     Write-Host "   ⏰ Requested restore point: $($RestorePointUtc.ToString('yyyy-MM-dd HH:mm:ss')) UTC"
@@ -608,9 +612,9 @@ $graph_query = "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No SQL server found for environment: $Source"
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
     $global:LASTEXITCODE = 1
-    throw "No SQL server found for environment: $Source"
+    throw "No SQL server found for environment with tags Environment: $Source and Type: Primary"
 }
 
 $Source_subscription = $server[0].subscriptionId
@@ -656,17 +660,15 @@ if ($SourceNamespace -eq "manufacturo") {
         --server $Source_server `
         --query "[?tags.ClientName == '']" | ConvertFrom-Json
 } else {
-    $dbs = az sql db list `
-        --subscription $Source_subscription `
-        --resource-group $Source_rg `
-        --server $Source_server `
-        --query "[?tags.ClientName == '$SourceNamespace']" | ConvertFrom-Json
+    Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+    $global:LASTEXITCODE = 1
+    throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
 }
 
 if (-not $dbs -or $dbs.Count -eq 0) {
-    Write-Host "❌ No databases found with provided parameters"
+    Write-Host "❌ No databases found with tags ClientName: '' (manufacturo namespace)"
     $global:LASTEXITCODE = 1
-    throw "No databases found with provided parameters"
+    throw "No databases found with tags ClientName: '' (manufacturo namespace)"
 }
 
 Write-Host "✅ Found $($dbs.Count) databases on source server"
@@ -684,17 +686,17 @@ $databasesToRestore = @()
 foreach ($db in $dbs) {
     $service = Get-ServiceFromDatabase -Database $db
     
-    Write-Host "  📋 Analyzing: $($db.name) (Service: $service)"
+    Write-Host "  📋 Found database: $($db.name) with tag Service: $service"
     
-    if (-not (Should-RestoreDatabase -DatabaseName $db.name -Service $service)) {
+    if (-not (Should-RestoreDatabase -DatabaseName $db.name)) {
         if ($db.name.Contains("master")) {
-            Write-Host "    ⏭️  Skipping: System database"
-        } elseif ($db.name.Contains("Copy")) {
-            Write-Host "    ⏭️  Skipping: Copy database"
+            Write-Host "    ⏭️  Skipping... Master database (master)"
+        } elseif ($db.name.Contains("copy")) {
+            Write-Host "    ⏭️  Skipping... Copied database (copy)"
         } elseif ($db.name.Contains("restored")) {
-            Write-Host "    ⏭️  Skipping: Already restored"
+            Write-Host "    ⏭️  Skipping... Already restored (restored)"
         } elseif ($db.name.Contains("landlord")) {
-            Write-Host "    ⏭️  Skipping: Landlord service"
+            Write-Host "    ⏭️  Skipping... Landlord service (landlord)"
         }
         continue
     }
@@ -710,10 +712,10 @@ foreach ($db in $dbs) {
         -SourceLocation $Source_location
     
     if ($matchesPattern) {
-        Write-Host "    ✅ Will restore to: $($db.name)-restored"
+        Write-Host "    ✅ Will restore to: $($db.name)-restored (matches expected pattern $($matchesPattern))"
         $databasesToRestore += $db
     } else {
-        Write-Host "    ⏭️  Skipping: Pattern mismatch"
+        Write-Host "    ⏭️  Skipping: Pattern mismatch $($db.name) does not match expected pattern $($matchesPattern)"
     }
 }
 
@@ -726,10 +728,9 @@ Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)
 Write-Host ""
 
 if ($databasesToRestore.Count -eq 0) {
-    Write-Host "❌  No databases to restore"
+    Write-Host "❌  No databases to restore!"
     $global:LASTEXITCODE = 1
-    throw "No databases to restore"
-
+    throw "No databases to restore!"
 }
 
 # ============================================================================
@@ -747,9 +748,9 @@ $validationResult = Test-RestorePointValidity `
 
 if (-not $validationResult.IsValid) {
     Write-Host "❌ Cannot proceed: Restore point validation failed"
-    Write-Host "   ⚠️  The requested restore point is invalid (too recent or in the future)"
+    Write-Host "   ⚠️  The requested restore point is invalid (too recent or in the future): $($validationResult.Issues)"
     $global:LASTEXITCODE = 1
-    throw "Restore point validation failed: The requested restore point is invalid (too recent or in the future)"
+    throw "Restore point validation failed: The requested restore point is invalid (too recent or in the future): $($validationResult.Issues)"
 }
 
 # If the restore point was adjusted (too old), use the adjusted value

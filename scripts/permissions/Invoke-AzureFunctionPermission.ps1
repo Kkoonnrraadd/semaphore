@@ -247,17 +247,38 @@ try {
     $needsWait = $false
 
     if ($response -match "(\d+) succeeded") {
-        $permissionsAdded = [int]$matches[1]
-        
-        Write-Host "   📊 Parsed result: $permissionsAdded permission(s) successfully added" -ForegroundColor Gray
-        
-        if ($permissionsAdded -gt 0) {
-            Write-Host "   ✅ Permissions granted: $permissionsAdded group(s) added" -ForegroundColor Green
-            Write-Host "   ⏳ Propagation wait REQUIRED (changes were made to Azure AD)" -ForegroundColor Yellow
-            $needsWait = $true
+        if ($Action -eq "Grant") {
+            $permissionsAdded = [int]$matches[1]
+            
+            Write-Host "   📊 Parsed result: $permissionsAdded permission(s) successfully added" -ForegroundColor Gray
+            
+            if ($permissionsAdded -gt 0) {
+                Write-Host "   ✅ Permissions granted: $permissionsAdded group(s) added" -ForegroundColor Green
+                Write-Host "   ⏳ Propagation wait REQUIRED (changes were made to Azure AD)" -ForegroundColor Yellow
+                $needsWait = $true
+            } else {
+                Write-Host "   ✅ Permissions already configured (no changes needed)" -ForegroundColor Green
+                Write-Host "   ⚡ Propagation wait SKIPPED - service principal already has access" -ForegroundColor Cyan
+                $needsWait = $false
+            }
+        }elseif ($Action -eq "Remove" -or $Action -eq "ProdSecurity") {
+            $permissionsRemoved = [int]$matches[1]
+            
+            Write-Host "   📊 Parsed result: $permissionsRemoved permission(s) successfully removed" -ForegroundColor Gray
+            
+            if ($permissionsRemoved -gt 0) {
+                Write-Host "   ✅ Permissions removed: $permissionsRemoved group(s) removed" -ForegroundColor Green
+                Write-Host "   ⏳ Propagation wait REQUIRED (changes were made to Azure AD)" -ForegroundColor Yellow
+                $needsWait = $true
+            } else {
+                Write-Host "   ✅ Permissions already removed (no changes needed)" -ForegroundColor Green
+                Write-Host "   ⚡ Propagation wait SKIPPED - service principal already has no access" -ForegroundColor Cyan
+                $needsWait = $false
+            }
         } else {
-            Write-Host "   ✅ Permissions already configured (no changes needed)" -ForegroundColor Green
-            Write-Host "   ⚡ Propagation wait SKIPPED - service principal already has access" -ForegroundColor Cyan
+            Write-Host "   ⚠️  Invalid action: $Action" -ForegroundColor Yellow
+            Write-Host "   ✅ Permissions not changed (no changes needed)" -ForegroundColor Green
+            Write-Host "   ⚡ Propagation wait SKIPPED - invalid action" -ForegroundColor Cyan
             $needsWait = $false
         }
     }else{
@@ -266,33 +287,33 @@ try {
         Write-Host "   ⏳ Propagation wait RECOMMENDED (unable to determine if changes were made)" -ForegroundColor Yellow
         $needsWait = $true
     }
-
-    # NOW perform propagation wait if needed (after successful authentication)
-    if ($needsWait) {
-        $waitSeconds = $WaitForPropagation
-        Write-Host ""
-        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
-        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
-        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
-        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
-        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
+    #### TEMP
+    # # NOW perform propagation wait if needed (after successful authentication)
+    # if ($needsWait) {
+    #     $waitSeconds = $WaitForPropagation
+    #     Write-Host ""
+    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+    #     Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+    #     Write-Host ""
+    #     Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+    #     Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+    #     Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+    #     Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+    #     Write-Host ""
+    #     Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
         
-        # Progress bar for better UX
-        for ($i = 1; $i -le $waitSeconds; $i++) {
-            $percent = [math]::Round(($i / $waitSeconds) * 100)
-            Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
-            Start-Sleep -Seconds 1
-        }
-        Write-Progress -Activity "Azure AD Permission Propagation" -Completed
+    #     # Progress bar for better UX
+    #     for ($i = 1; $i -le $waitSeconds; $i++) {
+    #         $percent = [math]::Round(($i / $waitSeconds) * 100)
+    #         Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
+    #         Start-Sleep -Seconds 1
+    #     }
+    #     Write-Progress -Activity "Azure AD Permission Propagation" -Completed
         
-        Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
-        Write-Host ""
-    }
+    #     Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
+    #     Write-Host ""
+    # }
 
     Write-Host "============================================" -ForegroundColor Green
     Write-Host " ✅ OPERATION COMPLETED SUCCESSFULLY" -ForegroundColor Green

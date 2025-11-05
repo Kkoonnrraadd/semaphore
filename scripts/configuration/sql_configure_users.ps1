@@ -127,7 +127,7 @@ if ($Revert) {
         Write-Host "No actual SQL user removal will be performed" -ForegroundColor Yellow
     } else {
         Write-Host "`n🔄 REVERT MODE - SQL Configure Users" -ForegroundColor Cyan
-        Write-Host "Environment: $Source$(if ($SourceNamespace) {" | Multitenant: $SourceNamespace"})" -ForegroundColor Cyan
+        Write-Host "Environment: $Source  | Multitenant: $SourceNamespace" -ForegroundColor Cyan
     }
 } elseif ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - SQL Configure Users" -ForegroundColor Yellow
@@ -429,10 +429,6 @@ if ($DryRun -and $Revert) {
     $revertStaticReplicaUserName = "${baseUserName}-replica"
     if ($SourceNamespace -ne "manufacturo") {
         $revertStaticReplicaUserName = "${MultitenantToRevert}-${revertStaticReplicaUserName}"
-    }else{
-        Write-Host "⚠️ WARNING: SourceNamespace must be manufacturo!" -ForegroundColor Yellow
-        $global:LASTEXITCODE = 1
-        throw "SourceNamespace must be manufacturo!"
     }
 
     if ($DryRun) {

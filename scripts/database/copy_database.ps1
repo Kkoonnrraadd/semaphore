@@ -710,10 +710,10 @@ $Source_server_fqdn = $server[0].fqdn
 
 # Parse server name components
 $Source_split       = $Source_server -split "-"
-$Source_product     = $Source_split[1]
-$Source_location    = $Source_split[-1]
-$Source_type        = $Source_split[2]
-$Source_environment = $Source_split[3]
+$SourceProduct     = $Source_split[1]
+$SourceLocation    = $Source_split[-1]
+$SourceType        = $Source_split[2]
+$SourceEnvironment = $Source_split[3]
 
 if ($Source_fqdn -match "database.windows.net") {
     $resourceUrl = "https://database.windows.net"

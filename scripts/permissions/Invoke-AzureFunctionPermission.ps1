@@ -34,7 +34,7 @@
 
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet("Grant", "Remove")]
+    [ValidateSet("Grant", "Remove", "ProdSecurity")]
     [string]$Action,
     [Parameter(Mandatory=$true)]
     [string]$Environment,

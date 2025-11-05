@@ -287,33 +287,33 @@ try {
         Write-Host "   ⏳ Propagation wait RECOMMENDED (unable to determine if changes were made)" -ForegroundColor Yellow
         $needsWait = $true
     }
-    #### TEMP
-    # # NOW perform propagation wait if needed (after successful authentication)
-    # if ($needsWait) {
-    #     $waitSeconds = $WaitForPropagation
-    #     Write-Host ""
-    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-    #     Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
-    #     Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-    #     Write-Host ""
-    #     Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
-    #     Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
-    #     Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
-    #     Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
-    #     Write-Host ""
-    #     Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
+
+    # NOW perform propagation wait if needed (after successful authentication)
+    if ($needsWait) {
+        $waitSeconds = $WaitForPropagation
+        Write-Host ""
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host "   ⏳ AZURE AD PERMISSION PROPAGATION WAIT" -ForegroundColor Yellow
+        Write-Host "   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "   📌 Why are we waiting?" -ForegroundColor Cyan
+        Write-Host "      • Permissions were just added to Azure AD groups" -ForegroundColor Gray
+        Write-Host "      • Azure AD needs time to propagate changes globally" -ForegroundColor Gray
+        Write-Host "      • This ensures your authenticated session can use new permissions" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "   ⏳ Waiting $waitSeconds seconds for propagation..." -ForegroundColor Yellow
         
-    #     # Progress bar for better UX
-    #     for ($i = 1; $i -le $waitSeconds; $i++) {
-    #         $percent = [math]::Round(($i / $waitSeconds) * 100)
-    #         Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
-    #         Start-Sleep -Seconds 1
-    #     }
-    #     Write-Progress -Activity "Azure AD Permission Propagation" -Completed
+        # Progress bar for better UX
+        for ($i = 1; $i -le $waitSeconds; $i++) {
+            $percent = [math]::Round(($i / $waitSeconds) * 100)
+            Write-Progress -Activity "Azure AD Permission Propagation" -Status "$i / $waitSeconds seconds" -PercentComplete $percent
+            Start-Sleep -Seconds 1
+        }
+        Write-Progress -Activity "Azure AD Permission Propagation" -Completed
         
-    #     Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
-    #     Write-Host ""
-    # }
+        Write-Host "   ✅ Permission propagation wait completed" -ForegroundColor Green
+        Write-Host ""
+    }
 
     Write-Host "============================================" -ForegroundColor Green
     Write-Host " ✅ OPERATION COMPLETED SUCCESSFULLY" -ForegroundColor Green

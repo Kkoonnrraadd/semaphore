@@ -232,7 +232,8 @@ if ($DryRun) {
     # Discover alerts that would be enabled
     Write-Host "`n🔍 DRY RUN: Would enable backend health alerts:"
     if ($DestinationNamespace -eq "manufacturo") {
-        $backend_health_alert = "${Destination_lower}_backend_health"
+        $global:LASTEXITCODE = 1
+        throw "Manufacturo namespace is not supported for destination! This is a protected namespace and cannot be used as a destination."
     } else {
         $backend_health_alert = "${Destination_lower}-${DestinationNamespace}_backend_health"
     }
@@ -305,7 +306,8 @@ $webtests | ForEach-Object -Parallel {
 
 
 if ($DestinationNamespace -eq "manufacturo") {
-    $backend_health_alert = "${Destination_lower}_backend_health"
+    $global:LASTEXITCODE = 1
+    throw "Manufacturo namespace is not supported for destination! This is a protected namespace and cannot be used as a destination."
 }else{
     $backend_health_alert = "${Destination_lower}-${DestinationNamespace}_backend_health"
 }

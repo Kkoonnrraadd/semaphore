@@ -90,11 +90,10 @@ function Add-DatabaseAlias {
         [Parameter(Mandatory)] [string]$Fqdn,
         [Parameter(Mandatory)] [string]$AccessToken,
         [Parameter(Mandatory)] [string]$Alias,
-        [Parameter(Mandatory)] [string]$Domain,
-        [Parameter(Mandatory)] [string]$AliasLabel
+        [Parameter(Mandatory)] [string]$Domain
     )
 
-    Write-Host "Adding alias '$Alias' ($AliasLabel)..." -ForegroundColor Cyan
+    Write-Host "Adding alias '$Alias'..." -ForegroundColor Cyan
 
     $query = @"
         DECLARE @alias NVARCHAR(255) = '$Alias',
@@ -207,13 +206,8 @@ function Add-DatabaseAlias {
     
     $result = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $Fqdn -Database $DbName -Query $query
     
-    if ($result) {
-        Write-Host "  - CORS Origins Added ($AliasLabel): $($result.CORS_Origins_Added)" -ForegroundColor Gray
-        Write-Host "  - Redirect URIs Added ($AliasLabel): $($result.Redirect_URIs_Added)" -ForegroundColor Gray
-        Write-Host "  - Post-Logout URIs Added ($AliasLabel): $($result.PostLogout_URIs_Added)" -ForegroundColor Gray
-    } else {
-        Write-Host "  - No results returned from alias update for '$Alias' ($AliasLabel)." -ForegroundColor Yellow
-    }
+    return $result
+
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -243,7 +237,7 @@ if (-not $dbs) {
 }
 Write-Host "Found $($dbs.Count) database(s) on server '$dest_server'." -ForegroundColor Green
 
-if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
+if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace) -and $DestinationNamespace -ne "manufacturo") {
     $expectedName  = "db-$dest_product-$dest_type-core-$DestinationNamespace-$dest_environment-$dest_location"
     $int_expectedName = "db-$dest_product-$dest_type-integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
     $DestinationAlias = "$Destination-$DestinationNamespace"
@@ -252,7 +246,7 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace)) {
     Write-Host "  - Integrator Plus DB: $int_expectedName" -ForegroundColor Gray
 }else{
     $global:LASTEXITCODE = 1
-    throw "DestinationNamespace was empty"
+    throw "DestinationNamespace was empty or manufacturo namespace is not supported"
 }
 
 # Default empty InstanceAlias to Destination if not provided
@@ -307,11 +301,26 @@ foreach ($db in $matchingDbs) {
         Write-Host "`nExecuting SQL on DB: $dbName" -ForegroundColor Green
         try {
             # Add the primary customer alias
-            Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $InstanceAlias -Domain $Domain -AliasLabel "InstanceAlias"
+            $instanceResult = Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $InstanceAlias -Domain $Domain
             
+            if ($instanceResult) {
+                Write-Host "  - CORS Origins Added: $($instanceResult.CORS_Origins_Added)" -ForegroundColor Gray
+                Write-Host "  - Redirect URIs Added: $($instanceResult.Redirect_URIs_Added)" -ForegroundColor Gray
+                Write-Host "  - Post-Logout URIs Added: $($instanceResult.PostLogout_URIs_Added)" -ForegroundColor Gray
+            } else {
+                Write-Host "  - No results returned from alias update for '$InstanceAlias'." -ForegroundColor Yellow
+            }
+        
             # Add the Destination alias if it's different from the customer alias
             if ($DestinationAlias -ne $InstanceAlias) {
-                Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $Domain -AliasLabel "DestinationAlias"
+                $destinationResult = Add-DatabaseAlias -DbName $dbName -Fqdn $dest_fqdn -AccessToken $AccessToken -Alias $DestinationAlias -Domain $Domain
+                if ($destinationResult) {
+                    Write-Host "  - CORS Origins Added: $($destinationResult.CORS_Origins_Added)" -ForegroundColor Gray
+                    Write-Host "  - Redirect URIs Added: $($destinationResult.Redirect_URIs_Added)" -ForegroundColor Gray
+                    Write-Host "  - Post-Logout URIs Added: $($destinationResult.PostLogout_URIs_Added)" -ForegroundColor Gray
+                } else {
+                    Write-Host "  - No results returned from alias update for '$DestinationAlias'." -ForegroundColor Yellow
+                }
             }
 
             # Update organization.Site to clear license_customer_name

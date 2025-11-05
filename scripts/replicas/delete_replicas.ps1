@@ -17,23 +17,6 @@ if ($DryRun) {
     Write-Host "Saves tags, removes replicas, and recreates them properly" -ForegroundColor Yellow
 }
 
-# Check if Azure CLI is available
-Write-Host "`n📋 Checking Azure CLI..." -ForegroundColor Yellow
-try {
-    $azResult = az version 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  ✅ Azure CLI found and working" -ForegroundColor Green
-    } else {
-        Write-Host "  ❌ Azure CLI not found. Please install it first." -ForegroundColor Red
-        $global:LASTEXITCODE = 1
-        throw "Azure CLI not found - please install it first"
-    }
-} catch {
-    Write-Host "  ❌ Azure CLI not found. Please install it first." -ForegroundColor Red
-    $global:LASTEXITCODE = 1
-    throw "Azure CLI not found - please install it first"
-}
-
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
 # Global variable to store replica configurations for recreation
@@ -410,13 +393,14 @@ function Delete-ReplicasForEnvironment {
                 # }
                 
                 # Filter by ClientName tag if specified
-                if ($DestinationNamespace -eq "manufacturo" -and $database.tags.ClientName -eq "") {
-                    # Special handling for "manufacturo" - include all databases (no specific ClientName filtering)
-                    $databases += $database
+                if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
+                    $global:LASTEXITCODE = 1
+                    throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
                 } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
                         $databases += $database
                 }else{
-                    Write-Host " Unable to process database: $($database.name) on replica..." -ForegroundColor Yellow
+                    $global:LASTEXITCODE = 1
+                    throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
 
                 }
             }
@@ -696,14 +680,14 @@ if ($DryRun) {
                     # }
                     
                     # Filter by ClientName tag if specified
-                    if ($DestinationNamespace -eq "manufacturo" -and $database.tags.ClientName -eq "") {
-                        # Special handling for "manufacturo" - include all databases (no specific ClientName filtering)
-                        $databases += $database
+                    if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
+                        $global:LASTEXITCODE = 1
+                        throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
                     } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
                         $databases += $database
                     }else{
-                        Write-Host " Unable to process database: $($database.name) on replica..." -ForegroundColor Yellow
-
+                        $global:LASTEXITCODE = 1
+                        throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
                     }
                 }
                 
@@ -775,7 +759,7 @@ Write-Host "✅ Replica configurations were saved before deletion" -ForegroundCo
 Write-Host "✅ Replication links were properly removed" -ForegroundColor Green
 Write-Host "✅ Replica databases were deleted from replica servers" -ForegroundColor Green
 Write-Host "✅ Replica databases were recreated with proper configuration" -ForegroundColor Green
-Write-Host "✅ Replica servers were preserved (NOT deleted)" -ForegroundColor Green
+Write-Host "✅ Replia servers were preserved (NOT deleted)" -ForegroundColor Green
 Write-Host "✅ Tags and configurations were preserved during recreation" -ForegroundColor Green
 
 if ($script:ReplicaConfigurations.Count -gt 0) {

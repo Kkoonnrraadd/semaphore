@@ -4,10 +4,10 @@ param($Request, $TriggerMetadata)
 
 # Get parameters from request body
 $body = $Request.Body
-$Environment = $body.Environment ?? "gov001"
-$ServiceAccount = $body.ServiceAccount ?? "SelfServiceRefresh"
-$Action = $body.Action ?? "Remove"
-$Namespace = $body.Namespace ?? "test"
+$Environment = $body.Environment
+$ServiceAccount = $body.$ServiceAccount
+$Action = $body.Action
+$Namespace = $body.Namespace
 
 # Validate Action parameter
 if ($Action -notin @("Grant", "Remove", "ProdSecurity")) {
@@ -30,11 +30,21 @@ Write-Host "Action: $Action" -ForegroundColor White
 Write-Host "`n📋 Authenticating to Microsoft Graph..." -ForegroundColor Yellow
 try {
     $tenantId = $env:tenantId
+    ### COMMERTIAL
+    # $appId = $env:appIdv2
+    # $appSecret = $env:appSecretv2
+    ###
+    ### GOV
     $appId = $env:appId
     $appSecret = $env:appSecret
+    ###
+
     $securePassword = ConvertTo-SecureString -String $appSecret -AsPlainText -Force
     $credential = New-Object System.Management.Automation.PSCredential($appId, $securePassword)
+
+    # Connect-MgGraph -ClientSecretCredential $credential -TenantId $tenantId
     Connect-MgGraph -ClientSecretCredential $credential -TenantId $tenantId -Environment USGov
+
     Write-Host "  ✅ Authenticated to Microsoft Graph" -ForegroundColor Green
 } catch {
     Write-Host "  ❌ Authentication failed: $($_.Exception.Message)" -ForegroundColor Red
@@ -75,19 +85,16 @@ try {
     return
 }
 
-# Get all groups matching the environment pattern
-Write-Host "`n📋 Finding groups matching environment: $Environment" -ForegroundColor Yellow
 $targetGroups = @()
-# $groupSuffixes = @("Contributors", "DBAdmins")
 
 if ($Action -eq "ProdSecurity") {
-    $filter =   "$Environment-$suffix"
+    $filter =   "$Environment"
     $preprod_filter =   "prodsecurityonly:)"
-    $groupSuffixes = @("DBContributors", "DBAdmins")
+    $groupSuffixes = @("DBContributors","DBAdmins")
 } else {
-    $filter =   "$Environment-$suffix"
-    $preprod_filter =   "$Environment-$Namespace-$suffix"
-    $groupSuffixes = @("Contributors", "DBContributors", "DBAdmins", "SelfServiceRefresh")
+    $filter =   "$Environment"
+    $preprod_filter =   "$Environment-$Namespace"
+    $groupSuffixes = @("DBContributors", "DBAdmins", "Self-Service-Refresh")
 }
 
 try {
@@ -102,7 +109,8 @@ try {
             $matchesSuffix = $false
             foreach ($suffix in $groupSuffixes) {
                 # Check if group name ends with -Contributors or -DBAdmin
-                if ($group.DisplayName -like "$filter" -or $group.DisplayName -like "$preprod_filter") {
+                if ($group.DisplayName.Contains("$filter-$suffix") -or $group.DisplayName.Contains("$preprod_filter-$suffix")) {
+                    Write-Host "  ✅ Found: $($group.DisplayName)" -ForegroundColor Green
                     $matchesSuffix = $true
                     break
                 }
@@ -212,7 +220,7 @@ try {
                 $skipCount++
             } else {
                 try {
-                    Write-Host "`n➖ [$($group.DisplayName)] Removing from group..." -ForegroundColor Yellow
+                    Write-Host "`n➖ [$($group.DisplayName)] Removing from PROD group..." -ForegroundColor Yellow
                     Remove-MgGroupMemberDirectoryObjectByRef -GroupId $group.Id -DirectoryObjectId $sp.Id
                     Write-Host "  ✅ Successfully removed" -ForegroundColor Green
                     $successCount++
@@ -240,102 +248,6 @@ try {
     })
     Disconnect-MgGraph
     return
-}
-
-# ============================================================================
-# ADDITIONAL: Assign Reader Role to Subscription
-# ============================================================================
-
-# Authenticate to Azure Resource Manager
-Write-Host "`n📋 Authenticating to Azure Resource Manager..." -ForegroundColor Yellow
-try {
-    Disconnect-AzAccount -ErrorAction SilentlyContinue | Out-Null
-    $azCredential = New-Object System.Management.Automation.PSCredential($appId, $securePassword)
-    Connect-AzAccount -ServicePrincipal -Credential $azCredential -Tenant $tenantId -Environment AzureUSGovernment | Out-Null
-    Write-Host "  ✅ Authenticated to Azure Resource Manager" -ForegroundColor Green
-} catch {
-    Write-Host "  ❌ Azure authentication failed: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "  ⚠️  Skipping subscription role assignment" -ForegroundColor Yellow
-    # Don't fail the entire operation, just skip this part
-    Write-Host "`n🎉 Group membership operation completed successfully!" -ForegroundColor Green
-    Disconnect-MgGraph
-    Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
-        StatusCode = [HttpStatusCode]::OK
-        Body = $result
-    })
-    return
-}
-
-# List all subscriptions and find matching subscription
-Write-Host "`n🔍 Listing subscriptions and searching for environment: $Environment" -ForegroundColor Yellow
-$subscriptionResult = ""
-try {
-    $allSubscriptions = Get-AzSubscription
-    Write-Host "  📋 Found $($allSubscriptions.Count) total subscriptions" -ForegroundColor Gray
-    
-    # Find subscription matching the environment name
-    $matchingSubscription = $allSubscriptions | Where-Object { $_.Name -like "*$Environment*" } | Select-Object -First 1
-    
-    if (-not $matchingSubscription) {
-        Write-Host "  ❌ No subscription found matching environment: $Environment" -ForegroundColor Red
-        Write-Host "`n  Available subscriptions:" -ForegroundColor Gray
-        $allSubscriptions | ForEach-Object {
-            Write-Host "    - $($_.Name) (ID: $($_.Id))" -ForegroundColor Gray
-        }
-        Write-Host "  ⚠️  Skipping subscription role assignment" -ForegroundColor Yellow
-        $subscriptionResult = "; No matching subscription found for environment $Environment"
-    } else {
-        Write-Host "  ✅ Found matching subscription:" -ForegroundColor Green
-        Write-Host "     Name: $($matchingSubscription.Name)" -ForegroundColor White
-        Write-Host "     ID: $($matchingSubscription.Id)" -ForegroundColor White
-        Write-Host "     State: $($matchingSubscription.State)" -ForegroundColor White
-        
-        $subscriptionId = $matchingSubscription.Id
-        
-        # Set context to the target subscription
-        Write-Host "`n⚙️  Setting subscription context..." -ForegroundColor Yellow
-        Set-AzContext -SubscriptionId $subscriptionId | Out-Null
-        Write-Host "  ✅ Subscription context set" -ForegroundColor Green
-        
-        # Check current role assignments
-        Write-Host "`n🔍 Checking current subscription role assignments..." -ForegroundColor Yellow
-        $scope = "/subscriptions/$subscriptionId"
-        $currentAssignments = Get-AzRoleAssignment -ObjectId $sp.Id -Scope $scope -ErrorAction SilentlyContinue
-        $readerRole = $currentAssignments | Where-Object { $_.RoleDefinitionName -eq "Reader" }
-        
-        if ($readerRole) {
-            Write-Host "  ✅ Reader role is currently assigned" -ForegroundColor Green
-        } else {
-            Write-Host "  ℹ️  Reader role is not currently assigned" -ForegroundColor Gray
-        }
-        
-        # Perform subscription role action
-        if ($Action -eq "Grant") {
-            if ($readerRole) {
-                Write-Host "`n⚠️  Reader role already assigned - skipping" -ForegroundColor Yellow
-                $subscriptionResult = "; Reader role already assigned to subscription $($matchingSubscription.Name)"
-            } else {
-                Write-Host "`n➕ Assigning Reader role to subscription..." -ForegroundColor Yellow
-                New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
-                Write-Host "  ✅ Successfully assigned Reader role" -ForegroundColor Green
-                $subscriptionResult = "; Successfully assigned Reader role to subscription $($matchingSubscription.Name)"
-            }
-        } elseif ($Action -eq "Remove") {
-            if (-not $readerRole) {
-                Write-Host "`n⚠️  Reader role not assigned - skipping" -ForegroundColor Yellow
-                $subscriptionResult = "; Reader role not assigned to subscription $($matchingSubscription.Name)"
-            } else {
-                Write-Host "`n➖ Removing Reader role from subscription..." -ForegroundColor Yellow
-                Remove-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
-                Write-Host "  ✅ Successfully removed Reader role" -ForegroundColor Green
-                $subscriptionResult = "; Successfully removed Reader role from subscription $($matchingSubscription.Name)"
-            }
-        }
-    }
-} catch {
-    Write-Host "  ❌ Error with subscription role assignment: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "  ⚠️  Continuing despite subscription error..." -ForegroundColor Yellow
-    $subscriptionResult = "; Error with subscription role: $($_.Exception.Message)"
 }
 
 # Cleanup

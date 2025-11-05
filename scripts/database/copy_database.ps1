@@ -3,6 +3,7 @@
     [Parameter(Mandatory)] [string]$Destination,
     [Parameter(Mandatory)][string]$SourceNamespace, 
     [Parameter(Mandatory)][string]$DestinationNamespace,
+    [Parameter(Mandatory)][int]$MaxWaitMinutes,
     [switch]$DryRun
 )
 
@@ -117,6 +118,11 @@ function Should-ProcessDatabase {
         return $false
     }
     
+    # Skip copied databases
+    if ($Database.name.Contains("copy")) {
+        return $false
+    }
+
     # Skip landlord service
     if ($Service -eq "landlord") {
         return $false
@@ -175,10 +181,13 @@ function Get-DestinationDatabaseName {
         }
         
         if ($DestinationNamespace -eq "manufacturo") {
-            return $SourceDbNameClean `
-                -replace [regex]::Escape($SourceEnvironment), $DestEnvironment `
-                -replace [regex]::Escape($SourceLocation), $DestLocation `
-                -replace [regex]::Escape($SourceType), $DestType
+            Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Manufacturo namespace is not supported for destination"
+            # return $SourceDbNameClean `
+            #     -replace [regex]::Escape($SourceEnvironment), $DestEnvironment `
+            #     -replace [regex]::Escape($SourceLocation), $DestLocation `
+            #     -replace [regex]::Escape($SourceType), $DestType
         } else {
             return $SourceDbNameClean `
                 -replace [regex]::Escape($SourceEnvironment), "$DestinationNamespace-$DestEnvironment" `
@@ -186,23 +195,26 @@ function Get-DestinationDatabaseName {
                 -replace [regex]::Escape($SourceType), $DestType
         }
     } else {
-        $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
+        Write-Host "  ❌ Namespace $SourceNamespace is not supported. Source Namespace can be manufacturo only!" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "Namespace $SourceNamespace is not supported. Source Namespace can be manufacturo only!"
+        # $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
         
-        if (-not $SourceDbNameClean.Contains($expectedPattern)) {
-            return $null
-        }
+        # if (-not $SourceDbNameClean.Contains($expectedPattern)) {
+        #     return $null
+        # }
         
-        if ($DestinationNamespace -eq "manufacturo") {
-            return $SourceDbNameClean `
-                -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), $DestEnvironment `
-                -replace [regex]::Escape($SourceLocation), $DestLocation `
-                -replace [regex]::Escape($SourceType), $DestType
-        } else {
-            return $SourceDbNameClean `
-                -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), "$DestinationNamespace-$DestEnvironment" `
-                -replace [regex]::Escape($SourceLocation), $DestLocation `
-                -replace [regex]::Escape($SourceType), $DestType
-        }
+        # if ($DestinationNamespace -eq "manufacturo") {
+        #     return $SourceDbNameClean `
+        #         -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), $DestEnvironment `
+        #         -replace [regex]::Escape($SourceLocation), $DestLocation `
+        #         -replace [regex]::Escape($SourceType), $DestType
+        # } else {
+        #     return $SourceDbNameClean `
+        #         -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), "$DestinationNamespace-$DestEnvironment" `
+        #         -replace [regex]::Escape($SourceLocation), $DestLocation `
+        #         -replace [regex]::Escape($SourceType), $DestType
+        # }
     }
 }
 
@@ -216,14 +228,14 @@ function Save-DatabaseTags {
     
     try {
         $existingDb = az sql db show --subscription $SubscriptionId --resource-group $ResourceGroup --server $Server --name $DatabaseName --query "tags" -o json 2>$null | ConvertFrom-Json
+        $tagList = @()
         
         if ($existingDb -and $existingDb.PSObject.Properties.Count -gt 0) {
-            $tagList = @()
             foreach ($tag in $existingDb.PSObject.Properties) {
                 $tagList += "$($tag.Name)=$($tag.Value)"
             }
             Write-Host "  📋 Saved tags from $DatabaseName : $($tagList -join ', ')" -ForegroundColor Gray
-            return $existingDb
+            return $tagList
         } else {
             Write-Host "  ⚠️  No existing tags found on $DatabaseName" -ForegroundColor Yellow
             return $null
@@ -307,10 +319,15 @@ function Test-ElasticPoolCapacity {
     $totalSourceSizeGB = 0
     
     foreach ($dbName in $SourceDatabases) {
-        $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
-        if ($size -gt 0) {
-            Write-Host "     • $dbName : $size GB" -ForegroundColor Gray
-            $totalSourceSizeGB += $size
+        try {   
+            $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
+            if ($size -gt 0) {
+                Write-Host "     • $dbName : $size GB" -ForegroundColor Gray
+                $totalSourceSizeGB += $size
+            }
+        }
+        catch {
+            Write-Host "     • $dbName : Error getting size: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
     
@@ -324,22 +341,22 @@ function Test-ElasticPoolCapacity {
     
     foreach ($dbName in $DestinationDatabases) {
         # Check if database exists first
-        $checkQuery = "SELECT name FROM sys.databases WHERE name = '$dbName'"
+        # $checkQuery = "SELECT name FROM sys.databases WHERE name = '$dbName'"
         try {
-            $exists = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Query $checkQuery -ConnectionTimeout 15 -QueryTimeout 30
-            if ($exists) {
-                $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
-                if ($size -gt 0) {
-                    Write-Host "     • $dbName : $size GB (will be freed)" -ForegroundColor Gray
-                    $totalDestSizeGB += $size
-                }
+            # $exists = Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $ServerFQDN -Query $checkQuery -ConnectionTimeout 15 -QueryTimeout 30
+            # if ($exists) {
+            $size = Get-DatabaseSizeGB -ServerFQDN $ServerFQDN -DatabaseName $dbName -AccessToken $AccessToken
+            if ($size -gt 0) {
+                Write-Host "     • $dbName : $size GB (will be freed)" -ForegroundColor Gray
+                $totalDestSizeGB += $size
             }
-            else {
-                Write-Host "     • $dbName : Does not exist yet (0 GB)" -ForegroundColor Gray
-            }
+            # }
+            # else {
+            #     Write-Host "     • $dbName : Does not exist yet (0 GB)" -ForegroundColor Gray
+            # }
         }
         catch {
-            Write-Host "     • $dbName : Does not exist yet (0 GB)" -ForegroundColor Gray
+            Write-Host "     • $dbName : Error getting size: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
     
@@ -371,8 +388,11 @@ function Test-ElasticPoolCapacity {
         
     }
     catch {
-        Write-Host "  ⚠️  Warning: Could not calculate current pool usage accurately" -ForegroundColor Yellow
-        $currentUsageGB = 0
+        Write-Host "  ❌ Error: Could not calculate current pool usage accurately" -ForegroundColor Red
+        Write-Host "     Error: $($_.Exception.Message)" -ForegroundColor Red
+        # $currentUsageGB = 0
+        $global:LASTEXITCODE = 1
+        throw "Error: Could not calculate current pool usage accurately: $($_.Exception.Message)"
     }
     
     # Calculate what will happen after the operation
@@ -463,7 +483,7 @@ function Copy-SingleDatabase {
         [string]$DestElasticPool,
         [string]$AccessToken,
         [string]$ResourceUrl,
-        [object]$SavedTags,
+        [int]$MaxWaitMinutes,
         [object]$ServerSecondary = $null,
         [string]$DestServerSecondary = $null,
         [string]$DestResourceGroupSecondary = $null,
@@ -495,7 +515,7 @@ function Copy-SingleDatabase {
     }
     
     # Delete existing Destination database (secondary first, then primary)
-    if ($ServerSecondary -and $DestServerSecondary) {
+    if ($DestServerSecondary -and $DestResourceGroupSecondary -and $DestSubscriptionIdSecondary) {
         Write-Host "  🗑️  Deleting existing database from secondary server: $DestinationDatabaseName" -ForegroundColor Yellow
         try {
             $deleteResultSecondary = az sql db delete `
@@ -530,19 +550,24 @@ function Copy-SingleDatabase {
         try {
             if ($retry -gt 1) {
                 Write-Host "  🔄 Retry attempt $retry of $maxRetries" -ForegroundColor Yellow
-                # Refresh token before retry
-                Write-Host "  🔑 Refreshing access token..." -ForegroundColor Gray
-                $AccessToken = (az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv)
-                Start-Sleep -Seconds $retryDelay
+                # # Refresh token before retry
+                # Write-Host "  🔑 Refreshing access token..." -ForegroundColor Gray
+                # $AccessToken = (az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv)
+                # Start-Sleep -Seconds $retryDelay
             }
             
+            Write-Host "  🔑 Refreshing access token..." -ForegroundColor Gray
+            $AccessToken = (az account get-access-token --resource "$ResourceUrl" --query accessToken -o tsv)
+            Start-Sleep -Seconds $retryDelay
+
             Invoke-Sqlcmd -AccessToken $AccessToken -ServerInstance $DestServerFQDN -Query $sqlCommand -ConnectionTimeout 30 -QueryTimeout 600
             Write-Host "  ✅ Copy command executed successfully (attempt $retry)" -ForegroundColor Green
             $copyInitiated = $true
             Start-Sleep -Seconds 10
             break
         
-    } catch {
+        } catch {
+
             Write-Host "  ❌ Attempt $retry failed: $($_.Exception.Message)" -ForegroundColor Red
             
             if ($retry -eq $maxRetries) {
@@ -571,7 +596,7 @@ function Copy-SingleDatabase {
     # Wait for database to come online
     Write-Host "  ⏳ Waiting for database to come online..." -ForegroundColor Yellow
     $startTime = Get-Date
-    $maxWaitMinutes = 90  # Increased to 90 minutes for large database copies
+    $maxWaitMinutes = $MaxWaitMinutes + 30 # Increased 30 minutes for large database copies
     $maxIterations = $maxWaitMinutes * 2  # Check every 30 seconds
     
     for ($i = 1; $i -le $maxIterations; $i++) {
@@ -606,10 +631,10 @@ function Copy-SingleDatabase {
             if ($result.state_desc -eq "ONLINE") {
                 Write-Host "  ✅ Database is ONLINE (took ${elapsedMinutes} minutes)" -ForegroundColor Green
                 
-                # Tags will be applied after all databases are copied (in TAG VERIFICATION phase)
-                if ($SavedTags) {
-                    Write-Host "  📋 Tags will be applied after all copy operations complete" -ForegroundColor Gray
-                }
+                # # Tags will be applied after all databases are copied (in TAG VERIFICATION phase)
+                # if ($SavedTags) {
+                #     Write-Host "  📋 Tags will be applied after all copy operations complete" -ForegroundColor Gray
+                # }
                 
                 return @{ 
                     Database = $DestinationDatabaseName
@@ -672,9 +697,9 @@ $graph_query = "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No source SQL server found for environment: $Source_lower" -ForegroundColor Red
+    Write-Host "❌ No source SQL server found for tags.Environment: $Source_lower and tags.Type: Primary" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No source SQL server found for environment: $Source_lower"
+    throw "No source SQL server found for tags.Environment: $Source_lower and tags.Type: Primary"
 }
 
 $Source_subscription = $server[0].subscriptionId
@@ -683,10 +708,17 @@ $Source_rg = $server[0].resourceGroup
 $Source_fqdn = $server[0].fqdn
 $Source_server_fqdn = $server[0].fqdn
 
+# Parse server name components
+$Source_split       = $Source_server -split "-"
+$Source_product     = $Source_split[1]
+$Source_location    = $Source_split[-1]
+$Source_type        = $Source_split[2]
+$Source_environment = $Source_split[3]
+
 if ($Source_fqdn -match "database.windows.net") {
-  $resourceUrl = "https://database.windows.net"
-} else {
-  $resourceUrl = "https://database.usgovcloudapi.net"
+    $resourceUrl = "https://database.windows.net"
+  } else {
+    $resourceUrl = "https://database.usgovcloudapi.net"
 }
 
 # Query for Destination SQL server
@@ -699,9 +731,9 @@ $graph_query = "
 $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No Destination SQL server found for environment: $Destination_lower" -ForegroundColor Red
+    Write-Host "❌ No Destination SQL server found for tags.Environment: $Destination_lower and tags.Type: Primary" -ForegroundColor Red
     $global:LASTEXITCODE = 1
-    throw "No Destination SQL server found for environment: $Destination_lower"
+    throw "No Destination SQL server found for tags.Environment: $Destination_lower and tags.Type: Primary"
 }
 
 $dest_subscription = $server[0].subscriptionId
@@ -725,7 +757,7 @@ Write-Host "  📋 Found $($pools_array.Count) elastic pool(s) on server" -Foreg
 
 # Try to find pool with "-test-" that doesn't contain "replica"
 $test_pool = $pools_array | Where-Object { 
-    $_ -match "-test-" -and $_ -notmatch "replica" 
+    $_ -match "$SourceProduct-$SourceType-test-$SourceEnvironment-$SourceLocation" -and $_ -notmatch "replica" 
 } | Select-Object -First 1
 
 if (-not [string]::IsNullOrWhiteSpace($test_pool)) {
@@ -733,9 +765,16 @@ if (-not [string]::IsNullOrWhiteSpace($test_pool)) {
     Write-Host "  ✅ Selected test elastic pool: $dest_elasticpool" -ForegroundColor Green
 } else {
     # Fallback: Use first available pool (original logic)
+    Write-Host "  📋 No test elastic pool found (with 'pool-$SourceProduct-$SourceType-test-$SourceEnvironment-$SourceLocation' and without 'replica')" -ForegroundColor Gray
+    Write-Host " Fallback to prod elastic pool" -ForegroundColor Gray
     $dest_elasticpool = $pools_array[0]
-    Write-Host "  ⚠️  No test elastic pool found (with '-test-' and without 'replica')" -ForegroundColor Yellow
-    Write-Host "  ↪️  Falling back to first available pool: $dest_elasticpool" -ForegroundColor Yellow
+    if ($dest_elasticpool -match "pool-$SourceProduct-$SourceType-$SourceEnvironment-$SourceLocation") {
+        Write-Host "  ✅ Selected prod elastic pool: $dest_elasticpool" -ForegroundColor Green
+    } else {
+        Write-Host "  ❌ No prod elastic pool found (with 'pool-$SourceProduct-$SourceType-$SourceEnvironment-$SourceLocation')" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "No prod elastic pool found (with 'pool-$SourceProduct-$SourceType-$SourceEnvironment-$SourceLocation')"
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($dest_elasticpool)) {
@@ -752,10 +791,7 @@ $graph_query_secondary = "
   | where tags.Environment == '$Destination_lower' and tags.Type == 'Secondary'
   | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
 "
-
 $server_secondary = az graph query -q $graph_query_secondary --query "data" --first 1000 2>&1 | ConvertFrom-Json
-
-
 $dest_subscription_secondary = $null
 $dest_server_secondary = $null
 $dest_rg_secondary = $null
@@ -802,14 +838,8 @@ if ($server_secondary) {
 }
 Write-Host ""
 
-# Parse server name components
-$Source_split = $Source_server -split "-"
-$Source_product     = $Source_split[1]
-$Source_location    = $Source_split[-1]
-$Source_type        = $Source_split[2]
-$Source_environment = $Source_split[3]
-
-$dest_split = $dest_server -split "-"
+$dest_split       = $dest_server -split "-"
+$dest_product     = $dest_split[1]
 $dest_location    = $dest_split[-1]
 $dest_type        = $dest_split[2]
 $dest_environment = $dest_split[3]
@@ -915,24 +945,26 @@ Write-Host "Found $($dbs.Count) databases on source server" -ForegroundColor Gra
 Write-Host ""
 
 $databasesToProcess = @()
-
-    foreach ($db in $dbs) {
+# Restored dbs
+foreach ($db in $dbs) {
     $service = Get-ServiceFromDatabase -Database $db -AllDatabases $dbs
     
     Write-Host "  📋 Analyzing: $($db.name) (Service: $service)" -ForegroundColor Gray
     
     if (-not (Should-ProcessDatabase -Database $db -Service $service -IsDryRun $DryRun -HasRestoredDatabases $hasRestoredDatabases)) {
             if ($db.name.Contains("master")) {
-            Write-Host "    ⏭️  Skipping: System database" -ForegroundColor Yellow
+            Write-Host "    ⏭️  Skipping... System database" -ForegroundColor Yellow
+            } elseif ($db.name.Contains("copy")) {
+            Write-Host "    ⏭️  Skipping... Copied database" -ForegroundColor Yellow
             } elseif ($service -eq "landlord") {
-            Write-Host "    ⏭️  Skipping: Landlord service" -ForegroundColor Yellow
+            Write-Host "    ⏭️  Skipping... Landlord service" -ForegroundColor Yellow
             } else {
                 if ($DryRun -and $hasRestoredDatabases) {
-                    Write-Host "    ⏭️  Skipping: Non-restored database (restored versions available)" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Non-restored database (restored versions available)" -ForegroundColor Yellow
                 } elseif ($DryRun -and -not $hasRestoredDatabases) {
-                    Write-Host "    ⏭️  Skipping: Restored database (evaluating regular databases)" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Restored database (evaluating regular databases)" -ForegroundColor Yellow
                 } else {
-                    Write-Host "    ⏭️  Skipping: Non-restored database" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Non-restored database" -ForegroundColor Yellow
                 }
             }
             continue
@@ -961,12 +993,20 @@ $databasesToProcess = @()
             -SubscriptionId $dest_subscription `
             -DatabaseName $dest_dbName
         
+        if ($savedTags) {
+            Write-Host "    ✅ Saved tags from $dest_dbName : $($savedTags -join ', ')" -ForegroundColor Green
+        }else {
+            Write-Host "    ⚠️  No existing tags found on $dest_dbName" -ForegroundColor Yellow
+            $global:LASTEXITCODE = 1
+            throw "No existing tags found on $dest_dbName"
+        }
+
         $databasesToProcess += @{
             SourceName = $db.name
             DestinationName = $dest_dbName
             SavedTags = $savedTags
         }
-            } else {
+    } else {
         Write-Host "    ⏭️  Skipping: Pattern mismatch" -ForegroundColor Yellow
     }
 }
@@ -995,35 +1035,37 @@ if ($databasesToProcess.Count -gt 0) {
         $DestinationDatabaseNames += $dbInfo.DestinationName
     }
     
-    # Determine which server to check (source for same-server copy, Destination for cross-server copy)
-    $sameServer = ($Source_server -eq $dest_server)
-    if ($sameServer) {
-        # Same server copy - check source server (which is also the Destination)
-        $storageCheckPassed = Test-ElasticPoolCapacity `
-            -Server $Source_server `
-            -ResourceGroup $Source_rg `
-            -SubscriptionId $Source_subscription `
-            -ElasticPoolName $dest_elasticpool `
-            -ServerFQDN $Source_server_fqdn `
-            -AccessToken $AccessToken `
-            -SourceDatabases $SourceDatabaseNames `
-            -DestinationDatabases $DestinationDatabaseNames `
-            -IsDryRun $DryRun
-    }
-    else {
-        # Cross-server copy - check Destination server
-        $storageCheckPassed = Test-ElasticPoolCapacity `
-            -Server $dest_server `
-            -ResourceGroup $dest_rg `
-            -SubscriptionId $dest_subscription `
-            -ElasticPoolName $dest_elasticpool `
-            -ServerFQDN $dest_server_fqdn `
-            -AccessToken $AccessToken `
-            -SourceDatabases $SourceDatabaseNames `
-            -DestinationDatabases $DestinationDatabaseNames `
-            -IsDryRun $DryRun
-    }
+    # # Determine which server to check (source for same-server copy, Destination for cross-server copy)
+    # $sameServer = ($Source_server -eq $dest_server)
+    # if ($sameServer) {
+    # Same server copy - check source server (which is also the Destination)
+
+    # }
+    # else {
+    #     # Cross-server copy - check Destination server
+    #     $storageCheckPassed = Test-ElasticPoolCapacity `
+    #         -Server $dest_server `
+    #         -ResourceGroup $dest_rg `
+    #         -SubscriptionId $dest_subscription `
+    #         -ElasticPoolName $dest_elasticpool `
+    #         -ServerFQDN $dest_server_fqdn `
+    #         -AccessToken $AccessToken `
+    #         -SourceDatabases $SourceDatabaseNames `
+    #         -DestinationDatabases $DestinationDatabaseNames `
+    #         -IsDryRun $DryRun
+    # }
     
+    $storageCheckPassed = Test-ElasticPoolCapacity `
+        -Server $Source_server `
+        -ResourceGroup $Source_rg `
+        -SubscriptionId $Source_subscription `
+        -ElasticPoolName $dest_elasticpool `
+        -ServerFQDN $Source_server_fqdn `
+        -AccessToken $AccessToken `
+        -SourceDatabases $SourceDatabaseNames `
+        -DestinationDatabases $DestinationDatabaseNames `
+        -IsDryRun $DryRun
+
     if (-not $storageCheckPassed) {
         Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
         Write-Host "❌ STORAGE VALIDATION FAILED" -ForegroundColor Red
@@ -1048,6 +1090,15 @@ if ($databasesToProcess.Count -gt 0) {
     
     Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
     Write-Host ""
+}else {
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "❌ NO DATABASES TO PROCESS" -ForegroundColor Red
+    Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "🔍 No databases to process" -ForegroundColor Yellow
+    Write-Host ""
+    $global:LASTEXITCODE = 1
+    throw "No databases to process"
 }
 
 # ============================================================================
@@ -1055,21 +1106,22 @@ if ($databasesToProcess.Count -gt 0) {
 # ============================================================================
 
 if ($DryRun) {
-    # Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
-    # Write-Host ""
-    # foreach ($dbInfo in $databasesToProcess) {
-    #     Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
-    #     if ($dbInfo.SavedTags) {
-    #             $tagList = @()
-    #         foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
-    #                 $tagList += "$($tag.Name)=$($tag.Value)"
-    #             }
-    #         Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
-    #     }
-    # }
-    # Write-Host ""
-    # Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
-    # Write-Host ""
+    Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
+    Write-Host "TEST SAVING TAGS"
+    Write-Host ""
+    foreach ($dbInfo in $databasesToProcess) {
+        Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
+        if ($dbInfo.SavedTags) {
+                $tagList = @()
+            foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
+                    $tagList += "$($tag.Name)=$($tag.Value)"
+                }
+            Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
+        }
+    }
+    Write-Host ""
+    Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
+    Write-Host ""
     
     # Check if there were any validation failures during dry run
     if ($script:DryRunHasFailures) {
@@ -1108,6 +1160,7 @@ $failCount = 0
 
 foreach ($dbInfo in $databasesToProcess) {
     $result = Copy-SingleDatabase `
+        -MaxWaitMinutes $MaxWaitMinutes `
         -SourceDatabaseName $dbInfo.SourceName `
         -DestinationDatabaseName $dbInfo.DestinationName `
         -SourceServer $Source_server `
@@ -1118,7 +1171,6 @@ foreach ($dbInfo in $databasesToProcess) {
         -DestElasticPool $dest_elasticpool `
         -AccessToken $AccessToken `
         -ResourceUrl $resourceUrl `
-        -SavedTags $dbInfo.SavedTags `
         -ServerSecondary $server_secondary `
         -DestServerSecondary $dest_server_secondary `
         -DestResourceGroupSecondary $dest_rg_secondary `
@@ -1189,9 +1241,12 @@ Write-Host ""
 
 # Determine required tags based on namespace
 if ($DestinationNamespace -eq "manufacturo") {
-    $requiredTags = @("Environment", "Owner", "Service", "Type")
-    Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
-    Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
+    Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
+    throw "Manufacturo namespace is not supported for destination"
+    # $requiredTags = @("Environment", "Owner", "Service", "Type")
+    # Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
+    # Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
 } else {
     $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
     Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray

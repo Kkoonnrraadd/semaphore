@@ -417,18 +417,22 @@ if ($DryRun -and $Revert) {
   # REVERT MODE: Remove SQL user configurations
   if ($Revert) {
     # Construct the full environment name to revert
-    $FullEnvironmentToRevert = if ($SourceNamespace -eq "manufacturo") {
-        # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
-        $Source
-    } else {
-        "$Source-$SourceNamespace"
-    }
+    # $Source = if ($SourceNamespace -eq "manufacturo") {
+    #     # Special handling for "manufacturo" - it doesn't include multitenant in the environment name
+    #     $Source
+    # } else {
+    #     "$Source-$SourceNamespace"
+    # }
     
     # For revert mode, construct static replica user name based on the environment being reverted
     # This ensures we remove the old configuration, not the new one being configured
     $revertStaticReplicaUserName = "${baseUserName}-replica"
     if ($SourceNamespace -ne "manufacturo") {
         $revertStaticReplicaUserName = "${MultitenantToRevert}-${revertStaticReplicaUserName}"
+    }else{
+        Write-Host "⚠️ WARNING: SourceNamespace must be manufacturo!" -ForegroundColor Yellow
+        $global:LASTEXITCODE = 1
+        throw "SourceNamespace must be manufacturo!"
     }
 
     if ($DryRun) {
@@ -438,26 +442,26 @@ if ($DryRun -and $Revert) {
       # Remove AAD group users (DBContributors and DBReaders)
       $query = "
         -- Remove users from roles first
-        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$FullEnvironmentToRevert-DBContributors')
+        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$Source-DBContributors')
         BEGIN
-          EXEC sp_droprolemember [db_executor], [$FullEnvironmentToRevert-DBContributors];
-          EXEC sp_droprolemember [db_datareader], [$FullEnvironmentToRevert-DBContributors];
-          EXEC sp_droprolemember [db_datawriter], [$FullEnvironmentToRevert-DBContributors];
-          EXEC sp_droprolemember [db_owner], [$FullEnvironmentToRevert-DBContributors];
+          EXEC sp_droprolemember [db_executor], [$Source-DBContributors];
+          EXEC sp_droprolemember [db_datareader], [$Source-DBContributors];
+          EXEC sp_droprolemember [db_datawriter], [$Source-DBContributors];
+          EXEC sp_droprolemember [db_owner], [$Source-DBContributors];
         END
 
-        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$FullEnvironmentToRevert-DBReaders')
+        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$Source-DBReaders')
         BEGIN
-          EXEC sp_droprolemember [db_executor], [$FullEnvironmentToRevert-DBReaders];
-          EXEC sp_droprolemember [db_datareader], [$FullEnvironmentToRevert-DBReaders];
+          EXEC sp_droprolemember [db_executor], [$Source-DBReaders];
+          EXEC sp_droprolemember [db_datareader], [$Source-DBReaders];
         END
 
         -- Drop users
-        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$FullEnvironmentToRevert-DBContributors')
-          DROP USER [$FullEnvironmentToRevert-DBContributors];
+        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$Source-DBContributors')
+          DROP USER [$Source-DBContributors];
 
-        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$FullEnvironmentToRevert-DBReaders')
-          DROP USER [$FullEnvironmentToRevert-DBReaders];
+        IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'X' and name = '$Source-DBReaders')
+          DROP USER [$Source-DBReaders];
 
         -- Remove replica users
         IF EXISTS (SELECT * FROM sys.database_principals WHERE type = 'S' and name = 'replicaReader')

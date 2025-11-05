@@ -96,7 +96,7 @@ function Should-RestoreDatabase {
     )
     
     # Skip if contains "Copy"
-    if ($DatabaseName.Contains("Copy")) {
+    if ($DatabaseName.Contains("copy")) {
         return $false
     }
     

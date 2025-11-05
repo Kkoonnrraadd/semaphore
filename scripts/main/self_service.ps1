@@ -327,7 +327,7 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would copy database from: $Source / namespace: $SourceNamespace to: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
     }
     $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-    & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
+    & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
     
     # Step 5: Cleanup Environment Configuration
     Write-Host "`n🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan

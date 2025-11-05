@@ -10,6 +10,38 @@ param (
 $script:DryRunHasFailures = $false
 $script:DryRunFailureReasons = @()
 
+function Get-ServiceFromDatabase {
+    param (
+        [object]$Database
+    )
+    return $Database.tags.Service
+}
+
+function Test-DeleteDatabaseMatchesPattern {
+    param (
+        [string]$DatabaseName,
+        [string]$Service,
+        [string]$SourceNamespace,
+        [string]$SourceProduct,
+        [string]$SourceType,
+        [string]$SourceEnvironment,
+        [string]$SourceLocation
+    )
+    
+    if ($SourceNamespace -eq "manufacturo") {
+        $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceEnvironment-$SourceLocation-restored"
+        if ($DatabaseName.Contains($expectedPattern)) {
+            return $DatabaseName
+        } else {
+            return $null
+        }
+    } else {
+        Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+        $global:LASTEXITCODE = 1
+        throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+    }
+}
+
 if ($DryRun) {
     Write-Host "`n🔍 DRY RUN MODE - Delete Restored Databases Script"
     Write-Host "================================================="
@@ -72,6 +104,13 @@ $Source_subscription = $recources[0].subscriptionId
 $Source_server = $recources[0].name
 $Source_rg = $recources[0].resourceGroup
 
+# Parse server name components
+$Source_split = $Source_server -split "-"
+$Source_product = $Source_split[1]
+$Source_location = $Source_split[-1]
+$Source_type = $Source_split[2]
+$Source_environment = $Source_split[3]
+
 ## Get list of DBs from Source SQL Server
 $dbs = az sql db list --subscription $Source_subscription --resource-group $Source_rg --server  $Source_server | ConvertFrom-Json
 
@@ -79,25 +118,60 @@ $dbs = az sql db list --subscription $Source_subscription --resource-group $Sour
 Write-Host "Waiting for any pending restores to complete..."
 Start-Sleep -Seconds 10
 
+$databasesToDelete = @()
+$restored_dbs_to_delete = @()
+
 # Get fresh list of databases to ensure we catch all restored databases
 $dbs = az sql db list --subscription $Source_subscription --resource-group $Source_rg --server  $Source_server | ConvertFrom-Json
 
-$restored_dbs_to_delete = $dbs | Where-Object { $_.name.Contains("restored") -and !$_.name.Contains("master") }
+$restored_dbs_to_delete = $dbs | Where-Object { $_.name.Contains("restored") }
+
+if ($restored_dbs_to_delete.Count -gt 0) {
+    Write-Host "Found $($restored_dbs_to_delete.Count) restored databases to delete:"
+    $restored_dbs_to_delete | ForEach-Object { Write-Host "  • $($_.name)" }
+} else {
+    Write-Host "No restored databases found to delete."
+}
+
+foreach ($db in $restored_dbs_to_delete) {
+
+    $service = Get-ServiceFromDatabase -Database $db
+
+    Write-Host "  📋 Found database: $($db.name) with tag Service: $service"
+    
+    # Check if database matches expected pattern
+    $matchesPattern = Test-DeleteDatabaseMatchesPattern `
+        -DatabaseName $db.name `
+        -Service $service `
+        -SourceNamespace $SourceNamespace `
+        -SourceProduct $Source_product `
+        -SourceType $Source_type `
+        -SourceEnvironment $Source_environment `
+        -SourceLocation $Source_location
+
+    if ($matchesPattern) {
+        Write-Host "    ✅ Will delete: $($db.name) (matches expected pattern $($matchesPattern))"
+        $databasesToDelete += $db
+    } else {
+        Write-Host "    ⏭️  Skipping: Pattern mismatch $($db.name) does not match expected pattern $($matchesPattern)"
+    }
+}
+
 
 if ($DryRun) {
-    if ($restored_dbs_to_delete.Count -gt 0) {
+    if ($databasesToDelete.Count -gt 0) {
         Write-Host "🔍 DRY RUN: Found $($restored_dbs_to_delete.Count) restored databases that would be deleted:"
-        $restored_dbs_to_delete | ForEach-Object { Write-Host "  • $($_.name)" }
+        $databasesToDelete | ForEach-Object { Write-Host "  • $($_.name)" }
         Write-Host "🔍 DRY RUN: Would delete these databases to free up storage space"
     } else {
         Write-Host "🔍 DRY RUN: No restored databases found to delete."
     }
 } else {
-    if ($restored_dbs_to_delete.Count -gt 0) {
-        Write-Host "Found $($restored_dbs_to_delete.Count) restored databases to delete:"
-        $restored_dbs_to_delete | ForEach-Object { Write-Host "  • $($_.name)" }
+    if ($databasesToDelete.Count -gt 0) {
+        Write-Host "Found $($databasesToDelete.Count) restored databases to delete:"
+        $databasesToDelete | ForEach-Object { Write-Host "  • $($_.name)" }
         
-        $restored_dbs_to_delete | ForEach-Object -ThrottleLimit 10 -Parallel {
+        $databasesToDelete | ForEach-Object -ThrottleLimit 10 -Parallel {
            $Source_server = $using:source_server
            $Source_rg = $using:source_rg
            $Source_subscription = $using:source_subscription

@@ -349,3 +349,102 @@ try {
     Write-Error $errorMessage
     return $operationResult
 }
+
+
+#### Assign role to subscription useing function app
+# ============================================================================
+# ADDITIONAL: Assign Reader Role to Subscription
+# ============================================================================
+
+# Authenticate to Azure Resource Manager
+Write-Host "`n📋 Authenticating to Azure Resource Manager..." -ForegroundColor Yellow
+try {
+    Disconnect-AzAccount -ErrorAction SilentlyContinue | Out-Null
+    $azCredential = New-Object System.Management.Automation.PSCredential($appId, $securePassword)
+    Connect-AzAccount -ServicePrincipal -Credential $azCredential -Tenant $tenantId -Environment AzureUSGovernment | Out-Null
+    Write-Host "  ✅ Authenticated to Azure Resource Manager" -ForegroundColor Green
+} catch {
+    Write-Host "  ❌ Azure authentication failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  ⚠️  Skipping subscription role assignment" -ForegroundColor Yellow
+    # Don't fail the entire operation, just skip this part
+    Write-Host "`n🎉 Group membership operation completed successfully!" -ForegroundColor Green
+    Disconnect-MgGraph
+    Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+        StatusCode = [HttpStatusCode]::OK
+        Body = $result
+    })
+    return
+}
+
+# List all subscriptions and find matching subscription
+Write-Host "`n🔍 Listing subscriptions and searching for environment: $Environment" -ForegroundColor Yellow
+$subscriptionResult = ""
+try {
+    $allSubscriptions = Get-AzSubscription
+    Write-Host "  📋 Found $($allSubscriptions.Count) total subscriptions" -ForegroundColor Gray
+    
+    # Find subscription matching the environment name
+    $matchingSubscription = $allSubscriptions | Where-Object { $_.Name -like "*$Environment*" } | Select-Object -First 1
+    
+    if (-not $matchingSubscription) {
+        Write-Host "  ❌ No subscription found matching environment: $Environment" -ForegroundColor Red
+        Write-Host "`n  Available subscriptions:" -ForegroundColor Gray
+        $allSubscriptions | ForEach-Object {
+            Write-Host "    - $($_.Name) (ID: $($_.Id))" -ForegroundColor Gray
+        }
+        Write-Host "  ⚠️  Skipping subscription role assignment" -ForegroundColor Yellow
+        $subscriptionResult = "; No matching subscription found for environment $Environment"
+    } else {
+        Write-Host "  ✅ Found matching subscription:" -ForegroundColor Green
+        Write-Host "     Name: $($matchingSubscription.Name)" -ForegroundColor White
+        Write-Host "     ID: $($matchingSubscription.Id)" -ForegroundColor White
+        Write-Host "     State: $($matchingSubscription.State)" -ForegroundColor White
+        
+        $subscriptionId = $matchingSubscription.Id
+        
+        # Set context to the target subscription
+        Write-Host "`n⚙️  Setting subscription context..." -ForegroundColor Yellow
+        Set-AzContext -SubscriptionId $subscriptionId | Out-Null
+        Write-Host "  ✅ Subscription context set" -ForegroundColor Green
+        
+        # Check current role assignments
+        Write-Host "`n🔍 Checking current subscription role assignments..." -ForegroundColor Yellow
+        $scope = "/subscriptions/$subscriptionId"
+        $currentAssignments = Get-AzRoleAssignment -ObjectId $sp.Id -Scope $scope -ErrorAction SilentlyContinue
+        $readerRole = $currentAssignments | Where-Object { $_.RoleDefinitionName -eq "Reader" }
+        
+        if ($readerRole) {
+            Write-Host "  ✅ Reader role is currently assigned" -ForegroundColor Green
+        } else {
+            Write-Host "  ℹ️  Reader role is not currently assigned" -ForegroundColor Gray
+        }
+        
+        # Perform subscription role action
+        if ($Action -eq "Grant") {
+            if ($readerRole) {
+                Write-Host "`n⚠️  Reader role already assigned - skipping" -ForegroundColor Yellow
+                $subscriptionResult = "; Reader role already assigned to subscription $($matchingSubscription.Name)"
+            } else {
+                Write-Host "`n➕ Assigning Reader role to subscription..." -ForegroundColor Yellow
+                New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
+                Write-Host "  ✅ Successfully assigned Reader role" -ForegroundColor Green
+                $subscriptionResult = "; Successfully assigned Reader role to subscription $($matchingSubscription.Name)"
+            }
+        } elseif ($Action -eq "Remove") {
+            if (-not $readerRole) {
+                Write-Host "`n⚠️  Reader role not assigned - skipping" -ForegroundColor Yellow
+                $subscriptionResult = "; Reader role not assigned to subscription $($matchingSubscription.Name)"
+            } else {
+                Write-Host "`n➖ Removing Reader role from subscription..." -ForegroundColor Yellow
+                Remove-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
+                Write-Host "  ✅ Successfully removed Reader role" -ForegroundColor Green
+                $subscriptionResult = "; Successfully removed Reader role from subscription $($matchingSubscription.Name)"
+            }
+        }
+    }
+} catch {
+    Write-Host "  ❌ Error with subscription role assignment: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  ⚠️  Continuing despite subscription error..." -ForegroundColor Yellow
+    $subscriptionResult = "; Error with subscription role: $($_.Exception.Message)"
+}
+

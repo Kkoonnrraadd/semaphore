@@ -329,6 +329,26 @@ function Invoke-Migration {
     $scriptPath = Get-ScriptPath "database/copy_database.ps1"
     & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
     
+    Write-Host "`n🔄 STEP 4.4: REMOVE PROD DB PERMISSIONS (SECURITY)" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would remove permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME from production databases" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would wait $WaitForPropagation seconds for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would timeout after $TimeoutSeconds seconds" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
+    } 
+    Write-AutomationLog "🔐 Starting permission removal process from production databases..." "INFO"
+    
+    # Call the dedicated permission management script
+    $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+    $permissionResult = & $permissionScript -Action "ProdSecurity" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
+
+    if (-not $permissionResult.Success) {
+        Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions from production databases" "ERROR"
+        Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+        throw "Permission removal from production databases failed: $($permissionResult.Error)"
+    }
+    Write-AutomationLog "✅ Permissions removed successfully from production databases" "SUCCESS"
+
     # Step 5: Cleanup Environment Configuration
     Write-Host "`n🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
     if ($DryRun) {

@@ -73,11 +73,6 @@ $dest_product     = $dest_split[1]
 $dest_location    = $dest_split[-1]
 $dest_type        = $dest_split[2]
 $dest_environment = $dest_split[3]
-# Write-Host "Parsed from resource group '$dest_rg':" -ForegroundColor Cyan
-# Write-Host "  - Product: $dest_product" -ForegroundColor Gray
-# Write-Host "  - Type: $dest_type" -ForegroundColor Gray
-# Write-Host "  - Environment: $dest_environment" -ForegroundColor Gray
-# Write-Host "  - Location: $dest_location" -ForegroundColor Gray
 
 
 # ═══════════════════════════════════════════════════════════════════════════

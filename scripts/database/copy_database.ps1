@@ -170,22 +170,14 @@ function Get-DestinationDatabaseName {
         [string]$DestLocation
     )
     
-    Write-Host "SourceDbNameClean: $SourceDatabaseName" -ForegroundColor Gray
     # Remove -restored suffix for pattern matching
     $SourceDbNameClean = $SourceDatabaseName -replace "-restored$", ""
     
-    Write-Host "SourceDbNameClean: $SourceDbNameClean" -ForegroundColor Gray
-
-
     if ($SourceNamespace -eq "manufacturo") {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceEnvironment-$SourceLocation"
-        Write-Host "ExpectedPattern: $expectedPattern" -ForegroundColor Gray
 
         if (-not $SourceDbNameClean.Contains($expectedPattern)) {
-            Write-Host "SourceDbNameClean: $SourceDbNameClean" -ForegroundColor Gray
-            Write-Host "ExpectedPattern: $expectedPattern" -ForegroundColor Gray
             return $null
-            Write-Host "SourceDbNameClean does not contain expected pattern" -ForegroundColor Red
         }
         Write-Host "SourceDbNameClean $SourceDbNameClean contains expected pattern $expectedPattern" -ForegroundColor Green
         

@@ -700,13 +700,13 @@ foreach ($db in $dbs) {
     
     if (-not (Should-RestoreDatabase -DatabaseName $db.name)) {
         if ($db.name.Contains("master")) {
-            Write-Host "    ⏭️  Skipping... Master database (master)"
+            Write-Host "    ⏭️  Skipping... Master database (master)`n"
         } elseif ($db.name.Contains("copy")) {
-            Write-Host "    ⏭️  Skipping... Copied database (copy)"
+            Write-Host "    ⏭️  Skipping... Copied database (copy)`n"
         } elseif ($db.name.Contains("restored")) {
-            Write-Host "    ⏭️  Skipping... Already restored (restored)"
+            Write-Host "    ⏭️  Skipping... Already restored (restored)`n"
         } elseif ($db.name.Contains("landlord")) {
-            Write-Host "    ⏭️  Skipping... Landlord service (landlord)"
+            Write-Host "    ⏭️  Skipping... Landlord service (landlord)`n"
         }
         continue
     }
@@ -722,10 +722,10 @@ foreach ($db in $dbs) {
         -SourceLocation $Source_location
     
     if ($matchesPattern) {
-        Write-Host "    ✅ Will restore to: $($db.name)-restored (matches expected pattern $($matchesPattern))"
+        Write-Host "    ✅ Will restore to: $($db.name)-restored (matches expected pattern $($matchesPattern))`n"
         $databasesToRestore += $db
     } else {
-        Write-Host "    ⏭️  Skipping: Pattern mismatch $($db.name) does not match expected pattern $($matchesPattern)"
+        Write-Host "    ⏭️  Skipping: Pattern mismatch $($db.name) does not match expected pattern $($matchesPattern)`n"
     }
 }
 
@@ -734,7 +734,7 @@ Write-Host "📊 ANALYSIS SUMMARY"
 Write-Host "==================="
 Write-Host "📦 Total databases found: $($dbs.Count)"
 Write-Host "✅ Databases to restore: $($databasesToRestore.Count)"
-Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)"
+Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)`n"
 Write-Host ""
 
 if ($databasesToRestore.Count -eq 0) {

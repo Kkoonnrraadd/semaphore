@@ -983,6 +983,8 @@ foreach ($db in $dbs) {
         -DestEnvironment $dest_environment `
         -DestLocation $dest_location
     
+    Write-Host " DEBUG   🔍 Dest db name: $dest_dbName" -ForegroundColor Gray
+    
     if ($dest_dbName) {
         Write-Host "    ✅ Will copy to: $dest_dbName" -ForegroundColor Green
         

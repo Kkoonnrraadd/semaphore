@@ -266,12 +266,12 @@ if ($DryRun -and !$Revert) {
         $main_server = $db.main_server
         
         Write-Host "`n  🔍 Database: $name" -ForegroundColor Cyan
-        Write-Host "    Server: $main_server" -ForegroundColor Gray
-        Write-Host "    Service: $service" -ForegroundColor Gray
-        Write-Host "    Environment: $env" -ForegroundColor Gray
-        if ($client_name) {
-            Write-Host "    Client: $client_name" -ForegroundColor Gray
-        }
+        # Write-Host "    Server: $main_server" -ForegroundColor Gray
+        # Write-Host "    Service: $service" -ForegroundColor Gray
+        # Write-Host "    Environment: $env" -ForegroundColor Gray
+        # if ($client_name) {
+            # Write-Host "    Client: $client_name" -ForegroundColor Gray
+        # }
         
         # Show what groups would be created
         $dbContributorsGroup = if ($client_name) { "$env-$client_name-DBContributors" } else { "$env-DBContributors" }

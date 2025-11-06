@@ -439,17 +439,18 @@ function Invoke-Migration {
         Write-Host "📋 The following operations would have been performed:" -ForegroundColor Cyan
         Write-Host "   STEP 0: Prerequisites (permissions, authentication, parameter detection)" -ForegroundColor Gray
         Write-Host "   STEP 1: Restore databases to point in time: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
-        Write-Host "   STEP 2: Stop environment $Destination" -ForegroundColor Gray
-        Write-Host "   STEP 3: Copy attachments from $Source to $Destination" -ForegroundColor Gray
-        Write-Host "   STEP 4: Copy databases from $Source to $Destination" -ForegroundColor Gray
-        Write-Host "   STEP 5: Clean up source environment configurations (CORS, redirect URIs)" -ForegroundColor Gray
-        Write-Host "   STEP 6: Revert source environment SQL users and roles" -ForegroundColor Gray
-        Write-Host "   STEP 7: Adjust database resources and configurations" -ForegroundColor Gray
-        Write-Host "   STEP 8: Delete and recreate replica databases" -ForegroundColor Gray
-        Write-Host "   STEP 9: Configure SQL users and permissions" -ForegroundColor Gray
-        Write-Host "   STEP 10: Start environment $Destination" -ForegroundColor Gray
-        Write-Host "   STEP 11: Clean up temporary restored databases" -ForegroundColor Gray
-        Write-Host "   STEP 12: Remove permissions from SelfServiceRefresh via Azure Function" -ForegroundColor Gray
+        Write-Host "   STEP 2: Stop environment $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 3: Copy attachments from $Source $SourceNamespace to $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 4: Copy databases from $Source $SourceNamespace to $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 4.4: Remove permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME from production databases" -ForegroundColor Gray
+        Write-Host "   STEP 5: Clean up $Source $SourceNamespace environment configurations (CORS, redirect URIs) from $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 6: Revert $Source $SourceNamespace environment SQL users and roles from $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 7: Adjust database resources and configurations for $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 8: Delete and recreate replica databases for $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 9: Configure SQL users and permissions for $Destination $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 10: Start environment $Destination $DestinationNamespace from $Source $SourceNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 11: Clean up temporary restored databases from $Source $SourceNamespace" -ForegroundColor Gray
+        Write-Host "   STEP 12: Remove permissions from $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME via Azure Function" -ForegroundColor Gray
         Write-Host "`n💡 To execute the actual operations, run without the -DryRun parameter" -ForegroundColor Green
         Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
     } else {

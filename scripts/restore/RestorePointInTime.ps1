@@ -330,7 +330,7 @@ function Test-RestorePointValidity {
                     }
                 } else {
                     $retentionDays = [math]::Round(($currentTimeUtc - $earliestRestore).TotalDays, 1)
-                    Write-Host "    ✅ Valid (retention: $retentionDays days available)"
+                    Write-Host "    ✅ Valid (retention: $retentionDays days available)`n"
                     $validCount++
                 }
             } else {
@@ -734,7 +734,7 @@ Write-Host "📊 ANALYSIS SUMMARY"
 Write-Host "==================="
 Write-Host "📦 Total databases found: $($dbs.Count)"
 Write-Host "✅ Databases to restore: $($databasesToRestore.Count)"
-Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)`n"
+Write-Host "⏭️  Databases skipped: $($dbs.Count - $databasesToRestore.Count)"
 Write-Host ""
 
 if ($databasesToRestore.Count -eq 0) {
@@ -805,7 +805,7 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Databases that would be restored:"
     Write-Host ""
     foreach ($db in $databasesToRestore) {
-        Write-Host "  • $($db.name) → $($db.name)-restored"
+        Write-Host "  • $($db.name) → $($db.name)-restored`n"
     }
     Write-Host ""
     Write-Host "⏰ Restore Point: $($restore_point_in_timezone.ToString('yyyy-MM-dd HH:mm:ss')) ($Timezone)"

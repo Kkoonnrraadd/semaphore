@@ -214,15 +214,15 @@ function Save-DatabaseTags {
             foreach ($tag in $existingDb.PSObject.Properties) {
                 $tagList += "$($tag.Name)=$($tag.Value)"
             }
-            Write-Host "  📋 Saved tags from $DatabaseName : $($tagList -join ', ')" -ForegroundColor Gray
+            Write-Host "    ✅ Saved tags from $DatabaseName : $($tagList -join ', ')`n" -ForegroundColor Gray
             return $tagList
         } else {
-            Write-Host "  ⚠️  No existing tags found on $DatabaseName" -ForegroundColor Yellow
+            Write-Host "    ⚠️  No existing tags found on $DatabaseName`n" -ForegroundColor Yellow
             return $null
         }
     }
     catch {
-        Write-Host "  ❌ Error retrieving tags for $DatabaseName : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  ❌ Error retrieving tags for $DatabaseName : $($_.Exception.Message)`n" -ForegroundColor Red
         return $null
     }
 }
@@ -933,18 +933,18 @@ foreach ($db in $dbs) {
     
     if (-not (Should-ProcessDatabase -Database $db -Service $service -IsDryRun $DryRun -HasRestoredDatabases $hasRestoredDatabases)) {
             if ($db.name.Contains("master")) {
-            Write-Host "    ⏭️  Skipping... System database" -ForegroundColor Yellow
+            Write-Host "    ⏭️  Skipping... System database`n" -ForegroundColor Yellow
             } elseif ($db.name.Contains("copy")) {
-            Write-Host "    ⏭️  Skipping... Copied database" -ForegroundColor Yellow
+            Write-Host "    ⏭️  Skipping... Copied database`n" -ForegroundColor Yellow
             } elseif ($service -eq "landlord") {
-            Write-Host "    ⏭️  Skipping... Landlord service" -ForegroundColor Yellow
+            Write-Host "    ⏭️  Skipping... Landlord service`n" -ForegroundColor Yellow
             } else {
                 if ($DryRun -and $hasRestoredDatabases) {
-                    Write-Host "    ⏭️  Skipping... Non-restored database (restored versions available)" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Non-restored database (restored versions available)`n" -ForegroundColor Yellow
                 } elseif ($DryRun -and -not $hasRestoredDatabases) {
-                    Write-Host "    ⏭️  Skipping... Restored database (evaluating regular databases)" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Restored database (evaluating regular databases)`n" -ForegroundColor Yellow
                 } else {
-                    Write-Host "    ⏭️  Skipping... Non-restored database" -ForegroundColor Yellow
+                    Write-Host "    ⏭️  Skipping... Non-restored database`n" -ForegroundColor Yellow
                 }
             }
             continue
@@ -962,11 +962,9 @@ foreach ($db in $dbs) {
         -DestType $dest_type `
         -DestEnvironment $dest_environment `
         -DestLocation $dest_location
-    
-    Write-Host " DEBUG   🔍 Dest db name: $dest_dbName" -ForegroundColor Gray
-    
+        
     if ($dest_dbName) {
-        Write-Host "    ✅ Will copy to: $dest_dbName" -ForegroundColor Green
+        Write-Host "    ✅ Will copy to: $dest_dbName`n" -ForegroundColor Green
         
         # Save existing tags from Destination
         $savedTags = Save-DatabaseTags `
@@ -975,13 +973,13 @@ foreach ($db in $dbs) {
             -SubscriptionId $dest_subscription `
             -DatabaseName $dest_dbName
         
-        if ($savedTags) {
-            Write-Host "    ✅ Saved tags from $dest_dbName : $($savedTags -join ', ')" -ForegroundColor Green
-        }else {
-            Write-Host "    ⚠️  No existing tags found on $dest_dbName" -ForegroundColor Yellow
-            $global:LASTEXITCODE = 1
-            throw "No existing tags found on $dest_dbName"
-        }
+        # if ($savedTags) {
+        #     Write-Host "    ✅ Saved tags from $dest_dbName : $($savedTags -join ', ')`n" -ForegroundColor Green
+        # }else {
+        #     Write-Host "    ⚠️  No existing tags found on $dest_dbName" -ForegroundColor Yellow
+        #     $global:LASTEXITCODE = 1
+        #     throw "No existing tags found on $dest_dbName"
+        # }
 
         $databasesToProcess += @{
             SourceName = $db.name
@@ -989,7 +987,7 @@ foreach ($db in $dbs) {
             SavedTags = $savedTags
         }
     } else {
-        Write-Host "    ⏭️  Skipping: Pattern mismatch" -ForegroundColor Yellow
+        Write-Host "    ⏭️  Skipping: Pattern mismatch`n" -ForegroundColor Yellow
     }
 }
 
@@ -1091,16 +1089,24 @@ if ($databasesToProcess.Count -gt 0) {
 
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
-    Write-Host "TEST SAVING TAGS"
     Write-Host ""
+
+    $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
+    Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')`n" -ForegroundColor Gray
+
     foreach ($dbInfo in $databasesToProcess) {
-        Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)" -ForegroundColor Gray
+        Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)`n" -ForegroundColor Gray
+        
         if ($dbInfo.SavedTags) {
-                $tagList = @()
-            foreach ($tag in $dbInfo.SavedTags.PSObject.Properties) {
-                    $tagList += "$($tag.Name)=$($tag.Value)"
+            foreach ($tag in $requiredTags) {
+                if ($dbInfo.SavedTags -contains $tag) {
+                    Write-Host "    ✅ Tag $tag found in $($dbInfo.DestinationName)`n" -ForegroundColor Green
+                } else {
+                    Write-Host "    ⚠️  Tag $tag not found in $($dbInfo.DestinationName)`n" -ForegroundColor Yellow
+                    $script:DryRunHasFailures = $true
+                    $script:DryRunFailureReasons += "Tag $tag not found in $($dbInfo.DestinationName)"
                 }
-            Write-Host "    Tags to restore: $($tagList -join ', ')" -ForegroundColor Gray
+            }
         }
     }
     Write-Host ""

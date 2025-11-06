@@ -216,7 +216,7 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would open firewall rules for storage accounts..." -ForegroundColor Yellow
     Write-Host "🔍 DRY RUN: Would copy the following containers:" -ForegroundColor Yellow
     foreach ($containerName in $containers) {
-        Write-Host "  • $containerName" -ForegroundColor Gray
+        Write-Host "  • $containerName`n" -ForegroundColor Gray
     }
     Write-Host "🔍 DRY RUN: Would close firewall rules after copy..." -ForegroundColor Yellow
     Write-Host "`n🔍 DRY RUN: Copy attachments preview completed." -ForegroundColor Yellow

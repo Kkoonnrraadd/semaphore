@@ -170,30 +170,30 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace) -and $DestinationNa
 }
 
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would clean up environment '$Source' from databases..." -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Expected database pattern: $expectedName" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would clean up environment '$Source' from databases:`n" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Domain: $Domain`n" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Expected database pattern: $expectedName`n" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -like "$expectedName" }
-    Write-Host "🔍 DRY RUN: Would clean up $($matchingDbs.Count) databases:" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would clean up $($matchingDbs.Count) databases:`n" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
-        Write-Host "  • $($db.name)" -ForegroundColor Gray
+        Write-Host "  • $($db.name)`n" -ForegroundColor Gray
     }
     
-    Write-Host "🔍 DRY RUN: Would remove CORS origins and redirect URIs for:" -ForegroundColor Yellow
-    Write-Host "  • https://$Source.manufacturo.$Domain" -ForegroundColor Gray
-    Write-Host "  • https://api.$Source.manufacturo.$Domain" -ForegroundColor Gray
-    Write-Host "  • Any URLs containing '$Source' (including swagger URLs)" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would remove CORS origins and redirect URIs for:`n" -ForegroundColor Yellow
+    Write-Host "  • https://$Source.manufacturo.$Domain`n" -ForegroundColor Gray
+    Write-Host "  • https://api.$Source.manufacturo.$Domain`n" -ForegroundColor Gray
+    Write-Host "  • Any URLs containing '$Source' (including swagger URLs)`n" -ForegroundColor Gray
     
     if (-not [string]::IsNullOrWhiteSpace($InstanceAliasToRemove) -and $InstanceAliasToRemove -ne $Source) {
-        Write-Host "  • https://$InstanceAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$InstanceAliasToRemove.manufacturo.$Domain" -ForegroundColor Gray
-        Write-Host "  • Any URLs containing '$InstanceAliasToRemove' (including swagger URLs)" -ForegroundColor Gray
+        Write-Host "  • https://$InstanceAliasToRemove.manufacturo.$Domain`n" -ForegroundColor Gray
+        Write-Host "  • https://api.$InstanceAliasToRemove.manufacturo.$Domain`n" -ForegroundColor Gray
+        Write-Host "  • Any URLs containing '$InstanceAliasToRemove' (including swagger URLs)`n" -ForegroundColor Gray
     } elseif ($InstanceAliasToRemove -eq $Source) {
         Write-Host "  ⚠️  Skipping customer alias removal - same as environment to clean ($InstanceAliasToRemove)" -ForegroundColor Yellow
     }
     
-    Write-Host "`n🔍 DRY RUN: Cleanup preview completed." -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: Cleanup preview completed.`n" -ForegroundColor Yellow
     exit 0
 }
 

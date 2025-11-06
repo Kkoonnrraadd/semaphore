@@ -215,9 +215,9 @@ if ($DryRun) {
         return
     }
 
-    Write-Host "🔍 DRY RUN: Would disable $($webtests.Count) web tests:" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would disable $($webtests.Count) web tests:`n" -ForegroundColor Yellow
     $webtests | ForEach-Object {
-        Write-Host "  • $($_.name)" -ForegroundColor Gray
+        Write-Host "  • $($_.name)`n" -ForegroundColor Gray
     }
 } else {
     # Use az resource list for government cloud compatibility

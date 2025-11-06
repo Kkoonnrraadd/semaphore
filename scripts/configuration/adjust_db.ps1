@@ -236,9 +236,9 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace) -and $DestinationNa
     $expectedName  = "db-$dest_product-$dest_type-core-$DestinationNamespace-$dest_environment-$dest_location"
     $int_expectedName = "db-$dest_product-$dest_type-integratorplus-$DestinationNamespace-$dest_environment-$dest_location"
     $DestinationAlias = "$Destination-$DestinationNamespace"
-    Write-Host "Constructed expected database name patterns:" -ForegroundColor Cyan
-    Write-Host "  - Core DB: $expectedName" -ForegroundColor Gray
-    Write-Host "  - Integrator Plus DB: $int_expectedName" -ForegroundColor Gray
+    Write-Host "Constructed expected database name patterns:`n" -ForegroundColor Cyan
+    Write-Host "  - Core DB: $expectedName`n" -ForegroundColor Gray
+    Write-Host "  - Integrator Plus DB: $int_expectedName`n" -ForegroundColor Gray
 }else{
     $global:LASTEXITCODE = 1
     throw "DestinationNamespace was empty or manufacturo namespace is not supported"
@@ -251,30 +251,30 @@ if ([string]::IsNullOrWhiteSpace($InstanceAlias)) {
 }
     
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix..." -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Instance Alias: $InstanceAlias" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix:`n" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Instance Alias: $InstanceAlias`n" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Domain: $Domain`n" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -eq $expectedName -or $_.name -eq $int_expectedName }
-    Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:`n" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
-        Write-Host "  • $($db.name)" -ForegroundColor Gray
+        Write-Host "  • $($db.name)`n" -ForegroundColor Gray
     }
-    Write-Host "🔍 DRY RUN: Would add CORS origins and redirect URIs for:" -ForegroundColor Yellow
-    Write-Host "  • https://$InstanceAlias.manufacturo.$Domain" -ForegroundColor Gray
-    Write-Host "  • https://api.$InstanceAlias.manufacturo.$Domain" -ForegroundColor Gray
-    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would add CORS origins and redirect URIs for:`n" -ForegroundColor Yellow
+    Write-Host "  • https://$InstanceAlias.manufacturo.$Domain`n" -ForegroundColor Gray
+    Write-Host "  • https://api.$InstanceAlias.manufacturo.$Domain`n" -ForegroundColor Gray
+    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed.`n" -ForegroundColor Yellow
 
     if ($DestinationAlias -ne $InstanceAlias){
-        Write-Host "  • https://$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
-        Write-Host "  • https://api.$DestinationAlias.manufacturo.$Domain" -ForegroundColor Gray
+        Write-Host "  • https://$DestinationAlias.manufacturo.$Domain`n" -ForegroundColor Gray
+        Write-Host "  • https://api.$DestinationAlias.manufacturo.$Domain`n" -ForegroundColor Gray
     }
 
-    Write-Host "🔍 DRY RUN: Would delete from Integrator Plus: " -ForegroundColor Gray
-    Write-Host "  • engine.parameter" -ForegroundColor Gray
-    Write-Host "  • api_keys.entity" -ForegroundColor Gray
-    Write-Host "  • api_keys.challengedlog" -ForegroundColor Gray
-    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed." -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would delete from Integrator Plus:`n" -ForegroundColor Gray
+    Write-Host "  • engine.parameter`n" -ForegroundColor Gray
+    Write-Host "  • api_keys.entity`n" -ForegroundColor Gray
+    Write-Host "  • api_keys.challengedlog`n" -ForegroundColor Gray
+    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed.`n" -ForegroundColor Yellow
 
     exit 0
 }
@@ -284,9 +284,9 @@ Write-Host "Filtering databases based on customer prefix..." -ForegroundColor Cy
 $matchingDbs = $dbs | Where-Object { $_.name -eq $expectedName -or $_.name -eq $int_expectedName }
 
 if ($matchingDbs.Count -eq 0) {
-    Write-Host "⚠️  No databases found matching the expected names. No adjustments will be performed." -ForegroundColor Yellow
+    Write-Host "⚠️  No databases found matching the expected names. No adjustments will be performed.`n" -ForegroundColor Yellow
 } else {
-    Write-Host "Found $($matchingDbs.Count) matching database(s). Proceeding with adjustments..." -ForegroundColor Green
+    Write-Host "Found $($matchingDbs.Count) matching database(s). Proceeding with adjustments.`n" -ForegroundColor Green
 }
 
 foreach ($db in $matchingDbs) {

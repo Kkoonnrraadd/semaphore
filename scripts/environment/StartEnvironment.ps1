@@ -194,11 +194,11 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Environment: $Destination"
     Write-Host "   └─ AKS Cluster: $Destination_aks"
     Write-Host "   └─ Resource Group: $Destination_rg"
-    Write-Host "   └─ Subscription: $Destination_subscription"
+    Write-Host "   └─ Subscription: $Destination_subscription`n"
     
     Write-Host "🔍 DRY RUN: Would set cluster context to: $Destination_aks"
     Write-Host "🔍 DRY RUN: Would upscale blackbox monitoring in 'monitoring' namespace"
-    Write-Host "🔍 DRY RUN: Would scale up deployments in '$DestinationNamespace' namespace"
+    Write-Host "🔍 DRY RUN: Would scale up deployments in '$DestinationNamespace' namespace`n"
     
     # Discover what deployments would be scaled
     try {
@@ -206,6 +206,7 @@ if ($DryRun) {
         Write-Host "   • All deployments in namespace '$DestinationNamespace'"
         Write-Host "   • Special case: eworkin-plus-nonconformance-backend (3 replicas)"
         Write-Host "   • Special case: eworkin-plus-backend (3 replicas)"
+        Write-Host "`n"
     }
     catch {
         Write-Host "   • Could not discover deployments (cluster may be stopped)"
@@ -251,7 +252,7 @@ if ($DryRun) {
         Write-Host "🔍 DRY RUN: Would enable $($hubs_alerts.Count) alerts:"
         foreach ($hub in $hubs_alerts) {
             $alert_name = $hub[0].name
-            Write-Host "  • $alert_name"
+            Write-Host "  • $alert_name`n"
         }
     } else {
         Write-Host "🔍 DRY RUN: No alerts found to enable $backend_health_alert"

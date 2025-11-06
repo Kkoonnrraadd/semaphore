@@ -613,8 +613,18 @@ $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFr
 
 if (-not $server -or $server.Count -eq 0) {
     Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
-    $global:LASTEXITCODE = 1
-    throw "No SQL server found for environment with tags Environment: $Source and Type: Primary"
+
+    Write-Host "Trying to relogin and try again..."
+    az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+             --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+    $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+    if (-not $server -or $server.Count -eq 0) {
+        Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
+        $global:LASTEXITCODE = 1
+        throw "No SQL server found for environment with tags Environment: $Source and Type: Primary"
+    }
 }
 
 $Source_subscription = $server[0].subscriptionId

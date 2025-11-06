@@ -373,14 +373,16 @@ try {
 # ============================================================================
 
 # Convert MaxWaitMinutes to integer
-# Default value is 60 minutes
+# Default value
+$DefaultMaxWaitMinutes = 60
+
 if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
     try {
         $MaxWaitMinutesInt = [int]::Parse($MaxWaitMinutes)
-        if ($MaxWaitMinutes -lt 1 -or $MaxWaitMinutes -gt 1440) {
+        if ($MaxWaitMinutesInt -lt 1 -or $MaxWaitMinutesInt -gt 360) {
             Write-Host "⚠️ Invalid MaxWaitMinutes '$MaxWaitMinutes', must be between 1 and 360 minutes" -ForegroundColor Yellow
             Write-Host "   Using default: 60 minutes" -ForegroundColor Gray
-            $MaxWaitMinutes = 60
+            $MaxWaitMinutes = $DefaultMaxWaitMinutes
         } else {
             Write-Host "🕐 Using provided MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Green
             $MaxWaitMinutes = $MaxWaitMinutesInt
@@ -392,7 +394,7 @@ if (-not [string]::IsNullOrWhiteSpace($MaxWaitMinutes)) {
     }
 }else{
     Write-Host "🕐 Using default MaxWaitMinutes: 60" -ForegroundColor Gray
-    $MaxWaitMinutes = 60
+    $MaxWaitMinutes = $DefaultMaxWaitMinutes
 }
 
 # Special handling for SourceNamespace - if not provided, try to get from ENVIRONMENT variable

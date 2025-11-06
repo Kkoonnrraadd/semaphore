@@ -1087,30 +1087,15 @@ if ($databasesToProcess.Count -gt 0) {
 # ============================================================================
 
 if ($DryRun) {
-    # Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
-    # Write-Host ""
+    Write-Host "🔍 DRY RUN: Operations that would be performed:" -ForegroundColor Yellow
+    Write-Host ""
 
-    # $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
-    # Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')`n" -ForegroundColor Gray
-
-    # foreach ($dbInfo in $databasesToProcess) {
-    #     Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)`n" -ForegroundColor Gray
-        
-    #     if ($dbInfo.SavedTags) {
-    #         foreach ($tag in $requiredTags) {
-    #             if ($dbInfo.SavedTags -contains $tag) {
-    #                 Write-Host "    ✅ Tag $tag found in $($dbInfo.DestinationName)`n" -ForegroundColor Green
-    #             } else {
-    #                 Write-Host "    ⚠️  Tag $tag not found in $($dbInfo.DestinationName)`n" -ForegroundColor Yellow
-    #                 $script:DryRunHasFailures = $true
-    #                 $script:DryRunFailureReasons += "Tag $tag not found in $($dbInfo.DestinationName)"
-    #             }
-    #         }
-    #     }
-    # }
-    # Write-Host ""
-    # Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
-    # Write-Host ""
+    foreach ($dbInfo in $databasesToProcess) {
+        Write-Host "  • $($dbInfo.SourceName) → $($dbInfo.DestinationName)`n" -ForegroundColor Gray
+    }
+    Write-Host ""
+    Write-Host "🔍 DRY RUN: No actual operations performed" -ForegroundColor Yellow
+    Write-Host ""
     
     # Check if there were any validation failures during dry run
     if ($script:DryRunHasFailures) {

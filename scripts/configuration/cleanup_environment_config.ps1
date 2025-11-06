@@ -170,9 +170,9 @@ if (-not [string]::IsNullOrWhiteSpace($DestinationNamespace) -and $DestinationNa
 }
 
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would clean up environment '$Source' from databases:`n" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Domain: $Domain`n" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Expected database pattern: $expectedName`n" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would clean up environment '$Source' from databases:" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Expected database pattern: $expectedName" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -like "$expectedName" }
     Write-Host "🔍 DRY RUN: Would clean up $($matchingDbs.Count) databases:`n" -ForegroundColor Yellow

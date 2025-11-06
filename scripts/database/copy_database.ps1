@@ -170,24 +170,29 @@ function Get-DestinationDatabaseName {
         [string]$DestLocation
     )
     
+    Write-Host "SourceDbNameClean: $SourceDatabaseName" -ForegroundColor Gray
     # Remove -restored suffix for pattern matching
     $SourceDbNameClean = $SourceDatabaseName -replace "-restored$", ""
     
+    Write-Host "SourceDbNameClean: $SourceDbNameClean" -ForegroundColor Gray
+
+
     if ($SourceNamespace -eq "manufacturo") {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceEnvironment-$SourceLocation"
-        
+        Write-Host "ExpectedPattern: $expectedPattern" -ForegroundColor Gray
+
         if (-not $SourceDbNameClean.Contains($expectedPattern)) {
+            Write-Host "SourceDbNameClean: $SourceDbNameClean" -ForegroundColor Gray
+            Write-Host "ExpectedPattern: $expectedPattern" -ForegroundColor Gray
             return $null
+            Write-Host "SourceDbNameClean does not contain expected pattern" -ForegroundColor Red
         }
+        Write-Host "SourceDbNameClean $SourceDbNameClean contains expected pattern $expectedPattern" -ForegroundColor Green
         
         if ($DestinationNamespace -eq "manufacturo") {
             Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
             $global:LASTEXITCODE = 1
             throw "Manufacturo namespace is not supported for destination"
-            # return $SourceDbNameClean `
-            #     -replace [regex]::Escape($SourceEnvironment), $DestEnvironment `
-            #     -replace [regex]::Escape($SourceLocation), $DestLocation `
-            #     -replace [regex]::Escape($SourceType), $DestType
         } else {
             return $SourceDbNameClean `
                 -replace [regex]::Escape($SourceEnvironment), "$DestinationNamespace-$DestEnvironment" `
@@ -198,23 +203,6 @@ function Get-DestinationDatabaseName {
         Write-Host "  ❌ Namespace $SourceNamespace is not supported. Source Namespace can be manufacturo only!" -ForegroundColor Red
         $global:LASTEXITCODE = 1
         throw "Namespace $SourceNamespace is not supported. Source Namespace can be manufacturo only!"
-        # $expectedPattern = "$SourceProduct-$SourceType-$Service-$SourceNamespace-$SourceEnvironment-$SourceLocation"
-        
-        # if (-not $SourceDbNameClean.Contains($expectedPattern)) {
-        #     return $null
-        # }
-        
-        # if ($DestinationNamespace -eq "manufacturo") {
-        #     return $SourceDbNameClean `
-        #         -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), $DestEnvironment `
-        #         -replace [regex]::Escape($SourceLocation), $DestLocation `
-        #         -replace [regex]::Escape($SourceType), $DestType
-        # } else {
-        #     return $SourceDbNameClean `
-        #         -replace [regex]::Escape("$SourceNamespace-$SourceEnvironment"), "$DestinationNamespace-$DestEnvironment" `
-        #         -replace [regex]::Escape($SourceLocation), $DestLocation `
-        #         -replace [regex]::Escape($SourceType), $DestType
-        # }
     }
 }
 

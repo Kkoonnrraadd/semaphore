@@ -193,7 +193,7 @@ function Invoke-Migration {
     Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-Host ""
 
-    $WaitForPropagation = 600
+    $WaitForPropagation = 120
     $TimeoutSeconds = 360
 
     if ($DryRun) {

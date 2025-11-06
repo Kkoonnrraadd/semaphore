@@ -596,41 +596,52 @@ Write-Host "`n============================"
 Write-Host "🔄 Restore Point In Time"
 Write-Host "============================`n"
 
-Write-Host "🔎 Starting environment diagnostics..." -ForegroundColor Cyan
+# Write-Host "🔎 Starting environment diagnostics..." -ForegroundColor Cyan
 
-# 1. Show Azure-related environment variables
-Write-Host "`n📋 Environment variables:" -ForegroundColor Gray
-Get-ChildItem Env: | Where-Object { $_.Name -like "AZURE*" } | ForEach-Object {
-    Write-Host "   $($_.Name) = $($_.Value)" -ForegroundColor DarkGray
-}
+# # 1. Show Azure-related environment variables
+# Write-Host "`n📋 Environment variables:" -ForegroundColor Gray
+# Get-ChildItem Env: | Where-Object { $_.Name -like "AZURE*" } | ForEach-Object {
+#     Write-Host "   $($_.Name) = $($_.Value)" -ForegroundColor DarkGray
+# }
 
-# 2. Check federated token file
-Write-Host "`n📂 Checking federated token file:" -ForegroundColor Gray
-if (Test-Path $env:AZURE_FEDERATED_TOKEN_FILE) {
-    Write-Host "   ✅ Token file exists at $env:AZURE_FEDERATED_TOKEN_FILE" -ForegroundColor Green
-    Write-Host "   🔑 First 100 chars of token:" -ForegroundColor DarkGray
-    Get-Content $env:AZURE_FEDERATED_TOKEN_FILE -TotalCount 1 | ForEach-Object { $_.Substring(0,100) }
-} else {
-    Write-Host "   ❌ Token file missing" -ForegroundColor Red
-}
+# # 2. Check federated token file
+# Write-Host "`n📂 Checking federated token file:" -ForegroundColor Gray
+# if (Test-Path $env:AZURE_FEDERATED_TOKEN_FILE) {
+#     Write-Host "   ✅ Token file exists at $env:AZURE_FEDERATED_TOKEN_FILE" -ForegroundColor Green
+#     Write-Host "   🔑 First 100 chars of token:" -ForegroundColor DarkGray
+#     Get-Content $env:AZURE_FEDERATED_TOKEN_FILE -TotalCount 1 | ForEach-Object { $_.Substring(0,100) }
+# } else {
+#     Write-Host "   ❌ Token file missing" -ForegroundColor Red
+# }
 
-# 3. Show current cloud context
-Write-Host "`n🌐 Current cloud context:" -ForegroundColor Gray
-az cloud show -o table 2>$null
+# # 3. Show current cloud context
+# Write-Host "`n🌐 Current cloud context:" -ForegroundColor Gray
+# az cloud show -o table 2>$null
 
-# 4. Attempt to show current account
-Write-Host "`n👤 Current account:" -ForegroundColor Gray
-az account show -o table 2>$null
+# # 4. Attempt to show current account
+# Write-Host "`n👤 Current account:" -ForegroundColor Gray
+# az account show -o table 2>$null
 
-# 5. List subscriptions
-Write-Host "`n📋 Subscriptions:" -ForegroundColor Gray
-az account list --query "[].{name:name, id:id, state:state}" -o table 2>$null
+# # 5. List subscriptions
+# Write-Host "`n📋 Subscriptions:" -ForegroundColor Gray
+# az account list --query "[].{name:name, id:id, state:state}" -o table 2>$null
 
-# 6. List SQL servers with tags (adjust tags as needed)
-Write-Host "`n🗄️ SQL servers with tags Environment=gov001 and Type=Primary:" -ForegroundColor Gray
-az sql server list --query "[?tags.Environment=='gov001' && tags.Type=='Primary'].{name:name, resourceGroup:resourceGroup}" -o table 2>$null
+# # 6. List SQL servers with tags (adjust tags as needed)
+# Write-Host "`n🗄️ SQL servers with tags Environment=gov001 and Type=Primary:" -ForegroundColor Gray
+# az sql server list --query "[?tags.Environment=='gov001' && tags.Type=='Primary'].{name:name, resourceGroup:resourceGroup}" -o table 2>$null
 
-Write-Host "`n✅ Diagnostics complete" -ForegroundColor Cyan
+# Write-Host "`n✅ Diagnostics complete" -ForegroundColor Cyan
+
+# Show current subscription
+az account show -o table
+
+# List all subscriptions available to this identity
+az account list -o table
+
+# Explicitly set the subscription where the SQL server lives
+az account set --subscription "Enterprise-mnfro-test.us_DEV_gov001"
+# Now list SQL servers without tag filter
+az sql server list -o table
 
 
 # Convert datetime to UTC

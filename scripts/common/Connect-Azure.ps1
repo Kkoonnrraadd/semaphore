@@ -16,50 +16,59 @@ if ($env:AZURE_CLIENT_ID -and $env:AZURE_TENANT_ID -and $env:AZURE_FEDERATED_TOK
         # Try first cloud
         Write-Host "🌐 Trying $Cloud cloud..." -ForegroundColor Gray
         az cloud set --name $Cloud
-        az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-            
-            # Get cloud context from authenticated session
-            $detectedCloud = az cloud show --query "name" -o tsv 2>$null
-            Write-Host "🌐 Active cloud: $detectedCloud" -ForegroundColor Gray
-            
-            # Validate cloud if explicitly provided
-            if (-not [string]::IsNullOrWhiteSpace($Cloud) -and $detectedCloud -ne $Cloud) {
-                Write-Host "⚠️ Warning: Expected cloud '$Cloud' but authenticated to '$detectedCloud'" -ForegroundColor Yellow
-            }
-            
-            # Show available subscriptions
-            $subscriptions = az account list --query "[].{name:name, id:id, state:state}" -o json 2>$null | ConvertFrom-Json
-            if ($subscriptions -and $subscriptions.Count -gt 0) {
-                Write-Host "📋 Available subscriptions: $($subscriptions.Count)" -ForegroundColor Gray
-                foreach ($sub in $subscriptions) {
-                    $marker = if ($sub.state -eq "Enabled") { "✓" } else { "○" }
-                    Write-Host "   $marker $($sub.name) ($($sub.id))" -ForegroundColor DarkGray
-                }
-            }
-        } else {
-            Write-Host "Waiting 2 minutes for permissions propagation to complete..." -ForegroundColor Red
-            Start-Sleep -Seconds 120
-            az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+        $retryCount = 0
+        $authenticated = $false
+        $MaxRetries = 3
+        $RetryDelaySeconds = 120
+
+        while (-not $authenticated -and $retryCount -lt $MaxRetries) {
+            # Check authentication
+            $account = az account show -o none 2>$null
             if ($LASTEXITCODE -eq 0) {
+                $authenticated = $true
+                break
+            }
+        
+            # Try login
+            az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+                     --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+        
+            if ($LASTEXITCODE -eq 0) {
+                $authenticated = $true
                 Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
+                break
             } else {
-                Write-Host "Waiting 2 minutes for permissions propagation to complete..." -ForegroundColor Red
-                Start-Sleep -Seconds 120
-                az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✅ Service Principal authentication successful" -ForegroundColor Green
-                } else {
-                    Write-Host "❌ Service Principal authentication failed after 2 minutes" -ForegroundColor Red
-                    $global:LASTEXITCODE = 1
-                    throw "Service Principal authentication failed after 2 minutes"
+                $retryCount++
+                if ($retryCount -lt $MaxRetries) {
+                    Write-Host "⏳ Authentication failed, retrying in $RetryDelaySeconds seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds $RetryDelaySeconds
                 }
-                throw "Service Principal authentication failed after 2 minutes"
             }
         }
+        if (-not $authenticated) {
+            Write-Host "❌ Service Principal authentication failed after $MaxRetries retries" -ForegroundColor Red
+            $global:LASTEXITCODE = 1
+            throw "Service Principal authentication failed after $MaxRetries retries"
+        }
 
+        # Get cloud context
+        $detectedCloud = az cloud show --query "name" -o tsv 2>$null
+        Write-Host "🌐 Active cloud: $detectedCloud" -ForegroundColor Gray
+
+        if (-not [string]::IsNullOrWhiteSpace($Cloud) -and $detectedCloud -ne $Cloud) {
+            Write-Host "⚠️ Warning: Expected cloud '$Cloud' but authenticated to '$detectedCloud'" -ForegroundColor Yellow
+        }
+
+        # Show subscriptions
+        $subscriptions = az account list --query "[].{name:name, id:id, state:state}" -o json 2>$null | ConvertFrom-Json
+        if ($subscriptions -and $subscriptions.Count -gt 0) {
+            Write-Host "📋 Available subscriptions: $($subscriptions.Count)" -ForegroundColor Gray
+            foreach ($sub in $subscriptions) {
+                $marker = if ($sub.state -eq "Enabled") { "✓" } else { "○" }
+                Write-Host "   $marker $($sub.name) ($($sub.id))" -ForegroundColor DarkGray
+            }
+        }
         # probably should be in above but lets try if works 
         # Check for ENVIRONMENT variable and set subscription context based on it
         if ($env:ENVIRONMENT) {

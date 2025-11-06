@@ -603,18 +603,27 @@ $restore_point_utc = $timeConversion.RestorePointUtc
 
 # Query for source SQL server
 Write-Host "`n🔍 Finding source SQL server..."
-$graph_query = "
-  resources
-  | where type =~ 'microsoft.sql/servers'
-  | where tags.Environment == '$Source' and tags.Type == 'Primary'
-  | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
-"
-$server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+try {
+    
+    $graph_query = "
+    resources
+    | where type =~ 'microsoft.sql/servers'
+    | where tags.Environment == '$Source' and tags.Type == 'Primary'
+    | project name, resourceGroup, subscriptionId, fqdn = properties.fullyQualifiedDomainName
+    "
+    $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+  
+} catch {
+    Write-Host "❌ Error querying source SQL server: $($_.Exception.Message)"
+    $global:LASTEXITCODE = 1
+    throw "Error querying source SQL server: $($_.Exception.Message)"
+}
 
 if (-not $server -or $server.Count -eq 0) {
-    Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary. Error details: $errorMessage"
     $global:LASTEXITCODE = 1
-    throw "No SQL server found for environment with tags Environment: $Source and Type: Primary"
+    throw "No SQL server found for environment with tags Environment: $Source and Type: Primary. Error details: $errorMessage"
 }
 
 $Source_subscription = $server[0].subscriptionId

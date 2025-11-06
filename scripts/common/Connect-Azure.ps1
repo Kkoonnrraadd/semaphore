@@ -6,12 +6,12 @@ Write-Host "🔐 Setting up Azure authentication..." -ForegroundColor Cyan
 
 # Try Service Principal authentication
 if ($env:AZURE_CLIENT_ID -and $env:AZURE_TENANT_ID -and $env:AZURE_FEDERATED_TOKEN_FILE) {
-    Write-Host "🔑 Authenticating with Service Principal..." -ForegroundColor Yellow
+    Write-Host "🔑 Authenticating with Service Principal...`n" -ForegroundColor Yellow
     
     try {
         Write-Host "🔐 Attempting login..." -ForegroundColor Gray
         Write-Host "   Tenant ID: $env:AZURE_TENANT_ID" -ForegroundColor DarkGray
-        Write-Host "   Client ID: $env:AZURE_CLIENT_ID" -ForegroundColor DarkGray
+        Write-Host "   Client ID: $env:AZURE_CLIENT_ID`n" -ForegroundColor DarkGray
         
         # Try first cloud
         Write-Host "🌐 Trying $Cloud cloud..." -ForegroundColor Gray

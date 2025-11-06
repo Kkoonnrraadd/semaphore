@@ -251,16 +251,16 @@ if ([string]::IsNullOrWhiteSpace($InstanceAlias)) {
 }
     
 if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix:`n" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Instance Alias: $InstanceAlias`n" -ForegroundColor Gray
-    Write-Host "🔍 DRY RUN: Domain: $Domain`n" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Would adjust databases based on customer prefix:" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Instance Alias: $InstanceAlias" -ForegroundColor Gray
+    Write-Host "🔍 DRY RUN: Domain: $Domain" -ForegroundColor Gray
     
     $matchingDbs = $dbs | Where-Object { $_.name -eq $expectedName -or $_.name -eq $int_expectedName }
     Write-Host "🔍 DRY RUN: Would adjust $($matchingDbs.Count) databases:`n" -ForegroundColor Yellow
     foreach ($db in $matchingDbs) {
         Write-Host "  • $($db.name)`n" -ForegroundColor Gray
     }
-    Write-Host "🔍 DRY RUN: Would add CORS origins and redirect URIs for:`n" -ForegroundColor Yellow
+    Write-Host "`n🔍 DRY RUN: Would add CORS origins and redirect URIs for:`n" -ForegroundColor Yellow
     Write-Host "  • https://$InstanceAlias.manufacturo.$Domain`n" -ForegroundColor Gray
     Write-Host "  • https://api.$InstanceAlias.manufacturo.$Domain`n" -ForegroundColor Gray
     Write-Host "`n🔍 DRY RUN: Database adjustment preview completed.`n" -ForegroundColor Yellow
@@ -270,11 +270,10 @@ if ($DryRun) {
         Write-Host "  • https://api.$DestinationAlias.manufacturo.$Domain`n" -ForegroundColor Gray
     }
 
-    Write-Host "🔍 DRY RUN: Would delete from Integrator Plus:`n" -ForegroundColor Gray
+    Write-Host "`n🔍 DRY RUN: Would delete from Integrator Plus:`n" -ForegroundColor Gray
     Write-Host "  • engine.parameter`n" -ForegroundColor Gray
     Write-Host "  • api_keys.entity`n" -ForegroundColor Gray
     Write-Host "  • api_keys.challengedlog`n" -ForegroundColor Gray
-    Write-Host "`n🔍 DRY RUN: Database adjustment preview completed.`n" -ForegroundColor Yellow
 
     exit 0
 }

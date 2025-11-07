@@ -282,7 +282,7 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would wait up to $MaxWaitMinutes minutes for databases to be restored" -ForegroundColor Gray
     }
     $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
-    & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+    # & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
 
     Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # Step 2: Stop Environment

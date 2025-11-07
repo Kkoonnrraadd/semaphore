@@ -309,29 +309,30 @@ if ($DryRun) {
         
         $sourceUrl = ""
         $destUrl = ""
-             
-        $sourceSas = New-ContainerSasToken `
-            -StorageAccount $Source_account `
-            -ResourceGroup $Source_rg `
-            -SubscriptionId $Source_subscription `
-            -ContainerName $containerName `
-            -ExpiryHours 8
-
-        if (-not $sourceSas) {
+        try {
+            $sourceSas = New-ContainerSasToken `
+                -StorageAccount $Source_account `
+                -ResourceGroup $Source_rg `
+                -SubscriptionId $Source_subscription `
+                -ContainerName $containerName `
+                -ExpiryHours 8
+        } catch {
             Write-Host "❌ Error: Failed to generate source SAS token for container: $containerName" -ForegroundColor Red
+            Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
             $global:LASTEXITCODE = 1
             throw "Failed to generate source SAS token for container: $containerName"
         }
         
-        $destSas = New-ContainerSasTokenWithWrite `
+        try {
+            $destSas = New-ContainerSasTokenWithWrite `
             -StorageAccount $dest_account `
             -ResourceGroup $dest_rg `
             -SubscriptionId $dest_subscription `
             -ContainerName $containerName `
             -ExpiryHours 8
-        
-        if (-not $destSas) {
+        } catch {
             Write-Host "❌ Error: Failed to generate destination SAS token for container: $containerName" -ForegroundColor Red
+            Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
             $global:LASTEXITCODE = 1
             throw "Failed to generate destination SAS token for container: $containerName"
         }
@@ -341,8 +342,7 @@ if ($DryRun) {
             $destUrl = "${dest_blob_endpoint}${containerName}?${destSas}"
             Write-Host "  ✅ SAS tokens generated successfully (valid for 8 hours)" -ForegroundColor Green
         } else {
-            Write-Host "  ❌ Failed to generate SAS tokens, falling back to Azure CLI auth" -ForegroundColor Red
-            # $UseSasTokens = $false  # Fallback for this container
+            Write-Host "  ❌ Failed to generate SAS tokens, for container: $containerName" -ForegroundColor Red
             $global:LASTEXITCODE = 1
             throw "Failed to generate SAS tokens"
         }

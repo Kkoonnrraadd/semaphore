@@ -219,7 +219,7 @@ function Save-DatabaseTags {
                 }
             }
             Write-Host "    ✅ Saved tags from $DatabaseName : $($tagList -join ', ')`n" -ForegroundColor Gray
-            return $tagList
+            return $existingDb
         } else {
             Write-Host "    ⚠️  No existing tags found on $DatabaseName`n" -ForegroundColor Yellow
             return $null

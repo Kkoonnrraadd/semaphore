@@ -314,7 +314,11 @@ if ($DryRun) {
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would set cluster context to: $Destination_aks" -ForegroundColor Gray
     Write-Host "🔍 DRY RUN: Would downscale blackbox monitoring in 'monitoring' namespace" -ForegroundColor Gray
+    kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
+    kubectl auth can-i scale deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
     Write-Host "🔍 DRY RUN: Would downscale deployments in '$DestinationNamespace' namespace" -ForegroundColor Gray
+    kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
+    kubectl auth can-i scale deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
     Write-Host ""
     
     # Check if there were any validation failures during dry run

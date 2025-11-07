@@ -357,7 +357,7 @@ if ($DryRun) {
         Write-Host "  🔄 Starting copy operation..." -ForegroundColor Yellow
         $copyStartTime = Get-Date
         
-        azcopy copy $sourceUrl $destUrl --recursive -log-level INFO
+        azcopy copy $sourceUrl $destUrl --recursive=true --log-level=INFO
         
         if ($LASTEXITCODE -eq 0) {
             $copyElapsed = (Get-Date) - $copyStartTime

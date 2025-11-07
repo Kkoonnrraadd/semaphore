@@ -319,6 +319,10 @@ if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would downscale deployments in '$DestinationNamespace' namespace" -ForegroundColor Gray
     kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
     kubectl auth can-i patch  deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
+    Write-Host "🔍 DRY RUN: Would check whoami" -ForegroundColor Gray
+    kubectl auth whoami
+    # kubectl auth whoami --as=system:serviceaccount:semaphore:semaphore-sa
+    
     Write-Host ""
     
     # Check if there were any validation failures during dry run

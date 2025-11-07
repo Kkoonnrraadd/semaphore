@@ -192,7 +192,7 @@ function Invoke-Migration {
     Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
     Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
 
-    $WaitForPropagation = 11
+    $WaitForPropagation = 60
     $TimeoutSeconds = 360
 
     if ($DryRun) {
@@ -272,10 +272,10 @@ function Invoke-Migration {
 
     Write-Host ""
 
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 1: Restore Point in Time
-    Write-Host "🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 1: Restore Point in Time
+    # Write-Host "🔄 STEP 1: RESTORE POINT IN TIME" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
 
     # if ($DryRun) {
     #     Write-Host "🔍 DRY RUN: Would restore databases to point in time: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
@@ -296,121 +296,121 @@ function Invoke-Migration {
     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
     & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 3: Copy Attachments
-    Write-Host "🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would open firewall rules for storage accounts" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would copy attachments from: $Source / namespace: $SourceNamespace to: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
-    }
-    # Build parameter hashtable for CopyAttachments
-    $copyParams = @{
-        source = $Source
-        Destination = $Destination
-        SourceNamespace = $SourceNamespace
-        DestinationNamespace = $DestinationNamespace
-    }
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 3: Copy Attachments
+    # Write-Host "🔄 STEP 3: COPY ATTACHMENTS" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would open firewall rules for storage accounts" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Would copy attachments from: $Source / namespace: $SourceNamespace to: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
+    # }
+    # # Build parameter hashtable for CopyAttachments
+    # $copyParams = @{
+    #     source = $Source
+    #     Destination = $Destination
+    #     SourceNamespace = $SourceNamespace
+    #     DestinationNamespace = $DestinationNamespace
+    # }
     
-    # Add UseSasTokens if specified (for 3TB+ containers)
-    if ($UseSasTokens) {
-        $copyParams['UseSasTokens'] = $true
-        Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
-    }
+    # # Add UseSasTokens if specified (for 3TB+ containers)
+    # if ($UseSasTokens) {
+    #     $copyParams['UseSasTokens'] = $true
+    #     Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
+    # }
     
-    # Add DryRun if enabled
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
-        $copyParams['DryRun'] = $true
-    }
+    # # Add DryRun if enabled
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would copy attachments" -ForegroundColor Yellow
+    #     $copyParams['DryRun'] = $true
+    # }
     
-    $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
-    & $scriptPath @copyParams
+    # $scriptPath = Get-ScriptPath "storage/CopyAttachments.ps1"
+    # & $scriptPath @copyParams
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 4: Copy Database
-    Write-Host "🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would copy database from: $Source / namespace: $SourceNamespace to: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
-    }
-    $scriptPath = Get-ScriptPath "database/copy_database.ps1"
-    & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 4: Copy Database
+    # Write-Host "🔄 STEP 4: COPY DATABASE" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would copy database from: $Source / namespace: $SourceNamespace to: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
+    # }
+    # $scriptPath = Get-ScriptPath "database/copy_database.ps1"
+    # & $scriptPath -Source $Source -Destination $Destination -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 4.4: Remove Prod DB Permissions (Security)
-    Write-Host "🔄 STEP 4.4: REMOVE PROD DB PERMISSIONS (SECURITY)" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would remove permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME from production databases" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would wait $WaitForPropagation seconds for permissions to propagate" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Would timeout after $TimeoutSeconds seconds" -ForegroundColor Gray
-        Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
-    } 
-    Write-AutomationLog "🔐 Starting permission removal process from production databases..." "INFO"
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 4.4: Remove Prod DB Permissions (Security)
+    # Write-Host "🔄 STEP 4.4: REMOVE PROD DB PERMISSIONS (SECURITY)" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would remove permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME from production databases" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Would wait $WaitForPropagation seconds for permissions to propagate" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Would timeout after $TimeoutSeconds seconds" -ForegroundColor Gray
+    #     Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
+    # } 
+    # Write-AutomationLog "🔐 Starting permission removal process from production databases..." "INFO"
     
-    # Call the dedicated permission management script
-    $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    $permissionResult = & $permissionScript -Action "ProdSecurity" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
+    # # Call the dedicated permission management script
+    # $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+    # $permissionResult = & $permissionScript -Action "ProdSecurity" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
 
-    if (-not $permissionResult.Success) {
-        Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions from production databases" "ERROR"
-        Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-        throw "Permission removal from production databases failed: $($permissionResult.Error)"
-    }
-    Write-AutomationLog "✅ Permissions removed successfully from production databases" "SUCCESS"
+    # if (-not $permissionResult.Success) {
+    #     Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions from production databases" "ERROR"
+    #     Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+    #     throw "Permission removal from production databases failed: $($permissionResult.Error)"
+    # }
+    # Write-AutomationLog "✅ Permissions removed successfully from production databases" "SUCCESS"
 
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 5: Cleanup Environment Configuration
-    Write-Host "🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would cleanup $Destination $DestinationNamespace from $Source $SourceNamespace configuration" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would remove $InstanceAliasToRemove CORS origins and redirect URIs for: $Destination $DestinationNamespace" -ForegroundColor Gray
-    }
-    $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
-    & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 5: Cleanup Environment Configuration
+    # Write-Host "🔄 STEP 5: CLEANUP ENVIRONMENT CONFIGURATION" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would cleanup $Destination $DestinationNamespace from $Source $SourceNamespace configuration" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Would remove $InstanceAliasToRemove CORS origins and redirect URIs for: $Destination $DestinationNamespace" -ForegroundColor Gray
+    # }
+    # $scriptPath = Get-ScriptPath "configuration/cleanup_environment_config.ps1"
+    # & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -InstanceAliasToRemove $InstanceAliasToRemove -Domain $Domain -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 6: Revert SQL Users
-    Write-Host "🔄 STEP 6: REVERT SQL USERS" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would revert $Destination $DestinationNamespace from $Source $SourceNamespace from SQL users and managed identities" -ForegroundColor Yellow
-    }
-    $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-    & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:$DryRun
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 6: Revert SQL Users
+    # Write-Host "🔄 STEP 6: REVERT SQL USERS" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would revert $Destination $DestinationNamespace from $Source $SourceNamespace from SQL users and managed identities" -ForegroundColor Yellow
+    # }
+    # $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    # & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Revert -Source $Source -SourceNamespace $SourceNamespace -AutoApprove -StopOnFailure -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 7: Adjust Resources
-    Write-Host "🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would adjust $Destination $DestinationNamespace database resources" -ForegroundColor Yellow
-        Write-Host "🔍 DRY RUN: Would adjust $InstanceAlias instance alias and $Domain domain" -ForegroundColor Gray
-    }
-    $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
-    & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 7: Adjust Resources
+    # Write-Host "🔄 STEP 7: ADJUST RESOURCES" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would adjust $Destination $DestinationNamespace database resources" -ForegroundColor Yellow
+    #     Write-Host "🔍 DRY RUN: Would adjust $InstanceAlias instance alias and $Domain domain" -ForegroundColor Gray
+    # }
+    # $scriptPath = Get-ScriptPath "configuration/adjust_db.ps1"
+    # & $scriptPath -Domain $Domain -InstanceAlias $InstanceAlias -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 8: Delete Replicas
-    Write-Host "🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would delete and recreate replicas for $Destination $DestinationNamespace from $Source $SourceNamespace" -ForegroundColor Yellow
-    }
-    $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
-    & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 8: Delete Replicas
+    # Write-Host "🔄 STEP 8: DELETE REPLICAS" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would delete and recreate replicas for $Destination $DestinationNamespace from $Source $SourceNamespace" -ForegroundColor Yellow
+    # }
+    # $scriptPath = Get-ScriptPath "replicas/delete_replicas.ps1"
+    # & $scriptPath -Destination $Destination -Source $Source -SourceNamespace $SourceNamespace -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 9: Configure Users
-    Write-Host "🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would configure SQL users and managed identities for $Destination $DestinationNamespace" -ForegroundColor Yellow
-    }
-    $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-    & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off -DryRun:$DryRun
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 9: Configure Users
+    # Write-Host "🔄 STEP 9: CONFIGURE USERS" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # if ($DryRun) {
+    #     Write-Host "🔍 DRY RUN: Would configure SQL users and managed identities for $Destination $DestinationNamespace" -ForegroundColor Yellow
+    # }
+    # $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
+    # & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off -DryRun:$DryRun
     
     Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # Step 10: Start Environment
@@ -423,10 +423,10 @@ function Invoke-Migration {
     $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
     & $scriptPath  $Destination Namespace $DestinationNamespace -DryRun:$DryRun
     
-    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Step 11: Cleanup
-    Write-Host "🔄 STEP 11: CLEANUP" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # # Step 11: Cleanup
+    # Write-Host "🔄 STEP 11: CLEANUP" -ForegroundColor Cyan
+    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
     # if ($DryRun) {
     #     Write-Host "🔍 DRY RUN: Would delete restored databases from $Source $SourceNamespace" -ForegroundColor Yellow
     # }

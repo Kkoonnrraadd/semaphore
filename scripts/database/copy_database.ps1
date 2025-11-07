@@ -1203,19 +1203,17 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "ℹ️  Tags are applied after all copies complete for maximum reliability" -ForegroundColor Gray
 Write-Host ""
 
-# # Determine required tags based on namespace
-# if ($DestinationNamespace -eq "manufacturo") {
-#     Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
-#     $global:LASTEXITCODE = 1
-#     throw "Manufacturo namespace is not supported for destination"
-#     # $requiredTags = @("Environment", "Owner", "Service", "Type")
-#     # Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
-#     # Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
-# } else {
-#     $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
-#     Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray
-# }
-# Write-Host ""
+# Determine required tags based on namespace
+if ($DestinationNamespace -eq "manufacturo") {
+    Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
+    $global:LASTEXITCODE = 1
+    throw "Manufacturo namespace is not supported for destination"
+    # $requiredTags = @("Environment", "Owner", "Service", "Type")
+} else {
+    $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
+    Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray
+}
+Write-Host ""
 
 $tagVerificationResults = @()
 $tagsComplete = 0

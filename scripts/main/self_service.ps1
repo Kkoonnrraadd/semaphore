@@ -295,7 +295,7 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would stop environment cloud: $Cloud" -ForegroundColor Gray
     }
     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-    & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
+    # & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
     
     Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # Step 3: Copy Attachments
@@ -352,7 +352,7 @@ function Invoke-Migration {
     
     # Call the dedicated permission management script
     $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    $permissionResult = & $permissionScript -Action "ProdSecurity" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
+    # $permissionResult = & $permissionScript -Action "ProdSecurity" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
 
     if (-not $permissionResult.Success) {
         Write-AutomationLog "❌ FATAL ERROR: Failed to remove permissions from production databases" "ERROR"

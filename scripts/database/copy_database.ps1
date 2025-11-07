@@ -13,7 +13,7 @@
 # Track validation failures in dry run mode to fail at the end
 $script:DryRunHasFailures = $false
 $script:DryRunFailureReasons = @()
-
+$requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -202,6 +202,7 @@ function Save-DatabaseTags {
         [string]$Server,
         [string]$ResourceGroup,
         [string]$SubscriptionId,
+        [array]$RequiredTags,
         [string]$DatabaseName
     )
     
@@ -211,7 +212,11 @@ function Save-DatabaseTags {
         
         if ($existingDb -and $existingDb.PSObject.Properties.Count -gt 0) {
             foreach ($tag in $existingDb.PSObject.Properties) {
-                $tagList += "$($tag.Name)=$($tag.Value)"
+                if ($RequiredTags -contains $tag.Name) {
+                    $tagList += "$($tag.Name)=$($tag.Value)"
+                }else {
+                    Write-Host "    ⚠️  Tag $($tag.Name) is not in the required tags list" -ForegroundColor Yellow
+                }
             }
             Write-Host "    ✅ Saved tags from $DatabaseName : $($tagList -join ', ')`n" -ForegroundColor Gray
             return $tagList
@@ -970,7 +975,8 @@ foreach ($db in $dbs) {
             -Server $dest_server `
             -ResourceGroup $dest_rg `
             -SubscriptionId $dest_subscription `
-            -DatabaseName $dest_dbName
+            -DatabaseName $dest_dbName `
+            -RequiredTags $requiredTags
         
         # if ($savedTags) {
         #     Write-Host "    ✅ Saved tags from $dest_dbName : $($savedTags -join ', ')`n" -ForegroundColor Green
@@ -1016,23 +1022,7 @@ if ($databasesToProcess.Count -gt 0) {
     
     # # Determine which server to check (source for same-server copy, Destination for cross-server copy)
     # $sameServer = ($Source_server -eq $dest_server)
-    # if ($sameServer) {
-    # Same server copy - check source server (which is also the Destination)
 
-    # }
-    # else {
-    #     # Cross-server copy - check Destination server
-    #     $storageCheckPassed = Test-ElasticPoolCapacity `
-    #         -Server $dest_server `
-    #         -ResourceGroup $dest_rg `
-    #         -SubscriptionId $dest_subscription `
-    #         -ElasticPoolName $dest_elasticpool `
-    #         -ServerFQDN $dest_server_fqdn `
-    #         -AccessToken $AccessToken `
-    #         -SourceDatabases $SourceDatabaseNames `
-    #         -DestinationDatabases $DestinationDatabaseNames `
-    #         -IsDryRun $DryRun
-    # }
     
     $storageCheckPassed = Test-ElasticPoolCapacity `
         -Server $Source_server `
@@ -1213,19 +1203,19 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "ℹ️  Tags are applied after all copies complete for maximum reliability" -ForegroundColor Gray
 Write-Host ""
 
-# Determine required tags based on namespace
-if ($DestinationNamespace -eq "manufacturo") {
-    Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
-    $global:LASTEXITCODE = 1
-    throw "Manufacturo namespace is not supported for destination"
-    # $requiredTags = @("Environment", "Owner", "Service", "Type")
-    # Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
-    # Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
-} else {
-    $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
-    Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray
-}
-Write-Host ""
+# # Determine required tags based on namespace
+# if ($DestinationNamespace -eq "manufacturo") {
+#     Write-Host "  ❌ Manufacturo namespace is not supported for destination" -ForegroundColor Red
+#     $global:LASTEXITCODE = 1
+#     throw "Manufacturo namespace is not supported for destination"
+#     # $requiredTags = @("Environment", "Owner", "Service", "Type")
+#     # Write-Host "📋 Required tags for manufacturo namespace: $($requiredTags -join ', ')" -ForegroundColor Gray
+#     # Write-Host "   (ClientName is optional for manufacturo namespace)" -ForegroundColor Gray
+# } else {
+#     $requiredTags = @("ClientName", "Environment", "Owner", "Service", "Type")
+#     Write-Host "📋 Required tags for namespace '$DestinationNamespace': $($requiredTags -join ', ')" -ForegroundColor Gray
+# }
+# Write-Host ""
 
 $tagVerificationResults = @()
 $tagsComplete = 0
@@ -1285,7 +1275,7 @@ Write-Host "📊 TAG VERIFICATION SUMMARY" -ForegroundColor Cyan
 Write-Host "===========================" -ForegroundColor Cyan
 Write-Host "✅ Complete: $tagsComplete databases" -ForegroundColor Green
 Write-Host "❌ Incomplete: $tagsIncomplete databases" -ForegroundColor Red
-Write-Host "⚠️  Errors: $tagsError databases" -ForegroundColor Yellow
+Write-Host "⚠️ Errors: $tagsError databases" -ForegroundColor Yellow
 Write-Host ""
 
 # Re-apply tags if any are missing

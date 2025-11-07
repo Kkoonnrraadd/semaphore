@@ -290,12 +290,11 @@ function Invoke-Migration {
     Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
 
     if ($DryRun) {
-        Write-Host "🔍 DRY RUN: Would stop environment" -ForegroundColor Yellow
         Write-Host "🔍 DRY RUN: Would stop environment: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
         Write-Host "🔍 DRY RUN: Would stop environment cloud: $Cloud" -ForegroundColor Gray
     }
     $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-    # & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
+    & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
     
     Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # Step 3: Copy Attachments

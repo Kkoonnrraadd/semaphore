@@ -410,7 +410,7 @@ function Invoke-Migration {
     #     Write-Host "🔍 DRY RUN: Would configure SQL users and managed identities for $Destination $DestinationNamespace" -ForegroundColor Yellow
     # }
     # $scriptPath = Get-ScriptPath "configuration/sql_configure_users.ps1"
-    # & $scriptPath  $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off -DryRun:$DryRun
+    # & $scriptPath  -Destination $Destination -DestinationNamespace $DestinationNamespace -AutoApprove -StopOnFailure -BaselinesMode Off -DryRun:$DryRun
     
     Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # Step 10: Start Environment
@@ -421,7 +421,7 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN: Would restore monitoring and alerting for $Destination $DestinationNamespace" -ForegroundColor Gray
     }
     $scriptPath = Get-ScriptPath "environment/StartEnvironment.ps1"
-    & $scriptPath  $Destination Namespace $DestinationNamespace -DryRun:$DryRun
+    & $scriptPath  -Destination $Destination -DestinationNamespace $DestinationNamespace -DryRun:$DryRun
     
     # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # # Step 11: Cleanup

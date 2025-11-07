@@ -202,11 +202,11 @@ if ($DryRun) {
     try {
         Write-Host "🔍 DRY RUN: Would set cluster context to: $Destination_aks"
         Write-Host "🔍 DRY RUN: Would upscale blackbox monitoring in 'monitoring' namespace"
-        kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
-        kubectl auth can-i patch  deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
+        # kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
+        # kubectl auth can-i patch  deployments --as=system:serviceaccount:semaphore:semaphore-sa -n monitoring
         Write-Host "🔍 DRY RUN: Would scale up deployments in '$DestinationNamespace' namespace`n"
-        kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
-        kubectl auth can-i patch  deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
+        # kubectl auth can-i list deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
+        # kubectl auth can-i patch  deployments --as=system:serviceaccount:semaphore:semaphore-sa -n DestinationNamespace
         Write-Host "🔍 DRY RUN: Would scale these deployments to 1 replica:"
         Write-Host "   • All deployments in namespace '$DestinationNamespace'"
         Write-Host "   • Special case: eworkin-plus-nonconformance-backend (3 replicas)"

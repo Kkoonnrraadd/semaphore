@@ -5,13 +5,6 @@
     [switch]$DryRun
 )
 
-
-echo "Checking system clock..."
-date -u
-echo "Decoding federated token..."
-cat $AZURE_FEDERATED_TOKEN_FILE | jq '.nbf, .exp'
-
-echo "Refreshing Azure login..."
 az logout
 Write-Host "Trying to relogin and try again..."
 az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `

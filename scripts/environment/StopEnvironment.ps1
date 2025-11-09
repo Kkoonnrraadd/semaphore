@@ -5,16 +5,15 @@
     [switch]$DryRun
 )
 
-$token = Get-Content $env:AZURE_FEDERATED_TOKEN_FILE | ConvertFrom-Json
-$nbf = [DateTimeOffset]::FromUnixTimeSeconds($token.nbf).UtcDateTime
-$exp = [DateTimeOffset]::FromUnixTimeSeconds($token.exp).UtcDateTime
-$now = (Get-Date).ToUniversalTime()
 
-Write-Host "Token valid from $nbf to $exp (UTC). Current time: $now" -ForegroundColor Cyan
+echo "Checking system clock..."
+date -u
+echo "Decoding federated token..."
+cat $AZURE_FEDERATED_TOKEN_FILE | jq '.nbf, .exp'
 
-if ($now -lt $nbf -or $now -gt $exp) {
-    Write-Host "⚠️ Clock skew or expired token detected!" -ForegroundColor Red
-}
+echo "Refreshing Azure login..."
+az logout
+az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $AZURE_CLIENT_ID -t $AZURE_TENANT_ID
 
 # ============================================================================
 # DRY RUN FAILURE TRACKING

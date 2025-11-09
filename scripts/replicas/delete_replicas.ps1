@@ -337,26 +337,8 @@ function Recreate-ReplicaDatabase {
 
 function Delete-ReplicasForEnvironment {
     param (
-        [string]$Environment,
-        [string]$EnvironmentName
+        [string]$Replicas
     )
-    
-    Write-Host "`nSearching for SQL Server replicas in $EnvironmentName environment..." -ForegroundColor Cyan
-    
-    $graph_query = "
-      resources
-      | where type =~ 'microsoft.sql/servers'
-      | where tags.Environment == '$Environment' and tags.Type == 'Replica'
-      | project name, resourceGroup, subscriptionId, location
-    "
-    $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
-
-    if (-not $replicas -or $replicas.Count -eq 0) {
-        Write-Host "No SQL Server replicas found in $EnvironmentName environment" -ForegroundColor Yellow
-        return
-    }
-
-    Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $EnvironmentName" -ForegroundColor Green
     
     foreach ($replica in $replicas) {
         Write-Host "`nProcessing replica server: $($replica.name)" -ForegroundColor White
@@ -744,8 +726,68 @@ if ($DryRun) {
     exit 0
 }
 
+Write-Host "`nSearching for SQL Server replicas in $Destination_lower environment..." -ForegroundColor Cyan
+
+$graph_query = "
+    resources
+    | where type =~ 'microsoft.sql/servers'
+    | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
+    | project name, resourceGroup, subscriptionId, location
+"
+$replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+if (-not $replicas -or $replicas.Count -eq 0) {
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Destination_lower and Type: Replica"
+
+    Write-Host "Trying to relogin and try again..."
+    az logout
+    az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+             --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+    $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+# ═══════════════════════════════════════════════════════════════
+# CRITICAL CHECK: Verify SQL server was found
+# ═══════════════════════════════════════════════════════════════
+    if (-not $replicas -or $replicas.Count -eq 0) {
+        Write-Host ""
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host "❌ FATAL ERROR: SQL Server Not Found"
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host ""
+        Write-Host "🔴 PROBLEM: No SQL server found for environment '$Destination_lower'"
+        Write-Host "   └─ Query returned no results for tags.Environment='$Destination_lower' and tags.Type='Replica'"
+        Write-Host ""
+        Write-Host "💡 SOLUTIONS:"
+        Write-Host "   1. Verify environment name is correct (provided: '$Destination_lower')"
+        Write-Host "   2. Check if SQL server exists in Azure Portal"
+        Write-Host "   3. Verify server has required tags:"
+        Write-Host "      • Environment = '$Destination_lower'"
+        Write-Host "      • Type = 'Primary'"
+        Write-Host ""
+        
+        if ($DryRun) {
+            Write-Host "⚠️  DRY RUN WARNING: No SQL server found for destination environment" -ForegroundColor Yellow
+            Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+            Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+            Write-Host ""
+            # Track this failure for final dry run summary
+            $script:DryRunHasFailures = $true
+            $script:DryRunFailureReasons += "No SQL server found for destination environment '$Destination_lower'"
+            # Skip to end for dry run summary
+            return
+        } else {
+            Write-Host "🛑 ABORTING: Cannot remove restored databases without server information for environment '$Destination_lower'"
+            Write-Host ""
+            $global:LASTEXITCODE = 1
+            throw "No SQL server found for destination environment '$Destination_lower' - cannot remove restored databases without server information"
+        }
+    }
+}
+
+Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $Destination_lower" -ForegroundColor Green
 # Step 1: Delete replicas and save configurations
-Delete-ReplicasForEnvironment -Environment $Destination_lower -EnvironmentName "Destination ($Destination)"
+Delete-ReplicasForEnvironment -Replicas $replicas
 
 # Step 2: Recreate replicas
 Recreate-AllReplicas

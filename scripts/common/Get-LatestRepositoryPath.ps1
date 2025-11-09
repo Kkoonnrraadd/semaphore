@@ -55,6 +55,7 @@ function Get-LatestRepositoryPath {
     return $latestPath
 }
 
+
 # Export the function
 Export-ModuleMember -Function Get-LatestRepositoryPath
 

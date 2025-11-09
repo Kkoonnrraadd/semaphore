@@ -210,62 +210,62 @@ function Invoke-Migration {
     # }
     # Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
 
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # # STEP 0B: AZURE AUTHENTICATION
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
-    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    # Write-Host ""
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0B: AZURE AUTHENTICATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    Write-Host ""
 
     
 
-    # $result = @{
-    #     Success = $true
-    #     DetectedParameters = @{}
-    #     PermissionResult = $null
-    #     AuthenticationResult = $false
-    #     NeedsPropagationWait = $false
-    #     PropagationWaitSeconds = 0
-    #     Error = $null
-    # }
+    $result = @{
+        Success = $true
+        DetectedParameters = @{}
+        PermissionResult = $null
+        AuthenticationResult = $false
+        NeedsPropagationWait = $false
+        PropagationWaitSeconds = 0
+        Error = $null
+    }
 
-    # try {
-    #     $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
+    try {
+        $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
         
-    #     if (Test-Path $authScript) {
-    #         Write-Host "🔑 Authenticating to Azure...`n" -ForegroundColor Gray
+        if (Test-Path $authScript) {
+            Write-Host "🔑 Authenticating to Azure...`n" -ForegroundColor Gray
             
-    #         Write-Host "🌐 Using specified cloud: $Cloud`n" -ForegroundColor Gray
-    #         $authResult = & $authScript -Cloud $Cloud
+            Write-Host "🌐 Using specified cloud: $Cloud`n" -ForegroundColor Gray
+            $authResult = & $authScript -Cloud $Cloud
             
-    #         if ($authResult) {
-    #             Write-Host "✅ Azure authentication successful`n" -ForegroundColor Green
-    #             $result.AuthenticationResult = $true
-    #         } else {
-    #             Write-Host ""
-    #             Write-Host "❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
-    #             Write-Host "Cannot proceed without authentication" -ForegroundColor Yellow
+            if ($authResult) {
+                Write-Host "✅ Azure authentication successful`n" -ForegroundColor Green
+                $result.AuthenticationResult = $true
+            } else {
+                Write-Host ""
+                Write-Host "❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
+                Write-Host "Cannot proceed without authentication" -ForegroundColor Yellow
                 
-    #             $result.Success = $false
-    #             $result.Error = "Azure authentication failed"
-    #             return $result
-    #         }
-    #     } else {
-    #         Write-Host "   ⚠️  Authentication script not found: $authScript" -ForegroundColor Yellow
-    #         $global:LASTEXITCODE = 1
-    #         throw "Authentication script not found: $authScript"
-    #     }
-    # } catch {
-    #     Write-Host ""
-    #     Write-Host "   ❌ FATAL ERROR: Authentication exception: $($_.Exception.Message)" -ForegroundColor Red
+                $result.Success = $false
+                $result.Error = "Azure authentication failed"
+                return $result
+            }
+        } else {
+            Write-Host "   ⚠️  Authentication script not found: $authScript" -ForegroundColor Yellow
+            $global:LASTEXITCODE = 1
+            throw "Authentication script not found: $authScript"
+        }
+    } catch {
+        Write-Host ""
+        Write-Host "   ❌ FATAL ERROR: Authentication exception: $($_.Exception.Message)" -ForegroundColor Red
         
-    #     $result.Success = $false
-    #     $result.Error = "Azure authentication exception: $($_.Exception.Message)"
-    #     return $result
-    # }
+        $result.Success = $false
+        $result.Error = "Azure authentication exception: $($_.Exception.Message)"
+        return $result
+    }
 
-    # Write-Host ""
+    Write-Host ""
 
     # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # # Step 1: Restore Point in Time

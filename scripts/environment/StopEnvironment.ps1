@@ -13,8 +13,9 @@ cat $AZURE_FEDERATED_TOKEN_FILE | jq '.nbf, .exp'
 
 echo "Refreshing Azure login..."
 az logout
-az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u $AZURE_CLIENT_ID -t $AZURE_TENANT_ID
-
+Write-Host "Trying to relogin and try again..."
+az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+         --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
 # ============================================================================
 # DRY RUN FAILURE TRACKING
 # ============================================================================
@@ -33,41 +34,51 @@ $graph_query = "
 "
 $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
-# ═══════════════════════════════════════════════════════════════
-# CRITICAL CHECK: Verify AKS cluster was found
-# ═══════════════════════════════════════════════════════════════
 if (-not $recources -or $recources.Count -eq 0) {
-    Write-Host ""
-    Write-Host "═══════════════════════════════════════════════"
-    Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
-    Write-Host "═══════════════════════════════════════════════"
-    Write-Host ""
-    Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$Destination'"
-    Write-Host "   └─ Query returned no results for tags.Environment='$Destination_lower' and tags.Type='Primary'"
-    Write-Host ""
-    Write-Host "💡 SOLUTIONS:"
-    Write-Host "   1. Verify environment name is correct (provided: '$Destination')"
-    Write-Host "   2. Check if AKS cluster exists in Azure Portal"
-    Write-Host "   3. Verify cluster has required tags:"
-    Write-Host "      • Environment = '$Destination_lower'"
-    Write-Host "      • Type = 'Primary'"
-    Write-Host ""
-    
-    if ($DryRun) {
-        Write-Host "⚠️  DRY RUN WARNING: No AKS cluster found for environment" -ForegroundColor Yellow
-        Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
-        Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
+
+    Write-Host "Trying to relogin and try again..."
+    az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+             --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+    $recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+    # ═══════════════════════════════════════════════════════════════
+    # CRITICAL CHECK: Verify AKS cluster was found
+    # ═══════════════════════════════════════════════════════════════
+    if (-not $recources -or $recources.Count -eq 0) {
         Write-Host ""
-        # Track this failure for final dry run summary
-        $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "No AKS cluster found for environment '$Destination'"
-        # Skip to end of script for dry run summary
-        return
-    } else {
-        Write-Host "🛑 ABORTING: Cannot stop environment without cluster information"
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host "❌ FATAL ERROR: AKS Cluster Not Found"
+        Write-Host "═══════════════════════════════════════════════"
         Write-Host ""
-        $global:LASTEXITCODE = 1
-        throw "No AKS cluster found for environment - cannot stop environment without cluster information"
+        Write-Host "🔴 PROBLEM: No AKS cluster found for environment '$Destination'"
+        Write-Host "   └─ Query returned no results for tags.Environment='$Destination_lower' and tags.Type='Primary'"
+        Write-Host ""
+        Write-Host "💡 SOLUTIONS:"
+        Write-Host "   1. Verify environment name is correct (provided: '$Destination')"
+        Write-Host "   2. Check if AKS cluster exists in Azure Portal"
+        Write-Host "   3. Verify cluster has required tags:"
+        Write-Host "      • Environment = '$Destination_lower'"
+        Write-Host "      • Type = 'Primary'"
+        Write-Host ""
+        
+        if ($DryRun) {
+            Write-Host "⚠️  DRY RUN WARNING: No AKS cluster found for environment" -ForegroundColor Yellow
+            Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+            Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+            Write-Host ""
+            # Track this failure for final dry run summary
+            $script:DryRunHasFailures = $true
+            $script:DryRunFailureReasons += "No AKS cluster found for environment '$Destination'"
+            # Skip to end of script for dry run summary
+            return
+        } else {
+            Write-Host "🛑 ABORTING: Cannot stop environment without cluster information"
+            Write-Host ""
+            $global:LASTEXITCODE = 1
+            throw "No AKS cluster found for environment - cannot stop environment without cluster information"
+        }
     }
 }
 

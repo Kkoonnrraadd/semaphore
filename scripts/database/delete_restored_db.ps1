@@ -111,9 +111,9 @@ if (-not $server -or $server.Count -eq 0) {
     }
 }
 
-$Source_subscription = $recources[0].subscriptionId
-$Source_server = $recources[0].name
-$Source_rg = $recources[0].resourceGroup
+$Source_subscription = $server[0].subscriptionId
+$Source_server = $server[0].name
+$Source_rg = $server[0].resourceGroup
 
 # Parse server name components
 $Source_split = $Source_server -split "-"

@@ -5,6 +5,11 @@
     [switch]$DryRun
 )
 
+az logout
+Write-Host "Trying to relogin and try again..."
+az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+         --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+         
 # ============================================================================
 # DRY RUN FAILURE TRACKING
 # ============================================================================

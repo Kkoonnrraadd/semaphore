@@ -279,17 +279,17 @@ function Invoke-Migration {
     # $scriptPath = Get-ScriptPath "restore/RestorePointInTime.ps1"
     # & $scriptPath -Source $Source -SourceNamespace $SourceNamespace -RestoreDateTime $RestoreDateTime -Timezone $Timezone -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
 
-    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # # Step 2: Stop Environment
-    # Write-Host "🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
-    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    # Step 2: Stop Environment
+    Write-Host "🔄 STEP 2: STOP ENVIRONMENT" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
 
-    # if ($DryRun) {
-    #     Write-Host "🔍 DRY RUN: Would stop environment: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
-    #     Write-Host "🔍 DRY RUN: Would stop environment cloud: $Cloud" -ForegroundColor Gray
-    # }
-    # $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
-    # & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would stop environment: $Destination / namespace: $DestinationNamespace" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would stop environment cloud: $Cloud" -ForegroundColor Gray
+    }
+    $scriptPath = Get-ScriptPath "environment/StopEnvironment.ps1"
+    & $scriptPath -Destination $Destination -DestinationNamespace $DestinationNamespace -Cloud $Cloud -DryRun:$DryRun
     
     # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # # Step 3: Copy Attachments

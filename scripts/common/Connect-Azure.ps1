@@ -3,7 +3,10 @@ param(
 )
 
 Write-Host "🔐 Setting up Azure authentication..." -ForegroundColor Cyan
+Write-Host "Trying to logout and relogin..." -ForegroundColor Yellow
+az logout
 
+         
 # Try Service Principal authentication
 if ($env:AZURE_CLIENT_ID -and $env:AZURE_TENANT_ID -and $env:AZURE_FEDERATED_TOKEN_FILE) {
     Write-Host "🔑 Authenticating with Service Principal...`n" -ForegroundColor Yellow

@@ -5,6 +5,17 @@
     [switch]$DryRun
 )
 
+$token = Get-Content $env:AZURE_FEDERATED_TOKEN_FILE | ConvertFrom-Json
+$nbf = [DateTimeOffset]::FromUnixTimeSeconds($token.nbf).UtcDateTime
+$exp = [DateTimeOffset]::FromUnixTimeSeconds($token.exp).UtcDateTime
+$now = (Get-Date).ToUniversalTime()
+
+Write-Host "Token valid from $nbf to $exp (UTC). Current time: $now" -ForegroundColor Cyan
+
+if ($now -lt $nbf -or $now -gt $exp) {
+    Write-Host "⚠️ Clock skew or expired token detected!" -ForegroundColor Red
+}
+
 # ============================================================================
 # DRY RUN FAILURE TRACKING
 # ============================================================================

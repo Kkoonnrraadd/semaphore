@@ -5,9 +5,53 @@ param($Request, $TriggerMetadata)
 # Get parameters from request body
 $body = $Request.Body
 $Environment = $body.Environment
-$ServiceAccount = $body.$ServiceAccount
+$ServiceAccount = $body.ServiceAccount
 $Action = $body.Action
 $Namespace = $body.Namespace
+
+function Grant-ResourceGroupRole {
+    param(
+        [string]$Scope,
+        [string]$RoleDefinitionName,
+        [string]$ServicePrincipalId,
+        [string]$Action
+    )
+            
+
+    # Check current role assignments
+    Write-Host "`n🔍 Checking current role assignments..." -ForegroundColor Yellow
+    $currentAssignments = Get-AzRoleAssignment -ObjectId $ServicePrincipalId -Scope $Scope -ErrorAction SilentlyContinue
+    $Role = $currentAssignments | Where-Object { $_.RoleDefinitionName -eq $RoleDefinitionName }
+
+    if ($Role) {
+        Write-Host "  ✅ $RoleDefinitionName role is currently assigned" -ForegroundColor Green
+    } else {
+        Write-Host "  ℹ️  $RoleDefinitionName role is not currently assigned" -ForegroundColor Gray
+    }
+
+    # Perform subscription role action
+    if ($Action -eq "Grant") {
+        if ($Role) {
+            Write-Host "`n⚠️  $RoleDefinitionName role already assigned - skipping" -ForegroundColor Yellow
+            $subscriptionResult += "; $RoleDefinitionName role already assigned to $($Scope)"
+        } else {
+            Write-Host "`n➕ Assigning $RoleDefinitionName role to resource group..." -ForegroundColor Yellow
+            New-AzRoleAssignment -ObjectId $ServicePrincipalId -RoleDefinitionName $RoleDefinitionName -Scope $Scope | Out-Null
+            Write-Host "  ✅ Successfully assigned $RoleDefinitionName role" -ForegroundColor Green
+            $subscriptionResult += "; Successfully assigned $RoleDefinitionName role to $($Scope)"
+        }
+    } elseif ($Action -eq "Remove") {
+        if (-not $Role) {
+            Write-Host "`n⚠️  $RoleDefinitionName role not assigned - skipping" -ForegroundColor Yellow
+            $subscriptionResult += "; $RoleDefinitionName role not assigned to $($Scope)"
+        } else {
+            Write-Host "`n➖ Removing $RoleDefinitionName role from resource group..." -ForegroundColor Yellow
+            Remove-AzRoleAssignment -ObjectId $ServicePrincipalId -RoleDefinitionName $RoleDefinitionName -Scope $Scope | Out-Null
+            Write-Host "  ✅ Successfully removed $RoleDefinitionName role" -ForegroundColor Green
+            $subscriptionResult += "; Successfully removed $RoleDefinitionName role from $($Scope)"
+        }
+    }
+}
 
 # Validate Action parameter
 if ($Action -notin @("Grant", "Remove", "ProdSecurity")) {
@@ -34,7 +78,7 @@ try {
     # $appId = $env:appIdv2
     # $appSecret = $env:appSecretv2
     ###
-    ### GOV
+    ## GOV
     $appId = $env:appId
     $appSecret = $env:appSecret
     ###
@@ -90,11 +134,11 @@ $targetGroups = @()
 if ($Action -eq "ProdSecurity") {
     $filter =   "$Environment"
     $preprod_filter =   "prodsecurityonly:)"
-    $groupSuffixes = @("DBContributors","DBAdmins")
+    $groupSuffixes = @("DBContributors","DBAdmins", "Contributors")
 } else {
     $filter =   "$Environment"
     $preprod_filter =   "$Environment-$Namespace"
-    $groupSuffixes = @("DBContributors", "DBAdmins", "Self-Service-Refresh")
+    $groupSuffixes = @("DBContributors", "DBAdmins", "Contributors")
 }
 
 try {
@@ -231,14 +275,10 @@ try {
             }
         }
     }
-    
     # Build result summary
     $resultSummary = "$Action action completed for $ServiceAccount : $successCount succeeded, $skipCount skipped, $errorCount errors across $($targetGroups.Count) groups"
     $result = $resultSummary
     
-    if ($errorCount -gt 0) {
-        Write-Host "`n⚠️  Completed with errors" -ForegroundColor Yellow
-    }
 } catch {
     Write-Host "  ❌ Error performing action: $($_.Exception.Message)" -ForegroundColor Red
     $body = "Error performing action: $($_.Exception.Message)"
@@ -250,6 +290,138 @@ try {
     return
 }
 
+$subscriptionResult = ""
+# $successCount = 0
+# $skipCount = 0
+# $errorCount = 0
+# Resource Group Permissions
+try {
+    
+    Write-Host "🔐 Service Principal Access Management" -ForegroundColor Cyan
+    Write-Host "======================================" -ForegroundColor Cyan
+    Write-Host "Service Principal: $ServiceAccount" -ForegroundColor White
+    Write-Host "Environment: $Environment" -ForegroundColor White
+    Write-Host "Action: $Action" -ForegroundColor White
+
+    Connect-AzAccount -Identity
+
+    $allSubscriptions = Get-AzSubscription
+    Write-Host "  📋 Found $($allSubscriptions.Count) total subscriptions" -ForegroundColor Gray
+    
+    # Find subscription matching the environment name
+    $matchingSubscription = $allSubscriptions | Where-Object { $_.Name -like "*$Environment*" } | Select-Object -First 1
+    
+    if (-not $matchingSubscription) {
+        Write-Host "  ❌ No subscription found matching environment: $Environment" -ForegroundColor Red
+        Write-Host "`n  Available subscriptions:" -ForegroundColor Gray
+        $allSubscriptions | ForEach-Object {
+            Write-Host "    - $($_.Name) (ID: $($_.Id))" -ForegroundColor Gray
+        }
+        Write-Host "  ⚠️  Skipping subscription role assignment" -ForegroundColor Yellow
+        $subscriptionResult = "; No matching subscription found for environment $Environment"
+    } else {
+        Write-Host "  ✅ Found matching subscription:" -ForegroundColor Green
+        Write-Host "     Name: $($matchingSubscription.Name)" -ForegroundColor White
+        Write-Host "     ID: $($matchingSubscription.Id)" -ForegroundColor White
+        Write-Host "     State: $($matchingSubscription.State)" -ForegroundColor White
+        
+        $Destination_subscription = $matchingSubscription.Id
+
+        if (-not $Destination_subscription) {
+            Write-Host "  ❌ No subscription found matching environment: $Environment" -ForegroundColor Red
+            $subscriptionResult = "; No matching subscription found for environment $Environment"
+        } else {
+            Write-Host "  ✅ Found matching subscription:" -ForegroundColor Green
+            Write-Host "     ID: $($Destination_subscription)" -ForegroundColor White
+                
+            # Set context to the target subscription
+            Write-Host "`n⚙️  Setting subscription context..." -ForegroundColor Yellow
+            Set-AzContext -SubscriptionId $Destination_subscription | Out-Null
+            Write-Host "  ✅ Subscription context set" -ForegroundColor Green
+        
+            # Check current role assignments
+            Write-Host "`n🔍 Checking current subscription role assignments..." -ForegroundColor Yellow
+            $scope = "/subscriptions/$Destination_subscription"
+            $currentAssignments = Get-AzRoleAssignment -ObjectId $sp.Id -Scope $scope -ErrorAction SilentlyContinue
+            $ReaderRole = $currentAssignments | Where-Object { $_.RoleDefinitionName -eq "Reader" }
+        
+            if ($ReaderRole) {
+                Write-Host "  ✅ Reader role is currently assigned" -ForegroundColor Green
+            } else {
+                Write-Host "  ℹ️  Reader role is not currently assigned" -ForegroundColor Gray
+            }
+        
+            # Perform subscription role action
+            if ($Action -eq "Grant") {
+                if ($ReaderRole) {
+                    Write-Host "`n⚠️  Reader role already assigned - skipping" -ForegroundColor Yellow
+                    $subscriptionResult += "; Reader role already assigned to subscription $($Destination_subscription)"
+                } else {
+                    Write-Host "`n➕ Assigning Reader role to subscription..." -ForegroundColor Yellow
+                    New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
+                    Write-Host "  ✅ Successfully assigned Reader role" -ForegroundColor Green
+                    $subscriptionResult += "; Successfully assigned Reader role to subscription $($Destination_subscription)"
+                }
+            } elseif ($Action -eq "Remove") {
+                if (-not $ReaderRole) {
+                    Write-Host "`n⚠️  Reader role not assigned - skipping" -ForegroundColor Yellow
+                    $subscriptionResult += "; Reader role not assigned to subscription $($Destination_subscription)"
+                } else {
+                    Write-Host "`n➖ Removing Reader role from subscription..." -ForegroundColor Yellow
+                    Remove-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope $scope | Out-Null
+                    Write-Host "  ✅ Successfully removed Reader role" -ForegroundColor Green
+                    $subscriptionResult += "; Successfully removed Reader role from subscription $($Destination_subscription)"
+                }
+            }
+        }
+    }
+
+    $resources = Get-AzSqlServer | Select-Object ResourceGroupName, ServerName, Location | Sort-Object ResourceGroupName, ServerName -Unique
+
+    if ( -not $resources) {
+        Write-Host "  ❌ No resources found for environment: $Environment" -ForegroundColor Red
+        $subscriptionResult += "; No resources found for environment $Environment"
+        $subscriptionResult += "; $ErrorMessage"
+    }
+
+    foreach ($rg in $resources) {
+        $Destination_rg = $rg.ResourceGroupName
+        Write-Host "   Resource Group: $Destination_rg" -ForegroundColor Gray
+
+        $subscriptionResult = @()
+        try {
+
+            if (-not $Destination_rg) {
+                Write-Host "  ❌ No resource group found for environment: $Environment" -ForegroundColor Red
+                $subscriptionResult = "; No resource group found for environment $Environment"
+            } else {
+                Write-Host "  ✅ Found resource group:" -ForegroundColor Green
+                Write-Host "     Name: $($Destination_rg)" -ForegroundColor White
+
+                $scope = "/subscriptions/$Destination_subscription/resourceGroups/$Destination_rg"
+                # Assign roles to Resource Group
+                
+                Grant-ResourceGroupRole -Scope $scope -RoleDefinitionName "Application Insights Component Contributor" -ServicePrincipalId $sp.Id -Action $Action
+                Grant-ResourceGroupRole -Scope $scope -RoleDefinitionName "SQL Server Contributor" -ServicePrincipalId $sp.Id -Action $Action
+                Grant-ResourceGroupRole -Scope $scope -RoleDefinitionName "Storage Account Contributor" -ServicePrincipalId $sp.Id -Action $Action
+                Grant-ResourceGroupRole -Scope $scope -RoleDefinitionName "Storage Blob Data Contributor" -ServicePrincipalId $sp.Id -Action $Action
+                Grant-ResourceGroupRole -Scope $scope -RoleDefinitionName "Azure Kubernetes Service Cluster User Role" -ServicePrincipalId $sp.Id -Action $Action
+
+            }
+        } catch {
+            Write-Host "  ❌ Error with subscription role assignment: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  ⚠️  Continuing despite subscription error..." -ForegroundColor Yellow
+            $subscriptionResult += "; Error with subscription role: $($_.Exception.Message)"
+        }
+
+    }
+
+} catch {
+    Write-Host "  ❌ Error with resource group role assignment: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  ⚠️  Continuing despite resource group error..." -ForegroundColor Yellow
+    $subscriptionResult += "; Error with resource group role: $($_.Exception.Message)"
+}
+
 # Cleanup
 Disconnect-AzAccount -ErrorAction SilentlyContinue | Out-Null
 
@@ -259,5 +431,5 @@ Disconnect-MgGraph
 
 Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
     StatusCode = [HttpStatusCode]::OK
-    Body = $result + $subscriptionResult
+    Body = ($result + $subscriptionResult) -join "`n"
 })

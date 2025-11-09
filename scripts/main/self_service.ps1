@@ -60,7 +60,6 @@ param (
     [string]$InstanceAliasToRemove,
     [string]$Cloud,
     [switch]$DryRun,
-    [switch]$UseSasTokens,  # Use SAS tokens for 3TB+ container copies (8-hour validity)
     [int]$MaxWaitMinutes
     # 🤖 AUTOMATION PARAMETERS - prevents interactive prompts
     # [string]$LogFile = "/tmp/self_service_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"           # Custom log file path for automation
@@ -115,7 +114,6 @@ function Perform-Migration {
     Write-Host "   Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "   Max Wait Minutes: $MaxWaitMinutes" -ForegroundColor Gray
     Write-Host "   DryRun: $DryRun" -ForegroundColor Gray
-    Write-Host "   UseSasTokens: $UseSasTokens" -ForegroundColor Gray
     
     # Set domain based on cloud environment for downstream scripts
     switch ($Cloud) {
@@ -144,7 +142,6 @@ function Perform-Migration {
         -DestinationNamespace $DestinationNamespace `
         -Domain $Domain `
         -DryRun:$DryRun `
-        -UseSasTokens:$UseSasTokens `
         -MaxWaitMinutes $MaxWaitMinutes `
         -RestoreDateTime $RestoreDateTime `
         -Timezone $Timezone
@@ -161,7 +158,6 @@ function Invoke-Migration {
         [string]$DestinationNamespace,
         [string]$Domain,
         [switch]$DryRun,
-        [switch]$UseSasTokens,
         [int]$MaxWaitMinutes,
         [string]$RestoreDateTime,
         [string]$Timezone
@@ -179,7 +175,6 @@ function Invoke-Migration {
     Write-Host "📅 Restore DateTime: $RestoreDateTime ($Timezone)" -ForegroundColor Gray
     Write-Host "🕐 Timezone: $Timezone" -ForegroundColor Gray
     Write-Host "⏱️ Max Wait Time: $MaxWaitMinutes minutes" -ForegroundColor Gray
-    Write-Host "🔍 UseSasTokens: $UseSasTokens" -ForegroundColor Gray
     
     if ($DryRun) {
         Write-Host "🔍 DRY RUN MODE ENABLED - No actual changes will be made" -ForegroundColor Yellow
@@ -310,12 +305,6 @@ function Invoke-Migration {
         Destination = $Destination
         SourceNamespace = $SourceNamespace
         DestinationNamespace = $DestinationNamespace
-    }
-    
-    # Add UseSasTokens if specified (for 3TB+ containers)
-    if ($UseSasTokens) {
-        $copyParams['UseSasTokens'] = $true
-        Write-Host "🔐 SAS Token Mode: Enabled (for large containers)" -ForegroundColor Magenta
     }
     
     # Add DryRun if enabled

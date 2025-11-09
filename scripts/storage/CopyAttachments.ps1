@@ -3,8 +3,7 @@
     [Parameter(Mandatory)][string]$Destination,
     [Parameter(Mandatory)][string]$DestinationNamespace,
     [Parameter(Mandatory)][string]$SourceNamespace,
-    [switch]$DryRun,
-    [switch]$UseSasTokens  # Use SAS tokens for long-running operations (3TB+ containers)
+    [switch]$DryRun
 )
 
 # ============================================================================
@@ -97,12 +96,6 @@ Write-Host "  SourceNamespace: $SourceNamespace" -ForegroundColor Gray
 Write-Host "  DestinationNamespace: $DestinationNamespace" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun (Type: $($DryRun.GetType().Name))" -ForegroundColor Gray
 
-if ($UseSasTokens) {
-    Write-Host "  🔐 SAS Token mode is ENABLED" -ForegroundColor Magenta
-} else {
-    $global:LASTEXITCODE = 1
-    throw "SAS must be enabled! This is bug, please check current script."
-}
 Write-Host "═══════════════════════════════════════════════════" -ForegroundColor DarkGray
 Write-Host ""
 

@@ -218,16 +218,6 @@ $DryRun = if ($parsedParams.ContainsKey("DryRun")) {
     $true 
 }
 
-$UseSasTokens = if ($parsedParams.ContainsKey("UseSasTokens")) { 
-    $useSasValue = $parsedParams["UseSasTokens"]
-    $useSasBool = if ($useSasValue -eq "true" -or $useSasValue -eq $true) { $true } else { $false }
-    Write-Host "🔧 Converted UseSasTokens: '$useSasValue' → $useSasBool" -ForegroundColor Yellow
-    $useSasBool = $true # default to true for now
-    $useSasBool
-} else { 
-    Write-Host "🔧 Using default UseSasTokens: false" -ForegroundColor Yellow
-    $false 
-}
 $production_confirm = if ($parsedParams.ContainsKey("production_confirm")) { $parsedParams["production_confirm"] } else { "" }
 
 Write-Host "🔧 Semaphore Wrapper: Converting parameters for self_service.ps1" -ForegroundColor Cyan
@@ -242,7 +232,6 @@ Write-Host "  InstanceAlias: $InstanceAlias" -ForegroundColor Gray
 Write-Host "  InstanceAliasToRemove: $InstanceAliasToRemove" -ForegroundColor Gray
 Write-Host "  Cloud: $Cloud" -ForegroundColor Gray
 Write-Host "  DryRun: $DryRun" -ForegroundColor Gray
-Write-Host "  UseSasTokens: $UseSasTokens" -ForegroundColor Gray
 Write-Host "  MaxWaitMinutes: $MaxWaitMinutes" -ForegroundColor Gray
 if ($production_confirm) {
     Write-Host "  production_confirm: $production_confirm" -ForegroundColor Gray
@@ -568,6 +557,6 @@ if ($DestinationNamespace -eq "manufacturo") {
 }
 
 # Call the main script with splatting - only passes parameters that have values
-& $selfServiceScript -RestoreDateTime $RestoreDateTime -Timezone $Timezone -SourceNamespace $SourceNamespace -Source $Source -DestinationNamespace $DestinationNamespace -Destination $Destination -InstanceAlias $InstanceAlias -InstanceAliasToRemove $InstanceAliasToRemove -Cloud $Cloud -DryRun:$DryRun -UseSasTokens:$UseSasTokens -MaxWaitMinutes $MaxWaitMinutes
+& $selfServiceScript -RestoreDateTime $RestoreDateTime -Timezone $Timezone -SourceNamespace $SourceNamespace -Source $Source -DestinationNamespace $DestinationNamespace -Destination $Destination -InstanceAlias $InstanceAlias -InstanceAliasToRemove $InstanceAliasToRemove -Cloud $Cloud -DryRun:$DryRun -MaxWaitMinutes $MaxWaitMinutes
 
 Write-Host "✅ Semaphore wrapper completed" -ForegroundColor Green

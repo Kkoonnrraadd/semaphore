@@ -60,43 +60,54 @@ $graph_query = "
   | where tags.Environment == '$Source_lower' and tags.Type == 'Primary'
   | project name, resourceGroup, subscriptionId
 "
-$recources = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+$server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+if (-not $server -or $server.Count -eq 0) {
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Source and Type: Primary"
+
+    Write-Host "Trying to relogin and try again..."
+    az logout
+    az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+             --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+    $server = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
 # ═══════════════════════════════════════════════════════════════
 # CRITICAL CHECK: Verify SQL server was found
 # ═══════════════════════════════════════════════════════════════
-if (-not $recources -or $recources.Count -eq 0) {
-    Write-Host ""
-    Write-Host "═══════════════════════════════════════════════"
-    Write-Host "❌ FATAL ERROR: SQL Server Not Found"
-    Write-Host "═══════════════════════════════════════════════"
-    Write-Host ""
-    Write-Host "🔴 PROBLEM: No SQL server found for environment '$Source'"
-    Write-Host "   └─ Query returned no results for tags.Environment='$Source_lower' and tags.Type='Primary'"
-    Write-Host ""
-    Write-Host "💡 SOLUTIONS:"
-    Write-Host "   1. Verify environment name is correct (provided: '$Source')"
-    Write-Host "   2. Check if SQL server exists in Azure Portal"
-    Write-Host "   3. Verify server has required tags:"
-    Write-Host "      • Environment = '$Source_lower'"
-    Write-Host "      • Type = 'Primary'"
-    Write-Host ""
-    
-    if ($DryRun) {
-        Write-Host "⚠️  DRY RUN WARNING: No SQL server found for destination environment" -ForegroundColor Yellow
-        Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
-        Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+    if (-not $server -or $server.Count -eq 0) {
         Write-Host ""
-        # Track this failure for final dry run summary
-        $script:DryRunHasFailures = $true
-        $script:DryRunFailureReasons += "No SQL server found for destination environment '$Source'"
-        # Skip to end for dry run summary
-        return
-    } else {
-        Write-Host "🛑 ABORTING: Cannot cleanup databases without server information"
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host "❌ FATAL ERROR: SQL Server Not Found"
+        Write-Host "═══════════════════════════════════════════════"
         Write-Host ""
-        $global:LASTEXITCODE = 1
-        throw "No SQL server found for destination environment - cannot cleanup databases without server information"
+        Write-Host "🔴 PROBLEM: No SQL server found for environment '$Source'"
+        Write-Host "   └─ Query returned no results for tags.Environment='$Source_lower' and tags.Type='Primary'"
+        Write-Host ""
+        Write-Host "💡 SOLUTIONS:"
+        Write-Host "   1. Verify environment name is correct (provided: '$Source')"
+        Write-Host "   2. Check if SQL server exists in Azure Portal"
+        Write-Host "   3. Verify server has required tags:"
+        Write-Host "      • Environment = '$Source_lower'"
+        Write-Host "      • Type = 'Primary'"
+        Write-Host ""
+        
+        if ($DryRun) {
+            Write-Host "⚠️  DRY RUN WARNING: No SQL server found for destination environment" -ForegroundColor Yellow
+            Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+            Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+            Write-Host ""
+            # Track this failure for final dry run summary
+            $script:DryRunHasFailures = $true
+            $script:DryRunFailureReasons += "No SQL server found for destination environment '$Source'"
+            # Skip to end for dry run summary
+            return
+        } else {
+            Write-Host "🛑 ABORTING: Cannot cleanup databases without server information"
+            Write-Host ""
+            $global:LASTEXITCODE = 1
+            throw "No SQL server found for destination environment - cannot cleanup databases without server information"
+        }
     }
 }
 

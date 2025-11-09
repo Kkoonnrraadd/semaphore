@@ -116,36 +116,72 @@ if ($DryRun) {
 $Source_lower = (Get-Culture).TextInfo.ToLower($Source)
 $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 
-# Detect source context
-if ($SourceNamespace -eq "manufacturo") {
-    # Special handling for "manufacturo" - use standard storage account names
-    $graph_query = "
-        resources
-        | where type == 'microsoft.storage/storageaccounts'
-        | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'samnfro'
-        | project name, resourceGroup, subscriptionId
-    "
-} else {
-    Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
-    $global:LASTEXITCODE = 1
-    throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
-}
-    # Write-Host "Detecting SOURCE as Multitenant..."
-    # $graph_query = "
-    #     resources
-    #     | where type == 'microsoft.storage/storageaccounts'
-    #     | where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'sa$SourceNamespace'
-    #     | project name, resourceGroup, subscriptionId
-    # "
+# # Detect source context
+# if ($SourceNamespace -eq "manufacturo") {
+#     # Special handling for "manufacturo" - use standard storage account names
+
+# } else {
+#     Write-Host "❌ Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+#     $global:LASTEXITCODE = 1
+#     throw "Source Namespace $SourceNamespace is not supported. Only 'manufacturo' namespace is supported"
+# }
+
+$graph_query = "
+resources
+| where type == 'microsoft.storage/storageaccounts'
+| where tags.Environment == '$Source_lower' and tags.Type == 'Primary' and name contains 'samnfro'
+| project name, resourceGroup, subscriptionId
+"
 
 $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
-# Check if we got any results
 if (-not $src_sa -or $src_sa.Count -eq 0) {
-    Write-Host "❌ Error: No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'" -ForegroundColor Red
-    Write-Host "Graph query: $graph_query" -ForegroundColor Gray
-    $global:LASTEXITCODE = 1
-    throw "No storage accounts found for source environment '$Source' with multitenant '$SourceNamespace'"
+    Write-Host "❌ No SQL server found for environment with tags Environment: $Destination_lower and Type: Primary"
+
+    Write-Host "Trying to relogin and try again..."
+    az logout
+    az login --federated-token "$(cat $env:AZURE_FEDERATED_TOKEN_FILE)" `
+             --service-principal -u $env:AZURE_CLIENT_ID -t $env:AZURE_TENANT_ID
+
+    $src_sa = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+
+# ═══════════════════════════════════════════════════════════════
+# CRITICAL CHECK: Verify SQL server was found
+# ═══════════════════════════════════════════════════════════════
+    if (-not $src_sa -or $src_sa.Count -eq 0) {
+        Write-Host ""
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host "❌ FATAL ERROR: Storage Account Not Found"
+        Write-Host "═══════════════════════════════════════════════"
+        Write-Host ""
+        Write-Host "🔴 PROBLEM: No Storage Account found for environment '$Source'"
+        Write-Host "   └─ Query returned no results for tags.Environment='$Source_lower' and tags.Type='Primary'"
+        Write-Host ""
+        Write-Host "💡 SOLUTIONS:"
+        Write-Host "   1. Verify environment name is correct (provided: '$Source')"
+        Write-Host "   2. Check if Storage Account exists in Azure Portal"
+        Write-Host "   3. Verify Storage Account has required tags:"
+        Write-Host "      • Environment = '$Source_lower'"
+        Write-Host "      • Type = 'Primary'"
+        Write-Host ""
+        
+        if ($DryRun) {
+            Write-Host "⚠️  DRY RUN WARNING: No Storage Account found for destination environment" -ForegroundColor Yellow
+            Write-Host "⚠️  In production, this would abort the operation" -ForegroundColor Yellow
+            Write-Host "⚠️  Skipping remaining steps..." -ForegroundColor Yellow
+            Write-Host ""
+            # Track this failure for final dry run summary
+            $script:DryRunHasFailures = $true
+            $script:DryRunFailureReasons += "No Storage Account found for destination environment '$Source'"
+            # Skip to end for dry run summary
+            return
+        } else {
+            Write-Host "🛑 ABORTING: Cannot copy attachments without Storage Account information"
+            Write-Host ""
+            $global:LASTEXITCODE = 1
+            throw "No Storage Account found for destination environment - cannot copy attachments without Storage Account information"
+        }
+    }
 }
 
 $Source_subscription = $src_sa[0].subscriptionId

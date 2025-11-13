@@ -22,6 +22,31 @@ $Destination_lower = (Get-Culture).TextInfo.ToLower($Destination)
 # Global variable to store replica configurations for recreation
 $script:ReplicaConfigurations = @()
 
+function Test-DatabaseMatchesPattern {
+    param (
+        [string]$DatabaseName,
+        [string]$Service,
+        [string]$DestinationNamespace,
+        [string]$SourceProduct,
+        [string]$SourceType,
+        [string]$SourceEnvironment,
+        [string]$SourceLocation
+    )
+    
+    if ($DestinationNamespace -ne "manufacturo") {
+        $expectedPattern = "$SourceProduct-$SourceType-$Service-$DestinationNamespace-$SourceEnvironment-$SourceLocation"
+        if ($DatabaseName.Contains($expectedPattern)) {
+            return $DatabaseName
+        } else {
+            return $null
+        }
+    } else {
+        Write-Host "❌ Destination Namespace $DestinationNamespace is not supported. Only 'manufacturo' namespace is supported"
+        $global:LASTEXITCODE = 1
+        throw "Destination Namespace $DestinationNamespace is not supported. Only 'manufacturo' namespace is supported"
+    }
+}
+
 function Save-ReplicaConfiguration {
     param (
         [object]$Database,
@@ -337,7 +362,12 @@ function Recreate-ReplicaDatabase {
 
 function Delete-ReplicasForEnvironment {
     param (
-        [string]$Replicas
+        [string]$Replicas,
+        [string]$SourceProduct,
+        [string]$SourceType,
+        [string]$SourceEnvironment,
+        [string]$SourceLocation,
+        [string]$DestinationNamespace
     )
     
     foreach ($replica in $replicas) {
@@ -358,33 +388,72 @@ function Delete-ReplicasForEnvironment {
             
             $databases = @()
             foreach ($dbName in $databaseList) {
-                # Get complete database information including tags
-                $database = az sql db show `
+                # Check if database matches expected pattern
+                $matchesPattern = Test-DatabaseMatchesPattern `
+                    -DatabaseName $dbName `
+                    -Service $replica.tags.Service `
+                    -DestinationNamespace $DestinationNamespace `
+                    -SourceProduct $SourceProduct `
+                    -SourceType $SourceType `
+                    -SourceEnvironment $SourceEnvironment `
+                    -SourceLocation $SourceLocation
+
+                if ($matchesPattern) {
+                    Write-Host "      Debug: Will delete: $($dbName) (matches expected pattern $($matchesPattern))" -ForegroundColor Gray
+                    $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
                     --server $replica.name `
                     --name $dbName | ConvertFrom-Json
-                
-                # Debug: Check what we got from the database
-                # Write-Host "    Debug: Database object type: $($database.GetType().Name)" -ForegroundColor Gray
-                # Write-Host "    Debug: Database properties: $($database.PSObject.Properties.Name -join ', ')" -ForegroundColor Gray
-                # if ($database.tags) {
-                #     Write-Host "    Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                # } else {
-                #     Write-Host "    Debug: No tags property found" -ForegroundColor Gray
-                # }
-                
-                # Filter by ClientName tag if specified
-                if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
-                    $global:LASTEXITCODE = 1
-                    throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
-                } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
-                        $databases += $database
-                }else{
-                    $global:LASTEXITCODE = 1
-                    throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
 
+                    if ($database.tags) {
+                        Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+                    } else {
+                        Write-Host "      Debug: No tags property found" -ForegroundColor Gray
+                        Write-Host "      Debug: Database name: $($database.name)" -ForegroundColor Gray
+                        Write-Host "      Debug: Database tags: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+                        $script:DryRunHasFailures = $true
+                        $script:DryRunFailureReasons += "Database $($database.name) has no tags"
+                    }
+
+                    if ($database.tags.ClientName -eq $DestinationNamespace){
+                        $databases += $database
+                    } else {
+                        $global:LASTEXITCODE = 1
+                        throw "Database $($database.name): ClientName $($database.tags.ClientName) does not match destination namespace $DestinationNamespace"
+                    }
+
+                } else {
+                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($matchesPattern)"
                 }
+
+                # # Get complete database information including tags
+                # $database = az sql db show `
+                #     --subscription $replica.subscriptionId `
+                #     --resource-group $replica.resourceGroup `
+                #     --server $replica.name `
+                #     --name $dbName | ConvertFrom-Json
+                
+                # if ($database.tags) {
+                #     Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+                # } else {
+                #     Write-Host "      Debug: No tags property found" -ForegroundColor Gray
+                #     Write-Host "      Debug: Database name: $($database.name)" -ForegroundColor Gray
+                #     Write-Host "      Debug: Database tags: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+                #     $script:DryRunHasFailures = $true
+                #     $script:DryRunFailureReasons += "Database $($database.name) has no tags"
+                # }
+                # # Filter by ClientName tag if specified
+                # if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
+                #     $global:LASTEXITCODE = 1
+                #     throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
+                # } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
+                #         $databases += $database
+                # }else{
+                #     $global:LASTEXITCODE = 1
+                #     throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
+
+                # }
             }
             
             if ($databases -and $databases.Count -gt 0) {
@@ -393,31 +462,55 @@ function Delete-ReplicasForEnvironment {
                     Write-Host "    - $($db.name)" -ForegroundColor White
                 }
                 
-                # Process each database
-                foreach ($database in $databases) {
-                    Write-Host "`n  Processing database: $($database.name)" -ForegroundColor Cyan
-                    
-                    # Step 1: Save configuration
-                    Save-ReplicaConfiguration -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
-                    
-                    # Debug: Verify what was saved
-                    $lastConfig = $script:ReplicaConfigurations[-1]
-                    Write-Host "    Debug: Last saved config tags: $($lastConfig.Tags | ConvertTo-Json)" -ForegroundColor Magenta
-                    
-                    # Step 2: Remove replication links
-                    Remove-ReplicationLinks -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
-                    
-                    # Step 3: Delete replica database
-                    Delete-ReplicaDatabase -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                        
+                # Show tags that would be preserved
+                if ($db.tags) {
+                    Write-Host "        Tags: $($db.tags.Keys -join ', ')" -ForegroundColor Gray
+                    # Also show individual tag values for clarity
+                    foreach ($tag in $db.tags.PSObject.Properties) {
+                        Write-Host "          $($tag.Name) = $($tag.Value)" -ForegroundColor Gray
+                    }
+                    # Debug: Show raw tags object
+                    # Write-Host "        Debug: Raw tags object: $($db.tags | ConvertTo-Json)" -ForegroundColor Magenta
+                } else {
+                    Write-Host "        Tags: None" -ForegroundColor Gray
                 }
+
+                if ($DryRun) {  
+                    Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
+                    Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
+                    Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
+                    Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
+                } else {
+                # Process each database
+                    foreach ($database in $databases) {
+                        Write-Host "`n  Processing database: $($database.name)" -ForegroundColor Cyan
+                        
+                        # Step 1: Save configuration
+                        Save-ReplicaConfiguration -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                        
+                        # Debug: Verify what was saved
+                        $lastConfig = $script:ReplicaConfigurations[-1]
+                        Write-Host "    Debug: Last saved config tags: $($lastConfig.Tags | ConvertTo-Json)" -ForegroundColor Magenta
+                        
+                        # Step 2: Remove replication links
+                        Remove-ReplicationLinks -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                        
+                        # Step 3: Delete replica database
+                        Delete-ReplicaDatabase -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                    }
                 
-                Write-Host "  ✅ Replica server $($replica.name) is now clean (server preserved)" -ForegroundColor Green
-            } else {
-                Write-Host "  ✓ Replica has no user databases" -ForegroundColor Green
+                    Write-Host "  ✅ Replica server $($replica.name) is now clean (server preserved)" -ForegroundColor Green
+                }
             }
         }
         catch {
-            Write-Host "  ⚠️  Could not check databases: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "    ❌ Error during replica deletion for server $($replica.name): $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "    💡 This might be due to authentication or permission issues" -ForegroundColor Yellow
+            Write-Host "    💡 Consider manual deletion through Azure Portal" -ForegroundColor Yellow
+            Write-Host "    💡 Check if the database exists and is accessible" -ForegroundColor Yellow
+            $global:LASTEXITCODE = 1
+            throw "Error during replica deletion for server $($replica.name): $($_.Exception.Message)"
         }
     }
 }
@@ -607,124 +700,148 @@ function Recreate-AllReplicas {
 Write-Host "Processing Destination environment: $Destination" -ForegroundColor Yellow
 Write-Host "NOTE: Source environment replicas will be preserved" -ForegroundColor Green
 
-if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would delete and recreate replicas for Destination environment" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
+# if ($DryRun) {
+#     Write-Host "🔍 DRY RUN: Would delete and recreate replicas for Destination environment" -ForegroundColor Yellow
+#     Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
+#     Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
+#     Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
+#     Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
     
-    # Discover what replicas would be processed
-    Write-Host "`n🔍 DRY RUN: DISCOVERING REPLICAS TO PROCESS" -ForegroundColor Yellow
-    Write-Host "===========================================" -ForegroundColor Yellow
+#     # Discover what replicas would be processed
+#     Write-Host "`n🔍 DRY RUN: DISCOVERING REPLICAS TO PROCESS" -ForegroundColor Yellow
+#     Write-Host "===========================================" -ForegroundColor Yellow
 
-    $graph_query = "
-      resources
-      | where type =~ 'microsoft.sql/servers'
-      | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
-      | project name, resourceGroup, subscriptionId, location
-    "
-    $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
+#     $graph_query = "
+#       resources
+#       | where type =~ 'microsoft.sql/servers'
+#       | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
+#       | project name, resourceGroup, subscriptionId, location
+#     "
+#     $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
 
-    if (-not $replicas -or $replicas.Count -eq 0) {
-        Write-Host "🔍 DRY RUN: No SQL Server replicas found in Destination environment" -ForegroundColor Yellow
-    } else {
-        Write-Host "🔍 DRY RUN: Found $($replicas.Count) SQL Server replica(s) to process:" -ForegroundColor Yellow
-        
-        foreach ($replica in $replicas) {
-            Write-Host "`n  🔍 Replica Server: $($replica.name)" -ForegroundColor Cyan
-            Write-Host "    Resource Group: $($replica.resourceGroup)" -ForegroundColor Gray
-            Write-Host "    Subscription: $($replica.subscriptionId)" -ForegroundColor Gray
-            Write-Host "    Location: $($replica.location)" -ForegroundColor Gray
-            
-            # Get databases on replica server
-            try {
-                $databaseList = az sql db list `
-                    --subscription $replica.subscriptionId `
-                    --resource-group $replica.resourceGroup `
-                    --server $replica.name `
-                    --query "[?name != 'master'].name" | ConvertFrom-Json
+#     if (-not $replicas -or $replicas.Count -eq 0) {
+#         Write-Host "🔍 DRY RUN: No SQL Server replicas found in Destination environment" -ForegroundColor Yellow
+#     } else {
+#         Write-Host "🔍 DRY RUN: Found $($replicas.Count) SQL Server replica(s) to process:" -ForegroundColor Yellow
+#         # Parse server name components
+#         $Source_split = $replica[0].resourceGroup -split "-"
+#         $Source_product = $Source_split[1]
+#         $Source_location = $Source_split[-1]
+#         $Source_type = $Source_split[2]
+#         $Source_environment = $Source_split[3]
+
+#         foreach ($replica in $replicas) {
+#             Write-Host "`n  🔍 Replica Server: $($replica.name)" -ForegroundColor Cyan
+#             Write-Host "    Resource Group: $($replica.resourceGroup)" -ForegroundColor Gray
+#             Write-Host "    Subscription: $($replica.subscriptionId)" -ForegroundColor Gray
+#             Write-Host "    Location: $($replica.location)" -ForegroundColor Gray
+
+#             # Get databases on replica server
+#             try {
+#                 $databaseList = az sql db list `
+#                     --subscription $replica.subscriptionId `
+#                     --resource-group $replica.resourceGroup `
+#                     --server $replica.name `
+#                     --query "[?name != 'master'].name" | ConvertFrom-Json
                 
-                $databases = @()
-                foreach ($dbName in $databaseList) {
-                    # Get complete database information including tags
-                    $database = az sql db show `
-                        --subscription $replica.subscriptionId `
-                        --resource-group $replica.resourceGroup `
-                        --server $replica.name `
-                        --name $dbName | ConvertFrom-Json
-                    
-                    # Debug: Check what we got from the database
-                    if ($database.tags) {
-                        Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                    } else {
-                        Write-Host "      Debug: No tags property found" -ForegroundColor Gray
-                    }
-                    
-                    # Filter by ClientName tag if specified
-                    if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
-                        $global:LASTEXITCODE = 1
-                        throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
-                    } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
-                        $databases += $database
-                    }else{
-                        $global:LASTEXITCODE = 1
-                        throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
-                    }
-                }
+#                 $databases = @()
+#                 foreach ($dbName in $databaseList) {
+
+#                     # Check if database matches expected pattern
+#                     $matchesPattern = Test-DatabaseMatchesPattern `
+#                         -DatabaseName $dbName `
+#                         -Service $replica.tags.Service `
+#                         -DestinationNamespace $DestinationNamespace `
+#                         -SourceProduct $Source_product `
+#                         -SourceType $Source_type `
+#                         -SourceEnvironment $Source_environment `
+#                         -SourceLocation $Source_location
+                        
+#                     if ($matchesPattern) {
+
+#                         Write-Host "    ✅ Will delete: $($db.name) (matches expected pattern $($matchesPattern))"
+#                         # Get complete database information including tags
+#                         $database = az sql db show `
+#                             --subscription $replica.subscriptionId `
+#                             --resource-group $replica.resourceGroup `
+#                             --server $replica.name `
+#                             --name $dbName | ConvertFrom-Json
+                        
+#                         # Debug: Check what we got from the database
+#                         if ($database.tags) {
+#                             Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+#                         } else {
+#                             Write-Host "      Debug: No tags property found" -ForegroundColor Gray
+#                             Write-Host "      Debug: Database name: $($database.name)" -ForegroundColor Gray
+#                             Write-Host "      Debug: Database tags: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+#                             $script:DryRunHasFailures = $true
+#                             $script:DryRunFailureReasons += "Database $($database.name) has no tags"
+#                         }
+                        
+#                         if ($database.tags.ClientName -eq $DestinationNamespace){
+#                             $databases += $database
+#                         } else {
+#                             $global:LASTEXITCODE = 1
+#                             throw "Database $($database.name) is not supported with ClientName $($database.tags.ClientName)"
+#                         }
+
+#                     } else {
+#                         Write-Host "    ⏭️  Skipping: Pattern mismatch $($db.name) does not match expected pattern $($matchesPattern)"
+#                     }
+#                 }
                 
-                if ($databases -and $databases.Count -gt 0) {
-                    Write-Host "    🔍 Would process $($databases.Count) user database(s):" -ForegroundColor Yellow
-                    foreach ($db in $databases) {
-                        Write-Host "      • $($db.name)" -ForegroundColor Gray
+#                 if ($databases -and $databases.Count -gt 0) {
+#                     Write-Host "    🔍 Would process $($databases.Count) user database(s):" -ForegroundColor Yellow
+#                     foreach ($db in $databases) {
+#                         Write-Host "      • $($db.name)" -ForegroundColor Gray
                         
-                        # Show tags that would be preserved
-                        if ($db.tags) {
-                            Write-Host "        Tags: $($db.tags.Keys -join ', ')" -ForegroundColor Gray
-                            # Also show individual tag values for clarity
-                            foreach ($tag in $db.tags.PSObject.Properties) {
-                                Write-Host "          $($tag.Name) = $($tag.Value)" -ForegroundColor Gray
-                            }
-                            # Debug: Show raw tags object
-                            # Write-Host "        Debug: Raw tags object: $($db.tags | ConvertTo-Json)" -ForegroundColor Magenta
-                        } else {
-                            Write-Host "        Tags: None" -ForegroundColor Gray
-                        }
+#                         # Show tags that would be preserved
+#                         if ($db.tags) {
+#                             Write-Host "        Tags: $($db.tags.Keys -join ', ')" -ForegroundColor Gray
+#                             # Also show individual tag values for clarity
+#                             foreach ($tag in $db.tags.PSObject.Properties) {
+#                                 Write-Host "          $($tag.Name) = $($tag.Value)" -ForegroundColor Gray
+#                             }
+#                             # Debug: Show raw tags object
+#                             # Write-Host "        Debug: Raw tags object: $($db.tags | ConvertTo-Json)" -ForegroundColor Magenta
+#                         } else {
+#                             Write-Host "        Tags: None" -ForegroundColor Gray
+#                         }
                         
-                        # Show replication links that would be removed
-                        try {
-                            $replicationLinks = az sql db replica list-links `
-                                --subscription $replica.subscriptionId `
-                                --resource-group $replica.resourceGroup `
-                                --server $replica.name `
-                                --name $db.name | ConvertFrom-Json
+#                         # Show replication links that would be removed
+#                         try {
+#                             $replicationLinks = az sql db replica list-links `
+#                                 --subscription $replica.subscriptionId `
+#                                 --resource-group $replica.resourceGroup `
+#                                 --server $replica.name `
+#                                 --name $db.name | ConvertFrom-Json
                             
-                            if ($replicationLinks -and $replicationLinks.Count -gt 0) {
-                                Write-Host "        Replication Links: $($replicationLinks.Count) link(s)" -ForegroundColor Gray
-                                foreach ($link in $replicationLinks) {
-                                    Write-Host "          - Partner: $($link.partnerServer)" -ForegroundColor Gray
-                                    Write-Host "            Database: $($link.partnerDatabase)" -ForegroundColor Gray
-                                    Write-Host "            Type: $($link.linkType)" -ForegroundColor Gray
-                                }
-                            }
-                        }
-                        catch {
-                            Write-Host "        Replication Links: Could not retrieve" -ForegroundColor Gray
-                        }
-                    }
-                } else {
-                    Write-Host "    🔍 No user databases would be processed" -ForegroundColor Gray
-                }
-            }
-            catch {
-                Write-Host "    🔍 Could not check databases: $($_.Exception.Message)" -ForegroundColor Gray
-            }
-        }
-    }
+#                             if ($replicationLinks -and $replicationLinks.Count -gt 0) {
+#                                 Write-Host "        Replication Links: $($replicationLinks.Count) link(s)" -ForegroundColor Gray
+#                                 foreach ($link in $replicationLinks) {
+#                                     Write-Host "          - Partner: $($link.partnerServer)" -ForegroundColor Gray
+#                                     Write-Host "            Database: $($link.partnerDatabase)" -ForegroundColor Gray
+#                                     Write-Host "            Type: $($link.linkType)" -ForegroundColor Gray
+#                                 }
+#                             }
+#                         }
+#                         catch {
+#                             Write-Host "        Replication Links: Could not retrieve" -ForegroundColor Gray
+#                         }
+#                     }
+#                 } else {
+#                     Write-Host "    🔍 No user databases would be processed" -ForegroundColor Gray
+#                 }
+#             }
+#             catch {
+#                 Write-Host "    🔍 Could not check databases: $($_.Exception.Message)" -ForegroundColor Gray
+#             }
+#         }
+#     }
     
-    Write-Host "`n🔍 DRY RUN: Replica management preview completed." -ForegroundColor Yellow
-    exit 0
-}
+#     Write-Host "`n🔍 DRY RUN: Replica management preview completed." -ForegroundColor Yellow
+#     exit 0
+# }
 
 Write-Host "`nSearching for SQL Server replicas in $Destination_lower environment..." -ForegroundColor Cyan
 
@@ -786,23 +903,27 @@ if (-not $replicas -or $replicas.Count -eq 0) {
 }
 
 Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $Destination_lower" -ForegroundColor Green
+
+$Source_split = $replica[0].resourceGroup -split "-"
+$Source_product = $Source_split[1]
+$Source_location = $Source_split[-1]
+$Source_type = $Source_split[2]
+$Source_environment = $Source_split[3]
+
 # Step 1: Delete replicas and save configurations
-Delete-ReplicasForEnvironment -Replicas $replicas
+Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
 
-# Step 2: Recreate replicas
-Recreate-AllReplicas
-
-Write-Host "`n====================================" -ForegroundColor Cyan
-Write-Host " Enhanced Replica Management Completed" -ForegroundColor Cyan
-Write-Host "====================================`n" -ForegroundColor Cyan
-
-Write-Host "📝 SUMMARY OF WHAT WAS DONE:" -ForegroundColor Yellow
-Write-Host "✅ Replica configurations were saved before deletion" -ForegroundColor Green
-Write-Host "✅ Replication links were properly removed" -ForegroundColor Green
-Write-Host "✅ Replica databases were deleted from replica servers" -ForegroundColor Green
-Write-Host "✅ Replica databases were recreated with proper configuration" -ForegroundColor Green
-Write-Host "✅ Replia servers were preserved (NOT deleted)" -ForegroundColor Green
-Write-Host "✅ Tags and configurations were preserved during recreation" -ForegroundColor Green
+if ($DryRun) {
+    Write-Host "🔍 DRY RUN: Would recreate replicas for Destination environment" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
+    Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
+    exit 0
+}else{
+    # Step 2: Recreate replicas
+    Recreate-AllReplicas
+}
 
 if ($script:ReplicaConfigurations.Count -gt 0) {
     Write-Host "`n📊 REPLICA CONFIGURATIONS PROCESSED:" -ForegroundColor Yellow

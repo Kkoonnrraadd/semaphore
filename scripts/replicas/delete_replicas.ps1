@@ -399,7 +399,8 @@ function Delete-ReplicasForEnvironment {
                     -SourceLocation $SourceLocation
 
                 if ($matchesPattern) {
-                    Write-Host "      ✅ Will recreate: $($dbName) (matches expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation))" -ForegroundColor Gray
+                    Write-Host "      ✅ Will recreate: $($dbName)" 
+                    # Write-Host "      ✅ Will recreate: $($dbName) (matches expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation))" -ForegroundColor Gray
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
@@ -424,7 +425,8 @@ function Delete-ReplicasForEnvironment {
                     }
 
                 } else {
-                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation)"
+                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName)"
+                    # Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation)"
                 }
 
                 # # Get complete database information including tags

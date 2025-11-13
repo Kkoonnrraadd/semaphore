@@ -362,7 +362,7 @@ function Recreate-ReplicaDatabase {
 
 function Delete-ReplicasForEnvironment {
     param (
-        [string]$replicas,
+        [array]$Replicas,
         [string]$SourceProduct,
         [string]$SourceType,
         [string]$SourceEnvironment,
@@ -370,7 +370,7 @@ function Delete-ReplicasForEnvironment {
         [string]$DestinationNamespace
     )
     
-    foreach ($replica in $replicas) {
+    foreach ($replica in $Replicas) {
         Write-Host "`nProcessing replica server: $($replica.name)" -ForegroundColor White
         Write-Host "  Resource Group: $($replica.resourceGroup)" -ForegroundColor Gray
         Write-Host "  Subscription: $($replica.subscriptionId)" -ForegroundColor Gray
@@ -845,10 +845,11 @@ Write-Host "NOTE: Source environment replicas will be preserved" -ForegroundColo
 
 Write-Host "`nSearching for SQL Server replicas in $Destination_lower environment..." -ForegroundColor Cyan
 
+#  and tags.Type == 'Replica'
 $graph_query = "
     resources
     | where type =~ 'microsoft.sql/servers'
-    | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
+    | where tags.Environment == '$Destination_lower'
     | project name, resourceGroup, subscriptionId, location
 "
 $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json
@@ -918,7 +919,7 @@ Write-Host "Source Type: $Source_type" -ForegroundColor Gray
 Write-Host "Source Environment: $Source_environment" -ForegroundColor Gray
 
 # Step 1: Delete replicas and save configurations
-Delete-ReplicasForEnvironment -replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
+Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
 
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would recreate replicas for Destination environment" -ForegroundColor Yellow

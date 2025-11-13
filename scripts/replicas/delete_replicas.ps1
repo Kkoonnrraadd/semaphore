@@ -362,7 +362,7 @@ function Recreate-ReplicaDatabase {
 
 function Delete-ReplicasForEnvironment {
     param (
-        [string]$Replicas,
+        [string]$replicas,
         [string]$SourceProduct,
         [string]$SourceType,
         [string]$SourceEnvironment,
@@ -911,7 +911,7 @@ $Source_type = $Source_split[2]
 $Source_environment = $Source_split[3]
 
 # Step 1: Delete replicas and save configurations
-Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
+Delete-ReplicasForEnvironment -replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
 
 if ($DryRun) {
     Write-Host "🔍 DRY RUN: Would recreate replicas for Destination environment" -ForegroundColor Yellow

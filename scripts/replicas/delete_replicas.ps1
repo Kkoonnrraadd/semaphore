@@ -399,65 +399,28 @@ function Delete-ReplicasForEnvironment {
                     -SourceLocation $SourceLocation
 
                 if ($matchesPattern) {
-                    Write-Host "      ✅ Will recreate: $($matchesPattern)" 
+                    Write-Host "    ✅ Will recreate: $($matchesPattern)" 
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
                     --server $replica.name `
                     --name $matchesPattern | ConvertFrom-Json
 
-                    if ($database.tags) {
-                        Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                    } else {
-                        Write-Host "      Debug: No tags property found" -ForegroundColor Gray
-                        Write-Host "      Debug: Database name: $($database.name)" -ForegroundColor Gray
-                        Write-Host "      Debug: Database tags: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                        $script:DryRunHasFailures = $true
-                        $script:DryRunFailureReasons += "Database $($database.name) has no tags"
-                    }
-
                     if ($database.tags.ClientName -eq $DestinationNamespace){
                         $databases += $database
                     } else {
+                        Write-Host "    ❌ Database $($database.name): ClientName $($database.tags.ClientName) does not match destination namespace $DestinationNamespace" -ForegroundColor Red
                         $global:LASTEXITCODE = 1
                         throw "Database $($database.name): ClientName $($database.tags.ClientName) does not match destination namespace $DestinationNamespace"
                     }
 
                 } else {
-                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($matchesPattern)"
+                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName)"
                 }
-
-                # # Get complete database information including tags
-                # $database = az sql db show `
-                #     --subscription $replica.subscriptionId `
-                #     --resource-group $replica.resourceGroup `
-                #     --server $replica.name `
-                #     --name $dbName | ConvertFrom-Json
-                
-                # if ($database.tags) {
-                #     Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                # } else {
-                #     Write-Host "      Debug: No tags property found" -ForegroundColor Gray
-                #     Write-Host "      Debug: Database name: $($database.name)" -ForegroundColor Gray
-                #     Write-Host "      Debug: Database tags: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                #     $script:DryRunHasFailures = $true
-                #     $script:DryRunFailureReasons += "Database $($database.name) has no tags"
-                # }
-                # # Filter by ClientName tag if specified
-                # if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {
-                #     $global:LASTEXITCODE = 1
-                #     throw "Manufacturo namespace is not supported for destination or database $($database.name) is not in the destination namespace $DestinationNamespace"
-                # } elseif ($database.tags.ClientName -eq $DestinationNamespace) {
-                #         $databases += $database
-                # }else{
-                #     $global:LASTEXITCODE = 1
-                #     throw "Database $($database.name) is not in the destination namespace $DestinationNamespace"
-
-                # }
             }
             
             if ($databases -and $databases.Count -gt 0) {
-                Write-Host "  Found $($databases.Count) user database(s) on replica:" -ForegroundColor Green
+                Write-Host "  Found $($databases.Count) database(s) on replica:" -ForegroundColor Green
                 foreach ($db in $databases) {
                     Write-Host "    - $($db.name)" -ForegroundColor White
                 }
@@ -474,6 +437,8 @@ function Delete-ReplicasForEnvironment {
                     # Write-Host "        Debug: Raw tags object: $($db.tags | ConvertTo-Json)" -ForegroundColor Magenta
                 } else {
                     Write-Host "        Tags: None" -ForegroundColor Gray
+                    $script:DryRunHasFailures = $true
+                    $script:DryRunFailureReasons += "Database $($database.name) has no tags"
                 }
 
                 if ($DryRun) {  

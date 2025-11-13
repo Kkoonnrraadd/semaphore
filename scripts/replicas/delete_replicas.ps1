@@ -448,12 +448,6 @@ function Delete-ReplicasForEnvironment {
                     $script:DryRunFailureReasons += "Database $($database.name) has no tags"
                 }
 
-                # if ($DryRun) {  
-                #     Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
-                #     Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
-                #     Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
-                #     Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
-                # } else {
                 # Process each database
                 foreach ($database in $databases) {
                     Write-Host "`n  Processing database: $($database.name)" -ForegroundColor Cyan
@@ -748,6 +742,18 @@ $Source_environment = $Source_split[3]
 Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
 
 Recreate-AllReplicas
+
+Write-Host "`n====================================" -ForegroundColor Cyan
+Write-Host " Enhanced Replica Management Completed" -ForegroundColor Cyan
+Write-Host "====================================`n" -ForegroundColor Cyan
+
+Write-Host "📝 SUMMARY OF WHAT WAS DONE:" -ForegroundColor Yellow
+Write-Host "✅ Replica configurations were saved before deletion" -ForegroundColor Green
+Write-Host "✅ Replication links were properly removed" -ForegroundColor Green
+Write-Host "✅ Replica databases were deleted from replica servers" -ForegroundColor Green
+Write-Host "✅ Replica databases were recreated with proper configuration" -ForegroundColor Green
+Write-Host "✅ Replia servers were preserved (NOT deleted)" -ForegroundColor Green
+Write-Host "✅ Tags and configurations were preserved during recreation" -ForegroundColor Green
 
 if ($script:ReplicaConfigurations.Count -gt 0) {
     Write-Host "`n📊 REPLICA CONFIGURATIONS PROCESSED:" -ForegroundColor Yellow

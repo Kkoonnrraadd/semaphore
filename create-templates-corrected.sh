@@ -19,7 +19,11 @@ SCRIPT_PATH="/tmp/semaphore/project_1/repository_1_template_1/scripts/main/semap
 # Repository configuration
 REPOSITORY_NAME="semaphore-scripts"
 REPOSITORY_URL="https://github.com/Kkoonnrraadd/semaphore.git"
-REPOSITORY_BRANCH="main"
+REPOSITORY_BRANCH="master"
+
+# REPOSITORY_BRANCH="main"
+# REPOSITORY_URL="git@ssh.dev.azure.com:v3/manufacturo/Manufacturo/semaphore"
+
 
 # Project and View names
 PROJECT_NAME="SELF-SERVICE-DATA-REFRESH"
@@ -421,13 +425,6 @@ create_main_templates() {
                 "title": "Max Wait Minutes",
                 "description": "Maximum minutes to wait for operations. Default: 60",
                 "default_value": "60",
-                "required": false
-            },
-            {
-                "name": "UseSasTokens",
-                "title": "Use SAS Tokens",
-                "description": "Use SAS tokens for large containers in storage account (true/false). Default: false",
-                "default_value": "false",
                 "required": false
             }
         ],

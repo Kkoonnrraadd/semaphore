@@ -849,7 +849,7 @@ Write-Host "`nSearching for SQL Server replicas in $Destination_lower environmen
 $graph_query = "
     resources
     | where type =~ 'microsoft.sql/servers'
-    | where tags.Environment == '$Destination_lower'
+    | where tags.Environment == '$Destination_lower' and tags.Type == 'Replica'
     | project name, resourceGroup, subscriptionId, location
 "
 $replicas = az graph query -q $graph_query --query "data" --first 1000 | ConvertFrom-Json

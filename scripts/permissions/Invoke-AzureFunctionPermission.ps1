@@ -237,7 +237,7 @@ try {
     # Display response details
     Write-StatusMessage "📥 Function Response:" "Info"
     if ($response -is [string]) {
-        Write-Host "   $response" -ForegroundColor Gray
+        Write-Host "`n$response" -ForegroundColor Gray
     } else {
         $response | ConvertTo-Json -Depth 10 | Write-Host -ForegroundColor Gray
     }

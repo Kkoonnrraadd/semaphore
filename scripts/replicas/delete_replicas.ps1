@@ -34,8 +34,6 @@ function Test-DatabaseMatchesPattern {
     
     if ($DestinationNamespace -ne "manufacturo") {
         $expectedPattern = "$DestinationNamespace-$SourceEnvironment-$SourceLocation"
-        Write-Host "    Expected pattern: $expectedPattern" -ForegroundColor Gray
-        Write-Host "    Database name: $DatabaseName" -ForegroundColor Gray
         if ($DatabaseName.Contains($expectedPattern)) {
             return $DatabaseName
         } else {
@@ -72,16 +70,6 @@ function Save-ReplicaConfiguration {
         ReplicationLinks = @()
     }
     
-    # Debug: Show what tags were saved
-    if ($Database.tags) {
-        Write-Host "    📋 Saved tags: $($Database.tags.Keys -join ', ')" -ForegroundColor Green
-        foreach ($tag in $Database.tags.PSObject.Properties) {
-            Write-Host "      $($tag.Name) = $($tag.Value)" -ForegroundColor Gray
-        }
-    } else {
-        Write-Host "    ⚠️  No tags found on replica database" -ForegroundColor Yellow
-    }
-    
     # Get replication links for this database
     try {
         Write-Host "    Checking replication links..." -ForegroundColor Gray
@@ -109,9 +97,10 @@ function Save-ReplicaConfiguration {
     catch {
         Write-Host "    ⚠️  Could not retrieve replication links: $($_.Exception.Message)" -ForegroundColor Yellow
     }
-    
     $script:ReplicaConfigurations += $config
     Write-Host "    ✅ Configuration saved for $($Database.name)" -ForegroundColor Green
+    Write-Host "    $($config | ConvertTo-Json -Depth 10)" -ForegroundColor Gray
+
 }
 
 function Remove-ReplicationLinks {
@@ -140,29 +129,39 @@ function Remove-ReplicationLinks {
                 try {
                     # For geo-replication, we need to terminate from the primary side
                     if ($link.linkType -eq "GEO") {
-                        Write-Host "    Terminating GEO replication link..." -ForegroundColor Gray
-                        az sql db replica delete-link `
-                            --subscription $SubscriptionId `
-                            --resource-group $ResourceGroup `
-                            --server $ServerName `
-                            --name $Database.name `
-                            --partner-server $link.partnerServer `
-                            --partner-resource-group $link.resourceGroup `
-                            --yes
-                        
-                        Write-Host "    ✅ GEO replication link terminated" -ForegroundColor Green
+                        if (-not $DryRun) {
+                            Write-Host "    Terminating GEO replication link..." -ForegroundColor Gray
+                            az sql db replica delete-link `
+                                --subscription $SubscriptionId `
+                                --resource-group $ResourceGroup `
+                                --server $ServerName `
+                                --name $Database.name `
+                                --partner-server $link.partnerServer `
+                                --partner-resource-group $link.resourceGroup `
+                                --yes
+                            
+                            Write-Host "    ✅ GEO replication link terminated" -ForegroundColor Green
+                        }else{
+                            Write-Host "    Skipping GEO replication link termination as it is a dry run" -ForegroundColor Gray
+                        }
+                    }else{
+                        Write-Host " ❌ Error during removal of replication link to $($link.partnerServer) as it is not a GEO link" -ForegroundColor Gray
                     }
                 }
                 catch {
-                    Write-Host "    ⚠️  Could not remove replication link: $($_.Exception.Message)" -ForegroundColor Yellow
+                    Write-Host "    ❌ Error during removal of replication link to $($link.partnerServer): $($_.Exception.Message)" -ForegroundColor Red
+                    $global:LASTEXITCODE = 1
+                    throw "Error during removal of replication link to $($link.partnerServer): $($_.Exception.Message)"
                 }
             }
         } else {
-            Write-Host "    No replication links found" -ForegroundColor Gray
+            Write-Host "  ⚠️  No replication links found" -ForegroundColor Gray
         }
     }
     catch {
-        Write-Host "    ⚠️  Could not check replication links: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "    ❌ Error during removal of replication links: $($_.Exception.Message)" -ForegroundColor Red
+        $global:LASTEXITCODE = 1
+        throw "Error during removal of replication links: $($_.Exception.Message)"
     }
 }
 
@@ -177,18 +176,24 @@ function Delete-ReplicaDatabase {
     Write-Host "  🗑️  Deleting replica database: $($Database.name)" -ForegroundColor Red
     
     try {
-        az sql db delete `
-            --subscription $SubscriptionId `
-            --resource-group $ResourceGroup `
-            --server $ServerName `
-            --name $Database.name `
-            --yes
+        if ($DryRun) {
+            Write-Host "    Skipping database deletion as it is a dry run" -ForegroundColor Gray
+        } else {
+            Write-Host "    Deleting database: $($Database.name)" -ForegroundColor Gray
+            az sql db delete `
+                --subscription $SubscriptionId `
+                --resource-group $ResourceGroup `
+                --server $ServerName `
+                --name $Database.name `
+                --yes
         
-        Write-Host "    ✅ Successfully deleted database: $($Database.name)" -ForegroundColor Green
+            Write-Host "    ✅ Successfully deleted database: $($Database.name)" -ForegroundColor Green
+        }
     }
     catch {
         Write-Host "    ✗ Failed to delete database: $($_.Exception.Message)" -ForegroundColor Red
-        throw
+        $global:LASTEXITCODE = 1
+        throw "Failed to delete database: $($_.Exception.Message)"
     }
 }
 
@@ -399,7 +404,7 @@ function Delete-ReplicasForEnvironment {
                     -SourceLocation $SourceLocation
 
                 if ($matchesPattern) {
-                    Write-Host "    ✅ Will recreate: $($matchesPattern)" 
+                    Write-Host "`n    ✅ Will recreate: $($matchesPattern)" 
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
@@ -415,12 +420,12 @@ function Delete-ReplicasForEnvironment {
                     }
 
                 } else {
-                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName)"
+                    Write-Host "`n    ⏭️  Skipping: Pattern mismatch $($dbName)"
                 }
             }
             
             if ($databases -and $databases.Count -gt 0) {
-                Write-Host "  Found $($databases.Count) database(s) on replica:" -ForegroundColor Green
+                Write-Host "`n  Found $($databases.Count) database(s) on replica:" -ForegroundColor Green
                 foreach ($db in $databases) {
                     Write-Host "    - $($db.name)" -ForegroundColor White
                 }
@@ -441,32 +446,28 @@ function Delete-ReplicasForEnvironment {
                     $script:DryRunFailureReasons += "Database $($database.name) has no tags"
                 }
 
-                if ($DryRun) {  
-                    Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
-                    Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
-                    Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
-                    Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
-                } else {
+                # if ($DryRun) {  
+                #     Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
+                #     Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
+                #     Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
+                #     Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
+                # } else {
                 # Process each database
-                    foreach ($database in $databases) {
-                        Write-Host "`n  Processing database: $($database.name)" -ForegroundColor Cyan
-                        
-                        # Step 1: Save configuration
-                        Save-ReplicaConfiguration -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
-                        
-                        # Debug: Verify what was saved
-                        $lastConfig = $script:ReplicaConfigurations[-1]
-                        Write-Host "    Debug: Last saved config tags: $($lastConfig.Tags | ConvertTo-Json)" -ForegroundColor Magenta
-                        
-                        # Step 2: Remove replication links
-                        Remove-ReplicationLinks -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
-                        
-                        # Step 3: Delete replica database
-                        Delete-ReplicaDatabase -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
-                    }
-                
-                    Write-Host "  ✅ Replica server $($replica.name) is now clean (server preserved)" -ForegroundColor Green
+                foreach ($database in $databases) {
+                    Write-Host "`n  Processing database: $($database.name)" -ForegroundColor Cyan
+                    
+                    # Step 1: Save configuration
+                    Save-ReplicaConfiguration -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                    
+                    # Step 2: Remove replication links
+                    Remove-ReplicationLinks -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
+                    
+                    # Step 3: Delete replica database
+                    Delete-ReplicaDatabase -Database $database -ServerName $replica.name -ResourceGroup $replica.resourceGroup -SubscriptionId $replica.subscriptionId
                 }
+            
+                Write-Host "  ✅ Replica server $($replica.name) is now clean (server preserved)" -ForegroundColor Green
+                # }
             }
         }
         catch {
@@ -595,48 +596,55 @@ function Recreate-AllReplicas {
             Write-Host "    Deploying with name: $deploymentName" -ForegroundColor Gray
             
             try {
-                Write-Host "    Executing ARM deployment..." -ForegroundColor Gray
-                $deployment = az deployment group create `
-                    --subscription $config.SubscriptionId `
-                    --resource-group $config.ResourceGroup `
-                    --template-file $templatePath `
-                    --name $deploymentName `
-                    --mode Incremental 2>$null | ConvertFrom-Json
-                
-                if ($deployment -and $deployment.properties.provisioningState -eq "Succeeded") {
-                    Write-Host "    ✅ Successfully created replica database: $($config.DatabaseName)" -ForegroundColor Green
-                    
-                    # Wait for replication to be established
-                    Write-Host "    ⏳ Waiting for replication to be established..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 30
-                    
-                    # Check replication status using Azure CLI
-                    Write-Host "    📋 Checking replication status..." -ForegroundColor Yellow
-                    try {
-                        $replicaStatus = az sql db replica list-links `
-                            --subscription $config.SubscriptionId `
-                            --resource-group $config.ResourceGroup `
-                            --server $config.ServerName `
-                            --name $config.DatabaseName | ConvertFrom-Json
+                if (-not $DryRun) {
+                    Write-Host "    Executing ARM deployment..." -ForegroundColor Gray
+                    $deployment = az deployment group create `
+                        --subscription $config.SubscriptionId `
+                        --resource-group $config.ResourceGroup `
+                        --template-file $templatePath `
+                        --name $deploymentName `
+                        --mode Incremental 2>$null | ConvertFrom-Json
+
+                    if ($deployment -and $deployment.properties.provisioningState -eq "Succeeded") {
+                        Write-Host "    ✅ Successfully created replica database: $($config.DatabaseName)" -ForegroundColor Green
                         
-                        if ($replicaStatus -and $replicaStatus.Count -gt 0) {
-                            Write-Host "    ✅ Replication established successfully" -ForegroundColor Green
-                            foreach ($link in $replicaStatus) {
-                                Write-Host "      Partner: $($link.partnerServer), State: $($link.replicationState)" -ForegroundColor Gray
+                        # Wait for replication to be established
+                        Write-Host "    ⏳ Waiting for replication to be established..." -ForegroundColor Yellow
+                        Start-Sleep -Seconds 30
+                        
+                        # Check replication status using Azure CLI
+                        Write-Host "    📋 Checking replication status..." -ForegroundColor Yellow
+                        try {
+                            $replicaStatus = az sql db replica list-links `
+                                --subscription $config.SubscriptionId `
+                                --resource-group $config.ResourceGroup `
+                                --server $config.ServerName `
+                                --name $config.DatabaseName | ConvertFrom-Json
+                            
+                            if ($replicaStatus -and $replicaStatus.Count -gt 0) {
+                                Write-Host "    ✅ Replication established successfully" -ForegroundColor Green
+                                foreach ($link in $replicaStatus) {
+                                    Write-Host "      Partner: $($link.partnerServer), State: $($link.replicationState)" -ForegroundColor Gray
+                                }
+                            } else {
+                                Write-Host "    ⚠️  No replication link found yet" -ForegroundColor Yellow
+                                Write-Host "    💡 The database was created successfully, replication may take a few minutes" -ForegroundColor Yellow
                             }
-                        } else {
-                            Write-Host "    ⚠️  No replication link found yet" -ForegroundColor Yellow
-                            Write-Host "    💡 The database was created successfully, replication may take a few minutes" -ForegroundColor Yellow
                         }
+                        catch {
+                            Write-Host "    ⚠️  Could not check replication status: $($_.Exception.Message)" -ForegroundColor Yellow
+                            Write-Host "    💡 The database was created successfully, please verify replication manually" -ForegroundColor Yellow
+                        }
+                    } else {
+                        Write-Host "    ❌ Deployment failed: $($deployment.properties.provisioningState)" -ForegroundColor Red
+                        Write-Host "    💡 Check the deployment details in Azure Portal" -ForegroundColor Yellow
                     }
-                    catch {
-                        Write-Host "    ⚠️  Could not check replication status: $($_.Exception.Message)" -ForegroundColor Yellow
-                        Write-Host "    💡 The database was created successfully, please verify replication manually" -ForegroundColor Yellow
-                    }
-                } else {
-                    Write-Host "    ❌ Deployment failed: $($deployment.properties.provisioningState)" -ForegroundColor Red
-                    Write-Host "    💡 Check the deployment details in Azure Portal" -ForegroundColor Yellow
+                }else{
+                    Write-Host "    Skipping ARM deployment as it is a dry run" -ForegroundColor Gray
+                    Write-Host "    Skipping replication status check as it is a dry run" -ForegroundColor Gray
                 }
+                
+
             }
             catch {
                 Write-Host "    ❌ Error during ARM deployment: $($_.Exception.Message)" -ForegroundColor Red
@@ -880,17 +888,7 @@ $Source_environment = $Source_split[3]
 # Step 1: Delete replicas and save configurations
 Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace
 
-if ($DryRun) {
-    Write-Host "🔍 DRY RUN: Would recreate replicas for Destination environment" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would save replica configurations before deletion" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would remove replication links" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would delete replica databases" -ForegroundColor Yellow
-    Write-Host "🔍 DRY RUN: Would recreate replica databases with preserved tags" -ForegroundColor Yellow
-    exit 0
-}else{
-    # Step 2: Recreate replicas
-    Recreate-AllReplicas
-}
+Recreate-AllReplicas
 
 if ($script:ReplicaConfigurations.Count -gt 0) {
     Write-Host "`n📊 REPLICA CONFIGURATIONS PROCESSED:" -ForegroundColor Yellow

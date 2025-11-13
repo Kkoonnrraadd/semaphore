@@ -903,12 +903,19 @@ if (-not $replicas -or $replicas.Count -eq 0) {
 }
 
 Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $Destination_lower" -ForegroundColor Green
+Write-Host "Replicas: $($replicas[0] | ConvertTo-Json)" -ForegroundColor Gray
+Write-Host "Replicas: $($replicas | ConvertTo-Json)" -ForegroundColor Gray
 
-$Source_split = $replicas[0].resourceGroup -split "-"
+$Source_split = $replicas.resourceGroup -split "-"
 $Source_product = $Source_split[1]
 $Source_location = $Source_split[-1]
 $Source_type = $Source_split[2]
 $Source_environment = $Source_split[3]
+
+Write-Host "Source Product: $Source_product" -ForegroundColor Gray
+Write-Host "Source Location: $Source_location" -ForegroundColor Gray
+Write-Host "Source Type: $Source_type" -ForegroundColor Gray
+Write-Host "Source Environment: $Source_environment" -ForegroundColor Gray
 
 # Step 1: Delete replicas and save configurations
 Delete-ReplicasForEnvironment -replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace

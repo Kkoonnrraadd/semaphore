@@ -363,6 +363,8 @@ function Recreate-ReplicaDatabase {
         Write-Host "    💡 This might be due to authentication or permission issues" -ForegroundColor Yellow
         Write-Host "    💡 Consider manual creation through Azure Portal" -ForegroundColor Yellow
         Write-Host "    💡 Check if the primary database exists and is accessible" -ForegroundColor Yellow
+        $global:LASTEXITCODE = 1
+        throw "Error during replica creation: $($_.Exception.Message)"
     }
 }
 

@@ -180,92 +180,92 @@ function Invoke-Migration {
         Write-Host "🔍 DRY RUN MODE ENABLED - No actual changes will be made" -ForegroundColor Yellow
     }
     
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # # STEP 0A: GRANT PERMISSIONS
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
-    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0A: GRANT PERMISSIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "🔐 STEP 0A: GRANT PERMISSIONS" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
 
-    # $WaitForPropagation = 60
-    # $TimeoutSeconds = 360
+    $WaitForPropagation = 60
+    $TimeoutSeconds = 360
 
-    # if ($DryRun) {
-    #     Write-Host "🔍 DRY RUN: Would grant permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME" -ForegroundColor Yellow
-    #     Write-Host "🔍 DRY RUN: Would wait $WaitForPropagation seconds for permissions to propagate" -ForegroundColor Gray
-    #     Write-Host "🔍 DRY RUN: Would timeout after $TimeoutSeconds seconds" -ForegroundColor Gray
-    #     Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
-    # }
+    if ($DryRun) {
+        Write-Host "🔍 DRY RUN: Would grant permissions to service account: $env:SEMAPHORE_WORKLOAD_IDENTITY_NAME" -ForegroundColor Yellow
+        Write-Host "🔍 DRY RUN: Would wait $WaitForPropagation seconds for permissions to propagate" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Would timeout after $TimeoutSeconds seconds" -ForegroundColor Gray
+        Write-Host "🔍 DRY RUN: Function URL: $env:SEMAPHORE_FUNCTION_URL" -ForegroundColor Gray
+    }
 
-    # Write-AutomationLog "🔐 Starting permission grant process..." "INFO"
+    Write-AutomationLog "🔐 Starting permission grant process..." "INFO"
 
-    # # Call the dedicated permission management script
-    # $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
-    # $permissionResult = & $permissionScript -Action "Grant" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
+    # Call the dedicated permission management script
+    $permissionScript = Get-ScriptPath "permissions/Invoke-AzureFunctionPermission.ps1"
+    $permissionResult = & $permissionScript -Action "Grant" -Environment $Source -Namespace $DestinationNamespace -WaitForPropagation $WaitForPropagation -TimeoutSeconds $TimeoutSeconds
 
-    # if (-not $permissionResult.Success) {
-    #     Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
-    #     Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
-    #     throw "Permission grant failed: $($permissionResult.Error)"
-    # }
-    # Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
+    if (-not $permissionResult.Success) {
+        Write-AutomationLog "❌ FATAL ERROR: Failed to grant permissions" "ERROR"
+        Write-AutomationLog "📍 Error: $($permissionResult.Error)" "ERROR"
+        throw "Permission grant failed: $($permissionResult.Error)"
+    }
+    Write-AutomationLog "✅ Permissions granted successfully" "SUCCESS"
 
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # # STEP 0B: AZURE AUTHENTICATION
-    # # ═══════════════════════════════════════════════════════════════════════════
-    # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-    # Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
-    # Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
-    # Write-Host ""
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 0B: AZURE AUTHENTICATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "🔐 STEP 0B: AZURE AUTHENTICATION" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+    Write-Host ""
 
     
 
-    # $result = @{
-    #     Success = $true
-    #     DetectedParameters = @{}
-    #     PermissionResult = $null
-    #     AuthenticationResult = $false
-    #     NeedsPropagationWait = $false
-    #     PropagationWaitSeconds = 0
-    #     Error = $null
-    # }
+    $result = @{
+        Success = $true
+        DetectedParameters = @{}
+        PermissionResult = $null
+        AuthenticationResult = $false
+        NeedsPropagationWait = $false
+        PropagationWaitSeconds = 0
+        Error = $null
+    }
 
-    # try {
-    #     $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
+    try {
+        $authScript = Join-Path $scriptDir "../common/Connect-Azure.ps1"
         
-    #     if (Test-Path $authScript) {
-    #         Write-Host "🔑 Authenticating to Azure...`n" -ForegroundColor Gray
+        if (Test-Path $authScript) {
+            Write-Host "🔑 Authenticating to Azure...`n" -ForegroundColor Gray
             
-    #         Write-Host "🌐 Using specified cloud: $Cloud`n" -ForegroundColor Gray
-    #         $authResult = & $authScript -Cloud $Cloud
+            Write-Host "🌐 Using specified cloud: $Cloud`n" -ForegroundColor Gray
+            $authResult = & $authScript -Cloud $Cloud
             
-    #         if ($authResult) {
-    #             Write-Host "✅ Azure authentication successful`n" -ForegroundColor Green
-    #             $result.AuthenticationResult = $true
-    #         } else {
-    #             Write-Host ""
-    #             Write-Host "❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
-    #             Write-Host "Cannot proceed without authentication" -ForegroundColor Yellow
+            if ($authResult) {
+                Write-Host "✅ Azure authentication successful`n" -ForegroundColor Green
+                $result.AuthenticationResult = $true
+            } else {
+                Write-Host ""
+                Write-Host "❌ FATAL ERROR: Azure authentication failed" -ForegroundColor Red
+                Write-Host "Cannot proceed without authentication" -ForegroundColor Yellow
                 
-    #             $result.Success = $false
-    #             $result.Error = "Azure authentication failed"
-    #             return $result
-    #         }
-    #     } else {
-    #         Write-Host "   ⚠️  Authentication script not found: $authScript" -ForegroundColor Yellow
-    #         $global:LASTEXITCODE = 1
-    #         throw "Authentication script not found: $authScript"
-    #     }
-    # } catch {
-    #     Write-Host ""
-    #     Write-Host "   ❌ FATAL ERROR: Authentication exception: $($_.Exception.Message)" -ForegroundColor Red
+                $result.Success = $false
+                $result.Error = "Azure authentication failed"
+                return $result
+            }
+        } else {
+            Write-Host "   ⚠️  Authentication script not found: $authScript" -ForegroundColor Yellow
+            $global:LASTEXITCODE = 1
+            throw "Authentication script not found: $authScript"
+        }
+    } catch {
+        Write-Host ""
+        Write-Host "   ❌ FATAL ERROR: Authentication exception: $($_.Exception.Message)" -ForegroundColor Red
         
-    #     $result.Success = $false
-    #     $result.Error = "Azure authentication exception: $($_.Exception.Message)"
-    #     return $result
-    # }
+        $result.Success = $false
+        $result.Error = "Azure authentication exception: $($_.Exception.Message)"
+        return $result
+    }
 
-    # Write-Host ""
+    Write-Host ""
 
     # Write-Host "`n═══════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
     # # Step 1: Restore Point in Time

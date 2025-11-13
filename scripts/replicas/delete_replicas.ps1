@@ -35,6 +35,8 @@ function Test-DatabaseMatchesPattern {
     
     if ($DestinationNamespace -ne "manufacturo") {
         $expectedPattern = "$SourceProduct-$SourceType-$Service-$DestinationNamespace-$SourceEnvironment-$SourceLocation"
+        Write-Host "    Expected pattern: $expectedPattern" -ForegroundColor Gray
+        Write-Host "    Database name: $DatabaseName" -ForegroundColor Gray
         if ($DatabaseName.Contains($expectedPattern)) {
             return $DatabaseName
         } else {
@@ -399,13 +401,13 @@ function Delete-ReplicasForEnvironment {
                     -SourceLocation $SourceLocation
 
                 if ($matchesPattern) {
-                    Write-Host "      ✅ Will recreate: $($dbName)" 
+                    Write-Host "      ✅ Will recreate: $($matchesPattern)" 
                     # Write-Host "      ✅ Will recreate: $($dbName) (matches expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation))" -ForegroundColor Gray
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
                     --server $replica.name `
-                    --name $dbName | ConvertFrom-Json
+                    --name $matchesPattern | ConvertFrom-Json
 
                     if ($database.tags) {
                         Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
@@ -425,7 +427,7 @@ function Delete-ReplicasForEnvironment {
                     }
 
                 } else {
-                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName)"
+                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($matchesPattern)"
                     # Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation)"
                 }
 

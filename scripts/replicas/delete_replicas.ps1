@@ -399,7 +399,7 @@ function Delete-ReplicasForEnvironment {
                     -SourceLocation $SourceLocation
 
                 if ($matchesPattern) {
-                    Write-Host "      Debug: Will delete: $($dbName) (matches expected pattern $($matchesPattern))" -ForegroundColor Gray
+                    Write-Host "      ✅ Will recreate: $($dbName) (matches expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation))" -ForegroundColor Gray
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
@@ -424,7 +424,7 @@ function Delete-ReplicasForEnvironment {
                     }
 
                 } else {
-                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($matchesPattern)"
+                    Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation)"
                 }
 
                 # # Get complete database information including tags
@@ -904,19 +904,13 @@ if (-not $replicas -or $replicas.Count -eq 0) {
 }
 
 Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $Destination_lower" -ForegroundColor Green
-Write-Host "Replicas: $($replicas[0] | ConvertTo-Json)" -ForegroundColor Gray
-Write-Host "Replicas: $($replicas | ConvertTo-Json)" -ForegroundColor Gray
 
+# works for 1 or 2 replicas 
 $Source_split = $replicas.resourceGroup -split "-"
 $Source_product = $Source_split[1]
 $Source_location = $Source_split[-1]
 $Source_type = $Source_split[2]
 $Source_environment = $Source_split[3]
-
-Write-Host "Source Product: $Source_product" -ForegroundColor Gray
-Write-Host "Source Location: $Source_location" -ForegroundColor Gray
-Write-Host "Source Type: $Source_type" -ForegroundColor Gray
-Write-Host "Source Environment: $Source_environment" -ForegroundColor Gray
 
 # Step 1: Delete replicas and save configurations
 Delete-ReplicasForEnvironment -Replicas $replicas -SourceProduct $Source_product -SourceType $Source_type -SourceEnvironment $Source_environment -SourceLocation $Source_location -DestinationNamespace $DestinationNamespace

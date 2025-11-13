@@ -904,7 +904,7 @@ if (-not $replicas -or $replicas.Count -eq 0) {
 
 Write-Host "Found $($replicas.Count) SQL Server replica(s) to process in $Destination_lower" -ForegroundColor Green
 
-$Source_split = $replica[0].resourceGroup -split "-"
+$Source_split = $replicas[0].resourceGroup -split "-"
 $Source_product = $Source_split[1]
 $Source_location = $Source_split[-1]
 $Source_type = $Source_split[2]

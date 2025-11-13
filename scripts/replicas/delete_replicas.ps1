@@ -654,12 +654,12 @@ if ($DryRun) {
                         --server $replica.name `
                         --name $dbName | ConvertFrom-Json
                     
-                    # # Debug: Check what we got from the database
-                    # if ($database.tags) {
-                    #     Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
-                    # } else {
-                    #     Write-Host "      Debug: No tags property found" -ForegroundColor Gray
-                    # }
+                    # Debug: Check what we got from the database
+                    if ($database.tags) {
+                        Write-Host "      Debug: Tags found: $($database.tags | ConvertTo-Json)" -ForegroundColor Gray
+                    } else {
+                        Write-Host "      Debug: No tags property found" -ForegroundColor Gray
+                    }
                     
                     # Filter by ClientName tag if specified
                     if ($DestinationNamespace -eq "manufacturo" -or $database.tags.ClientName -ne "") {

@@ -25,7 +25,6 @@ $script:ReplicaConfigurations = @()
 function Test-DatabaseMatchesPattern {
     param (
         [string]$DatabaseName,
-        [string]$Service,
         [string]$DestinationNamespace,
         [string]$SourceProduct,
         [string]$SourceType,
@@ -34,7 +33,7 @@ function Test-DatabaseMatchesPattern {
     )
     
     if ($DestinationNamespace -ne "manufacturo") {
-        $expectedPattern = "$SourceProduct-$SourceType-$Service-$DestinationNamespace-$SourceEnvironment-$SourceLocation"
+        $expectedPattern = "$DestinationNamespace-$SourceEnvironment-$SourceLocation"
         Write-Host "    Expected pattern: $expectedPattern" -ForegroundColor Gray
         Write-Host "    Database name: $DatabaseName" -ForegroundColor Gray
         if ($DatabaseName.Contains($expectedPattern)) {
@@ -393,7 +392,6 @@ function Delete-ReplicasForEnvironment {
                 # Check if database matches expected pattern
                 $matchesPattern = Test-DatabaseMatchesPattern `
                     -DatabaseName $dbName `
-                    -Service $replica.tags.Service `
                     -DestinationNamespace $DestinationNamespace `
                     -SourceProduct $SourceProduct `
                     -SourceType $SourceType `
@@ -402,7 +400,6 @@ function Delete-ReplicasForEnvironment {
 
                 if ($matchesPattern) {
                     Write-Host "      ✅ Will recreate: $($matchesPattern)" 
-                    # Write-Host "      ✅ Will recreate: $($dbName) (matches expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation))" -ForegroundColor Gray
                     $database = az sql db show `
                     --subscription $replica.subscriptionId `
                     --resource-group $replica.resourceGroup `
@@ -428,7 +425,6 @@ function Delete-ReplicasForEnvironment {
 
                 } else {
                     Write-Host "    ⏭️  Skipping: Pattern mismatch $($matchesPattern)"
-                    # Write-Host "    ⏭️  Skipping: Pattern mismatch $($dbName) does not match expected pattern $($SourceProduct-$SourceType-$($replica.tags.Service)-$DestinationNamespace-$SourceEnvironment-$SourceLocation)"
                 }
 
                 # # Get complete database information including tags
